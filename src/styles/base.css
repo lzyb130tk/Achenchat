@@ -7,6 +7,7 @@
 html {
   height: 100%;
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -20,8 +21,26 @@ body {
   font-weight: var(--weight-regular);
   line-height: var(--leading-body);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  -webkit-user-select: none;
+  user-select: none;
   overscroll-behavior: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button,
+a,
+label,
+.message-row,
+.red-packet-card {
+  -webkit-touch-callout: none;
 }
 
 button,
@@ -147,7 +166,6 @@ h3 {
   height: 100%;
   min-height: 0;
   background: var(--color-bg);
-  animation: screen-enter var(--duration-slow) var(--ease-out) both;
 }
 
 .page-scroll {
@@ -194,19 +212,8 @@ h3 {
   #app {
     width: min(430px, 100%);
     height: min(880px, calc(100dvh - 48px));
+    border: 1px solid var(--color-line);
     border-radius: 38px;
-    box-shadow: 0 36px 90px rgba(44, 31, 21, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.16) inset;
-  }
-}
-
-@keyframes screen-enter {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 

@@ -1,17 +1,29 @@
-import { CHAT_BACKGROUNDS } from '../data/chat-options.js';
+import {
+  CHAT_BACKGROUNDS,
+  DEFAULT_ANIMATION_CSS,
+  DEFAULT_BUBBLE_CSS,
+  DEFAULT_PACKET_CSS,
+  MESSAGE_ANIMATIONS,
+  PACKET_PRESETS,
+  getAnimationCss,
+  getPacketCss,
+} from '../data/chat-options.js';
+import { copyText } from '../services/clipboard.js';
 import { readImageFile } from '../services/image.js';
 import {
   addBubblePreset,
   deleteBubblePreset,
   getBubblePresets,
+  getChatMemory,
   getStickerPacks,
   updateBubblePreset,
   updateChatStyle,
   updateStickerPack,
 } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
+import { characterAvatar } from './avatar.js';
 import { icon } from './icons.js';
-import { openSheet } from './sheet.js';
+import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
 const BACKGROUND_PREVIEWS = {
@@ -21,10 +33,16 @@ const BACKGROUND_PREVIEWS = {
   dawn: 'linear-gradient(150deg, #e8eeeb, #cfdcd7)',
 };
 
-export function styleBubble(element, bubbleCss) {
-  if (!element) return;
-  element.style.cssText = bubbleCss || '';
-}
+const VIEW_TITLES = {
+  send: '发送方式',
+  speed: '打字速度',
+  animation: '消息动效',
+  bubble: '气泡样式',
+  background: '聊天背景',
+  avatar: '头像',
+  packet: '红包样式',
+  stickers: '表情包',
+};
 
 export function applyChatStyle(screen, style) {
   screen.style.setProperty('--chat-avatar-size', `${style.avatarSize}px`);
@@ -43,9 +61,24 @@ export function applyChatStyle(screen, style) {
     }
   }
 
-  screen.querySelectorAll('[data-bubble-text]').forEach((bubble) => {
-    styleBubble(bubble, style.bubbleCss);
-  });
+  let styleElement = screen.querySelector('style[data-chat-css]');
+  if (!styleElement) {
+    styleElement = document.createElement('style');
+    styleElement.dataset.chatCss = '';
+    screen.prepend(styleElement);
+  }
+  const css = [
+    style.bubbleCss,
+    getPacketCss(style),
+    getAnimationCss(style),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+  if (styleElement.textContent !== css) styleElement.textContent = css;
+}
+
+function speedLabel(speed) {
+  return `${speed.toFixed(3)} 秒 / 字`;
 }
 
 function backgroundMarkup(style) {
@@ -71,7 +104,6 @@ function presetListMarkup(style) {
     .map(
       (preset) => `<div class="preset-row${style.presetId === preset.id ? ' is-active' : ''}" data-preset-row="${preset.id}">
         <button class="preset-row__apply" type="button" data-apply-preset="${preset.id}">
-          <span class="preset-row__swatch" data-preset-swatch="${preset.id}"></span>
           <span class="preset-row__name">${escapeHTML(preset.name)}</span>
           ${style.presetId === preset.id ? `<span class="preset-row__current">${icon('check')}</span>` : ''}
         </button>
@@ -117,266 +149,393 @@ function stickerListMarkup() {
   <button class="text-button" type="button" data-open-stickers>管理表情包</button>`;
 }
 
+function bubbleLabel(current) {
+  if (!current.bubbleCss) return '默认';
+  const preset =
+    getBubblePresets().find((item) => item.id === current.presetId) ||
+    getBubblePresets().find((item) => item.css === current.bubbleCss);
+  return preset?.name || '自定义';
+}
+
+function animationLabel(current) {
+  if (current.animationCss) return '自定义';
+  return (
+    MESSAGE_ANIMATIONS.find((item) => item.id === current.animationId)?.name ||
+    '淡入'
+  );
+}
+
+function packetLabel(current) {
+  if (current.packetCss) return '自定义';
+  return (
+    PACKET_PRESETS.find((item) => item.id === current.packetPresetId)?.name ||
+    '暖红'
+  );
+}
+
+function backgroundLabel(current) {
+  if (current.backgroundImage) return '我的图片';
+  return (
+    CHAT_BACKGROUNDS.find((item) => item.id === current.background)?.name ||
+    '默认'
+  );
+}
+
 export function openChatSettings({ character, style, onStyleChange }) {
   let current = { ...style };
+  let tab = 'general';
+  let view = 'root';
+  let presetFormOpen = false;
   let editingPresetId = null;
-
-  const generalMarkup = () => `<section class="settings-block">
-      <div class="settings-block__head">
-        <h3>气泡</h3>
-        <span class="settings-block__hint">自定义 CSS</span>
-      </div>
-      <div class="bubble-preview"><span class="bubble-preview__bubble" data-bubble-preview>今晚见。</span></div>
-      <label class="field">
-        <span class="field__label">样式</span>
-        <span class="field__control field__control--area">
-          <textarea class="field__input field__textarea field__textarea--code" rows="3" spellcheck="false" data-bubble-css placeholder="background:#fdf5e9;color:#3a2b21;border-radius:18px;">${escapeHTML(current.bubbleCss)}</textarea>
-        </span>
-      </label>
-      <div class="inline-buttons">
-        <button class="small-button small-button--solid" type="button" data-apply-bubble>应用</button>
-        <button class="small-button" type="button" data-reset-bubble>恢复默认</button>
-      </div>
-      <div class="subsection-head">
-        <h4>预设</h4>
-        <button class="text-button" type="button" data-add-preset>新增</button>
-      </div>
-      <div class="preset-list" data-preset-list>${presetListMarkup(current)}</div>
-      <div class="preset-form" data-preset-form hidden>
-        <label class="field">
-          <span class="field__label">预设名称</span>
-          <span class="field__control">
-            <input class="field__input" name="presetName" maxlength="12" autocomplete="off" placeholder="给这个样式起个名字">
-          </span>
-        </label>
-        <label class="field">
-          <span class="field__label">CSS</span>
-          <span class="field__control field__control--area">
-            <textarea class="field__input field__textarea field__textarea--code" name="presetCss" rows="3" spellcheck="false"></textarea>
-          </span>
-        </label>
-        <div class="inline-buttons">
-          <button class="small-button small-button--solid" type="button" data-save-preset>保存</button>
-          <button class="small-button" type="button" data-cancel-preset>取消</button>
-        </div>
-      </div>
-    </section>
-    <section class="settings-block">
-      <div class="settings-block__head"><h3>聊天背景</h3></div>
-      ${backgroundMarkup(current)}
-    </section>
-    <section class="settings-block">
-      <div class="settings-block__head"><h3>头像</h3></div>
-      <label class="range-row">
-        <span class="range-row__top"><span>头像大小</span><output data-size-output>${current.avatarSize}px</output></span>
-        <input class="range" type="range" min="20" max="48" step="1" value="${current.avatarSize}" data-avatar-size>
-      </label>
-      <label class="range-row">
-        <span class="range-row__top"><span>头像圆角</span><output data-radius-output>${current.avatarRadius}%</output></span>
-        <input class="range" type="range" min="0" max="50" step="1" value="${current.avatarRadius}" data-avatar-radius>
-      </label>
-      <label class="switch-row">
-        <span class="switch-row__copy">
-          <strong>显示我的头像</strong>
-          <small>在每条消息旁显示当前面具头像</small>
-        </span>
-        <span class="switch">
-          <input type="checkbox" data-show-user-avatar${current.showUserAvatar ? ' checked' : ''} aria-label="显示我的头像">
-          <span class="switch__track"></span>
-        </span>
-      </label>
-    </section>`;
+  let presetDraft = { name: '', css: '' };
 
   openSheet({
     title: '聊天设置',
     description: `只影响和${character.name}的这段对话。`,
     className: 'sheet--settings',
     content: `<div class="chat-settings">
-      <div class="segmented chat-settings__tabs" role="tablist" aria-label="聊天设置分组">
+      <div class="segmented chat-settings__tabs" data-chat-settings-tabs role="tablist" aria-label="聊天设置分组">
         <button class="segmented__item is-selected" type="button" role="tab" aria-selected="true" data-tab="general">通用</button>
         <button class="segmented__item" type="button" role="tab" aria-selected="false" data-tab="fun">趣味</button>
       </div>
-      <div data-panel="general">${generalMarkup()}</div>
-      <div data-panel="fun" hidden>
-        <section class="settings-block">
-          <div class="settings-block__head">
-            <h3>表情包</h3>
-            <span class="settings-block__hint">开启后会偶尔发送</span>
-          </div>
-          <div data-sticker-list>${stickerListMarkup()}</div>
-        </section>
-      </div>
+      <div data-chat-settings-content></div>
     </div>`,
     onMount: (sheet) => {
-      const generalPanel = sheet.querySelector('[data-panel="general"]');
-      const funPanel = sheet.querySelector('[data-panel="fun"]');
-      const bubbleCssInput = sheet.querySelector('[data-bubble-css]');
-      const preview = sheet.querySelector('[data-bubble-preview]');
-      const presetForm = sheet.querySelector('[data-preset-form]');
-      const presetNameInput = presetForm.querySelector('[name="presetName"]');
-      const presetCssInput = presetForm.querySelector('[name="presetCss"]');
+      const content = sheet.querySelector('[data-chat-settings-content]');
+      const tabs = sheet.querySelector('[data-chat-settings-tabs]');
+      const body = sheet.querySelector('.sheet__body');
 
-      const updatePreview = () => {
-        styleBubble(preview, current.bubbleCss);
-      };
-
-      const paintPresetSwatches = () => {
-        sheet.querySelectorAll('[data-preset-swatch]').forEach((swatch) => {
-          const preset = getBubblePresets().find(
-            (item) => item.id === swatch.dataset.presetSwatch,
-          );
-          if (preset) styleBubble(swatch, preset.css);
-        });
+      const setCurrent = (next) => {
+        current = next;
+        onStyleChange?.(current);
       };
 
       const notify = (patch) => {
-        current = updateChatStyle(character.id, patch);
-        onStyleChange?.(current);
+        setCurrent(updateChatStyle(character.id, patch));
+        return current;
       };
 
       const applyLocal = (patch) => {
-        current = { ...current, ...patch };
-        onStyleChange?.(current);
+        setCurrent({ ...current, ...patch });
       };
 
-      updatePreview();
-      paintPresetSwatches();
-
-      sheet.querySelectorAll('[data-tab]').forEach((tab) => {
-        tab.addEventListener('click', () => {
-          sheet.querySelectorAll('[data-tab]').forEach((item) => {
-            const selected = item === tab;
-            item.classList.toggle('is-selected', selected);
-            item.setAttribute('aria-selected', String(selected));
-          });
-          const fun = tab.dataset.tab === 'fun';
-          generalPanel.hidden = fun;
-          funPanel.hidden = !fun;
+      const copyDefault = async (text, label) => {
+        const copied = await copyText(text);
+        toast(copied ? `${label}已复制` : '复制失败，请手动选中代码', {
+          tone: copied ? 'default' : 'danger',
         });
-      });
+      };
 
-      sheet.querySelector('[data-apply-bubble]').addEventListener('click', () => {
-        const css = bubbleCssInput.value.trim();
-        notify({ bubbleCss: css, presetId: '' });
-        current = { ...current };
-        bubbleCssInput.value = css;
-        updatePreview();
-        sheet.querySelector('[data-preset-list]').innerHTML = presetListMarkup(current);
-        paintPresetSwatches();
-        toast(css ? '气泡样式已应用' : '已恢复默认气泡');
-      });
-
-      sheet.querySelector('[data-reset-bubble]').addEventListener('click', () => {
-        notify({ bubbleCss: '', presetId: 'default' });
-        bubbleCssInput.value = '';
-        updatePreview();
-        sheet.querySelector('[data-preset-list]').innerHTML = presetListMarkup(current);
-        paintPresetSwatches();
-      });
-
-      sheet.querySelector('[data-add-preset]').addEventListener('click', () => {
-        editingPresetId = null;
-        presetNameInput.value = '';
-        presetCssInput.value = current.bubbleCss;
-        presetForm.hidden = false;
-        presetNameInput.focus();
-      });
-
-      sheet.querySelector('[data-cancel-preset]').addEventListener('click', () => {
-        presetForm.hidden = true;
-        editingPresetId = null;
-      });
-
-      sheet.querySelector('[data-save-preset]').addEventListener('click', () => {
-        const name = presetNameInput.value.trim();
-        const css = presetCssInput.value.trim();
-        if (!name || !css) {
-          toast('预设需要名称和 CSS', { tone: 'danger' });
-          return;
-        }
-        if (editingPresetId) {
-          const updated = updateBubblePreset(editingPresetId, { name, css });
-          if (updated && current.presetId === updated.id) {
-            notify({ bubbleCss: updated.css, presetId: updated.id });
-            bubbleCssInput.value = updated.css;
-          }
-        } else {
-          const created = addBubblePreset({ name, css });
-          if (created) {
-            notify({ bubbleCss: created.css, presetId: created.id });
-            bubbleCssInput.value = created.css;
-          }
-        }
-        presetForm.hidden = true;
-        editingPresetId = null;
-        sheet.querySelector('[data-preset-list]').innerHTML = presetListMarkup(current);
-        paintPresetSwatches();
-        updatePreview();
-      });
-
-      sheet.querySelector('[data-preset-list]').addEventListener('click', (event) => {
-        const applyButton = event.target.closest('[data-apply-preset]');
-        if (applyButton) {
-          const preset = getBubblePresets().find(
-            (item) => item.id === applyButton.dataset.applyPreset,
-          );
-          if (!preset) return;
-          notify({ bubbleCss: preset.css, presetId: preset.id });
-          bubbleCssInput.value = preset.css;
-          updatePreview();
-          sheet.querySelector('[data-preset-list]').innerHTML = presetListMarkup(current);
-          paintPresetSwatches();
-          return;
+      const rootMarkup = () => {
+        if (tab === 'fun') {
+          const packs = getStickerPacks();
+          const enabled = packs.filter((pack) => pack.enabled).length;
+          const memory = getChatMemory(character.id);
+          return `<section class="chat-settings__group">
+            <h3 class="chat-settings__group-label">互动</h3>
+            <div class="chat-settings__list">
+              <button class="chat-settings__row" type="button" data-open-view="stickers">
+                <span class="chat-settings__row-icon">${icon('sticker')}</span>
+                <span class="chat-settings__row-label">表情包</span>
+                <span class="chat-settings__row-value">${enabled}/${packs.length} 组</span>
+                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              </button>
+              <button class="chat-settings__row" type="button" data-open-view="packet">
+                <span class="chat-settings__row-icon">${icon('envelope-simple')}</span>
+                <span class="chat-settings__row-label">红包样式</span>
+                <span class="chat-settings__row-value">${packetLabel(current)}</span>
+                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              </button>
+            </div>
+          </section>
+          <section class="chat-settings__group">
+            <h3 class="chat-settings__group-label">记忆</h3>
+            <div class="chat-settings__list">
+              <button class="chat-settings__row" type="button" data-memory>
+                <span class="chat-settings__row-icon">${icon('brain')}</span>
+                <span class="chat-settings__row-label">聊天记忆</span>
+                <span class="chat-settings__row-value">${memory.items.length} 条</span>
+                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              </button>
+            </div>
+          </section>`;
         }
 
-        const editButton = event.target.closest('[data-edit-preset]');
-        if (editButton) {
-          const preset = getBubblePresets().find(
-            (item) => item.id === editButton.dataset.editPreset,
-          );
-          if (!preset) return;
-          editingPresetId = preset.id;
-          presetNameInput.value = preset.name;
-          presetCssInput.value = preset.css;
-          presetForm.hidden = false;
-          presetNameInput.focus();
-          return;
-        }
+        return `<section class="chat-settings__group">
+          <h3 class="chat-settings__group-label">发送</h3>
+          <div class="chat-settings__list">
+            <button class="chat-settings__row" type="button" data-open-view="send">
+              <span class="chat-settings__row-icon">${icon('paper-plane-tilt')}</span>
+              <span class="chat-settings__row-label">发送方式</span>
+              <span class="chat-settings__row-value">${current.sendMode === 'multi' ? '多条' : '单条'}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
+            <button class="chat-settings__row" type="button" data-open-view="speed">
+              <span class="chat-settings__row-icon">${icon('keyboard')}</span>
+              <span class="chat-settings__row-label">打字速度</span>
+              <span class="chat-settings__row-value">${speedLabel(current.typingSpeed)}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
+            <button class="chat-settings__row" type="button" data-open-view="animation">
+              <span class="chat-settings__row-icon">${icon('sparkle')}</span>
+              <span class="chat-settings__row-label">消息动效</span>
+              <span class="chat-settings__row-value">${animationLabel(current)}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
+          </div>
+        </section>
+        <section class="chat-settings__group">
+          <h3 class="chat-settings__group-label">外观</h3>
+          <div class="chat-settings__list">
+            <button class="chat-settings__row" type="button" data-open-view="bubble">
+              <span class="chat-settings__row-icon">${icon('chat-circle-text')}</span>
+              <span class="chat-settings__row-label">气泡样式</span>
+              <span class="chat-settings__row-value">${bubbleLabel(current)}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
+            <button class="chat-settings__row" type="button" data-open-view="background">
+              <span class="chat-settings__row-icon">${icon('image')}</span>
+              <span class="chat-settings__row-label">聊天背景</span>
+              <span class="chat-settings__row-value">${backgroundLabel(current)}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
+            <button class="chat-settings__row" type="button" data-open-view="avatar">
+              <span class="chat-settings__row-icon">${icon('user-circle')}</span>
+              <span class="chat-settings__row-label">头像</span>
+              <span class="chat-settings__row-value">${current.avatarSize}px · ${current.avatarRadius}%</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
+          </div>
+        </section>`;
+      };
 
-        const deleteButton = event.target.closest('[data-delete-preset]');
-        if (deleteButton) {
-          const id = deleteButton.dataset.deletePreset;
-          deleteBubblePreset(id);
-          if (current.presetId === id) notify({ presetId: '' });
-          sheet.querySelector('[data-preset-list]').innerHTML = presetListMarkup(current);
-          paintPresetSwatches();
-        }
-      });
+      const sendMarkup = () => `<p class="settings-note">长按输入框右侧的发送按钮，也可以随时切换。</p>
+        <div class="choice-list">
+          <button class="choice-card${current.sendMode === 'single' ? ' is-selected' : ''}" type="button" data-set-mode="single">
+            <span class="choice-card__icon">${icon('paper-plane-tilt')}</span>
+            <span class="choice-card__copy"><strong>单条</strong><small>发送后立刻请求回复</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+          <button class="choice-card${current.sendMode === 'multi' ? ' is-selected' : ''}" type="button" data-set-mode="multi">
+            <span class="choice-card__icon">${icon('stack')}</span>
+            <span class="choice-card__copy"><strong>多条</strong><small>先把话说完，再点输入框左侧的「接收」</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+        </div>`;
+
+      const speedMarkup = () => `<div class="settings-figure">
+          <strong data-speed-output>${current.typingSpeed.toFixed(3)}</strong>
+          <span>秒 / 字</span>
+        </div>
+        <label class="range-row">
+          <span class="range-row__top"><span>每个字的停顿</span><output>${current.typingSpeed.toFixed(3)}s</output></span>
+          <input class="range" type="range" min="5" max="120" step="1" value="${Math.round(current.typingSpeed * 1000)}" data-speed>
+        </label>
+        <p class="settings-note">数字越小，消息出现得越快。多条消息之间也会按这个速度停顿。</p>`;
+
+      const animationMarkup = () => {
+        const custom = Boolean(current.animationCss);
+        return `<div class="animation-demo">
+            <div class="message-row message-row--assistant is-new" data-animation-demo>
+              <span class="message-row__avatar">${characterAvatar(character, 'xs')}</span>
+              <div class="message-bubble message-bubble--assistant">今晚见。</div>
+            </div>
+          </div>
+          <div class="subsection-head"><h4>预设</h4><span class="code-hint">.message-row.is-new</span></div>
+          <div class="preset-list">
+            ${MESSAGE_ANIMATIONS.map(
+              (preset) => `<div class="preset-row${!custom && current.animationId === preset.id ? ' is-active' : ''}">
+                <button class="preset-row__apply" type="button" data-animation-preset="${preset.id}">
+                  <span class="preset-row__name">${preset.name}</span>
+                  ${!custom && current.animationId === preset.id ? `<span class="preset-row__current">${icon('check')}</span>` : ''}
+                </button>
+              </div>`,
+            ).join('')}
+          </div>
+          <label class="field settings-code-field">
+            <span class="field__label">自定义动画 CSS</span>
+            <span class="field__control field__control--area">
+              <textarea class="field__input field__textarea field__textarea--code" rows="6" spellcheck="false" data-animation-css>${escapeHTML(getAnimationCss(current))}</textarea>
+            </span>
+          </label>
+          <div class="inline-buttons">
+            <button class="small-button small-button--solid" type="button" data-apply-animation>应用</button>
+            <button class="small-button" type="button" data-reset-animation>恢复默认</button>
+          </div>
+          <button class="text-button text-button--small" type="button" data-copy-animation>${icon('copy')}复制默认代码</button>`;
+      };
+
+      const bubbleMarkup = () => `<p class="settings-note">同时替换你和${character.name}的气泡。类名：<span class="code-hint">.message-bubble--assistant</span> / <span class="code-hint">.message-bubble--user</span></p>
+        <div class="bubble-settings-preview">
+          <div class="bubble-preview-line">
+            <div class="message-bubble message-bubble--assistant">在呢，慢慢说。</div>
+          </div>
+          <div class="bubble-preview-line bubble-preview-line--user">
+            <div class="message-bubble message-bubble--user">今天路过那家店了。</div>
+          </div>
+        </div>
+        <label class="field settings-code-field">
+          <span class="field__label">气泡 CSS</span>
+          <span class="field__control field__control--area">
+            <textarea class="field__input field__textarea field__textarea--code" rows="8" spellcheck="false" data-bubble-css>${escapeHTML(current.bubbleCss)}</textarea>
+          </span>
+        </label>
+        <div class="inline-buttons">
+          <button class="small-button small-button--solid" type="button" data-apply-bubble>应用</button>
+          <button class="small-button" type="button" data-reset-bubble>恢复默认</button>
+        </div>
+        <button class="text-button text-button--small" type="button" data-copy-bubble>${icon('copy')}复制默认 CSS</button>
+        <div class="subsection-head">
+          <h4>预设</h4>
+          <button class="text-button" type="button" data-add-preset>新增</button>
+        </div>
+        <div class="preset-list" data-preset-list>${presetListMarkup(current)}</div>
+        <div class="preset-form" data-preset-form${presetFormOpen ? '' : ' hidden'}>
+          <label class="field">
+            <span class="field__label">预设名称</span>
+            <span class="field__control">
+              <input class="field__input" name="presetName" maxlength="12" autocomplete="off" placeholder="给这个样式起个名字" value="${escapeHTML(presetDraft.name)}">
+            </span>
+          </label>
+          <label class="field">
+            <span class="field__label">CSS</span>
+            <span class="field__control field__control--area">
+              <textarea class="field__input field__textarea field__textarea--code" name="presetCss" rows="6" spellcheck="false">${escapeHTML(presetDraft.css)}</textarea>
+            </span>
+          </label>
+          <div class="inline-buttons">
+            <button class="small-button small-button--solid" type="button" data-save-preset>保存</button>
+            <button class="small-button" type="button" data-cancel-preset>取消</button>
+          </div>
+        </div>`;
+
+      const backgroundMarkupView = () => backgroundMarkup(current);
+
+      const avatarMarkup = () => `<label class="range-row">
+          <span class="range-row__top"><span>头像大小</span><output data-size-output>${current.avatarSize}px</output></span>
+          <input class="range" type="range" min="20" max="48" step="1" value="${current.avatarSize}" data-avatar-size>
+        </label>
+        <label class="range-row">
+          <span class="range-row__top"><span>头像圆角</span><output data-radius-output>${current.avatarRadius}%</output></span>
+          <input class="range" type="range" min="0" max="50" step="1" value="${current.avatarRadius}" data-avatar-radius>
+        </label>
+        <label class="switch-row">
+          <span class="switch-row__copy">
+            <strong>显示我的头像</strong>
+            <small>在每条消息旁显示当前面具头像</small>
+          </span>
+          <span class="switch">
+            <input type="checkbox" data-show-user-avatar${current.showUserAvatar ? ' checked' : ''} aria-label="显示我的头像">
+            <span class="switch__track"></span>
+          </span>
+        </label>`;
+
+      const packetMarkup = () => {
+        const custom = Boolean(current.packetCss);
+        return `<div class="packet-settings-preview">
+            <div class="red-packet-card is-preview">
+              <span class="red-packet-card__icon">${icon('envelope-simple', 'fill')}</span>
+              <span class="red-packet-card__copy"><strong>生日快乐！</strong><small>领取红包</small></span>
+              <span class="red-packet-card__amount">¥5.20</span>
+            </div>
+          </div>
+          <div class="subsection-head"><h4>预设</h4><span class="code-hint">.red-packet-card</span></div>
+          <div class="preset-list">
+            ${PACKET_PRESETS.map(
+              (preset) => `<div class="preset-row${!custom && current.packetPresetId === preset.id ? ' is-active' : ''}">
+                <button class="preset-row__apply" type="button" data-packet-preset="${preset.id}">
+                  <span class="preset-row__name">${preset.name}</span>
+                  ${!custom && current.packetPresetId === preset.id ? `<span class="preset-row__current">${icon('check')}</span>` : ''}
+                </button>
+              </div>`,
+            ).join('')}
+          </div>
+          <label class="field settings-code-field">
+            <span class="field__label">红包 CSS</span>
+            <span class="field__control field__control--area">
+              <textarea class="field__input field__textarea field__textarea--code" rows="8" spellcheck="false" data-packet-css>${escapeHTML(getPacketCss(current))}</textarea>
+            </span>
+          </label>
+          <div class="inline-buttons">
+            <button class="small-button small-button--solid" type="button" data-apply-packet>应用</button>
+            <button class="small-button" type="button" data-reset-packet>恢复默认</button>
+          </div>
+          <button class="text-button text-button--small" type="button" data-copy-packet>${icon('copy')}复制默认代码</button>`;
+      };
+
+      const stickersMarkup = () => `<div data-sticker-list>${stickerListMarkup()}</div>`;
+
+      const subviewMarkup = () => {
+        if (view === 'send') return sendMarkup();
+        if (view === 'speed') return speedMarkup();
+        if (view === 'animation') return animationMarkup();
+        if (view === 'bubble') return bubbleMarkup();
+        if (view === 'background') return backgroundMarkupView();
+        if (view === 'avatar') return avatarMarkup();
+        if (view === 'packet') return packetMarkup();
+        if (view === 'stickers') return stickersMarkup();
+        return '';
+      };
+
+      const paintTabs = () => {
+        tabs.hidden = view !== 'root';
+        tabs.querySelectorAll('[data-tab]').forEach((button) => {
+          const selected = button.dataset.tab === tab;
+          button.classList.toggle('is-selected', selected);
+          button.setAttribute('aria-selected', String(selected));
+        });
+      };
+
+      const paint = () => {
+        paintTabs();
+        content.innerHTML =
+          view === 'root'
+            ? rootMarkup()
+            : `<div class="settings-subnav">
+                <button class="settings-subnav__back" type="button" data-settings-back>${icon('arrow-left')}返回</button>
+                <h3>${VIEW_TITLES[view] || '聊天设置'}</h3>
+              </div>${subviewMarkup()}`;
+        bind();
+      };
+
+      const openView = (next) => {
+        view = next;
+        presetFormOpen = false;
+        paint();
+        body.scrollTop = 0;
+      };
+
+      const replayAnimationDemo = () => {
+        const demo = content.querySelector('[data-animation-demo]');
+        if (!demo) return;
+        demo.classList.remove('is-new');
+        void demo.offsetWidth;
+        demo.classList.add('is-new');
+      };
 
       const bindBackground = () => {
-        const panel = sheet.querySelector('[data-panel="general"]');
-        const backgroundSection = panel.querySelectorAll('.settings-block')[1];
-        const file = backgroundSection.querySelector('[data-background-file]');
-        backgroundSection.querySelectorAll('[data-background]').forEach((button) => {
+        const file = content.querySelector('[data-background-file]');
+        content.querySelectorAll('[data-background]').forEach((button) => {
           button.addEventListener('click', () => {
             notify({ background: button.dataset.background, backgroundImage: '' });
-            refreshBackground();
+            paint();
           });
         });
-        backgroundSection.querySelector('[data-background-upload]').addEventListener('click', () => {
-          file.click();
+        content.querySelector('[data-background-upload]')?.addEventListener('click', () => {
+          file?.click();
         });
-        backgroundSection.querySelector('[data-background-clear]')?.addEventListener('click', () => {
+        content.querySelector('[data-background-clear]')?.addEventListener('click', () => {
           notify({ backgroundImage: '', background: 'default' });
-          refreshBackground();
+          paint();
         });
-        file.addEventListener('change', async () => {
+        file?.addEventListener('change', async () => {
           const image = file.files?.[0];
           if (!image) return;
           try {
             const dataUrl = await readImageFile(image, { maxSize: 1400, quality: 0.82 });
+            if (!sheet.isConnected) return;
             notify({ backgroundImage: dataUrl });
-            refreshBackground();
+            paint();
           } catch (error) {
             toast(error.message || '背景图片读取失败', { tone: 'danger' });
           } finally {
@@ -385,45 +544,186 @@ export function openChatSettings({ character, style, onStyleChange }) {
         });
       };
 
-      const refreshBackground = () => {
-        const panel = sheet.querySelector('[data-panel="general"]');
-        const backgroundSection = panel.querySelectorAll('.settings-block')[1];
-        backgroundSection.innerHTML =
-          `<div class="settings-block__head"><h3>聊天背景</h3></div>${backgroundMarkup(current)}`;
-        bindBackground();
+      const bindBubble = () => {
+        const input = content.querySelector('[data-bubble-css]');
+        const presetForm = content.querySelector('[data-preset-form]');
+
+        const savePreset = () => {
+          const name = presetForm.querySelector('[name="presetName"]').value.trim();
+          const css = presetForm.querySelector('[name="presetCss"]').value.trim();
+          if (!name || !css) {
+            toast('预设需要名称和 CSS', { tone: 'danger' });
+            return;
+          }
+          let preset = null;
+          if (editingPresetId) {
+            preset = updateBubblePreset(editingPresetId, { name, css });
+          } else {
+            preset = addBubblePreset({ name, css });
+          }
+          if (!preset) {
+            toast('预设没有保存', { tone: 'danger' });
+            return;
+          }
+          notify({ bubbleCss: preset.css, presetId: preset.id });
+          presetFormOpen = false;
+          editingPresetId = null;
+          paint();
+          toast('预设已保存并应用');
+        };
+
+        content.querySelector('[data-apply-bubble]').addEventListener('click', () => {
+          notify({ bubbleCss: input.value.trim(), presetId: '' });
+          paint();
+          toast(input.value.trim() ? '气泡样式已应用' : '已恢复默认气泡');
+        });
+
+        content.querySelector('[data-reset-bubble]').addEventListener('click', () => {
+          notify({ bubbleCss: '', presetId: 'default' });
+          paint();
+        });
+
+        content.querySelector('[data-copy-bubble]').addEventListener('click', () => {
+          copyDefault(DEFAULT_BUBBLE_CSS, '默认气泡 CSS ');
+        });
+
+        content.querySelector('[data-add-preset]').addEventListener('click', () => {
+          editingPresetId = null;
+          presetDraft = { name: '', css: current.bubbleCss || DEFAULT_BUBBLE_CSS };
+          presetFormOpen = true;
+          paint();
+          content.querySelector('[name="presetName"]')?.focus();
+        });
+
+        content.querySelector('[data-cancel-preset]').addEventListener('click', () => {
+          presetFormOpen = false;
+          editingPresetId = null;
+          paint();
+        });
+
+        content.querySelector('[data-save-preset]').addEventListener('click', savePreset);
+
+        content.querySelector('[data-preset-list]').addEventListener('click', (event) => {
+          const applyButton = event.target.closest('[data-apply-preset]');
+          if (applyButton) {
+            const preset = getBubblePresets().find(
+              (item) => item.id === applyButton.dataset.applyPreset,
+            );
+            if (!preset) return;
+            notify({ bubbleCss: preset.css, presetId: preset.id });
+            paint();
+            return;
+          }
+
+          const editButton = event.target.closest('[data-edit-preset]');
+          if (editButton) {
+            const preset = getBubblePresets().find(
+              (item) => item.id === editButton.dataset.editPreset,
+            );
+            if (!preset) return;
+            editingPresetId = preset.id;
+            presetDraft = { name: preset.name, css: preset.css };
+            presetFormOpen = true;
+            paint();
+            content.querySelector('[name="presetName"]')?.focus();
+            return;
+          }
+
+          const deleteButton = event.target.closest('[data-delete-preset]');
+          if (deleteButton) {
+            const id = deleteButton.dataset.deletePreset;
+            if (!deleteBubblePreset(id)) return;
+            if (current.presetId === id) notify({ presetId: '' });
+            paint();
+          }
+        });
       };
 
-      bindBackground();
+      const bindAnimation = () => {
+        const input = content.querySelector('[data-animation-css]');
+        content.querySelectorAll('[data-animation-preset]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const preset = MESSAGE_ANIMATIONS.find(
+              (item) => item.id === button.dataset.animationPreset,
+            );
+            if (!preset) return;
+            notify({ animationId: preset.id, animationCss: '' });
+            paint();
+          });
+        });
+        content.querySelector('[data-apply-animation]').addEventListener('click', () => {
+          notify({ animationCss: input.value.trim(), animationId: '' });
+          paint();
+          toast('消息动效已应用');
+        });
+        content.querySelector('[data-reset-animation]').addEventListener('click', () => {
+          notify({ animationId: 'fade', animationCss: '' });
+          paint();
+        });
+        content.querySelector('[data-copy-animation]').addEventListener('click', () => {
+          copyDefault(DEFAULT_ANIMATION_CSS, '默认动画代码 ');
+        });
+        requestAnimationFrame(replayAnimationDemo);
+      };
 
-      const sizeInput = sheet.querySelector('[data-avatar-size]');
-      const radiusInput = sheet.querySelector('[data-avatar-radius]');
-      const sizeOutput = sheet.querySelector('[data-size-output]');
-      const radiusOutput = sheet.querySelector('[data-radius-output]');
-      const userAvatarToggle = sheet.querySelector('[data-show-user-avatar]');
+      const bindBackgroundView = () => bindBackground();
 
-      sizeInput.addEventListener('input', () => {
-        sizeOutput.textContent = `${sizeInput.value}px`;
-        applyLocal({ avatarSize: Number(sizeInput.value) });
-      });
-      sizeInput.addEventListener('change', () => {
-        notify({ avatarSize: Number(sizeInput.value) });
-      });
+      const bindAvatar = () => {
+        const sizeInput = content.querySelector('[data-avatar-size]');
+        const radiusInput = content.querySelector('[data-avatar-radius]');
+        const sizeOutput = content.querySelector('[data-size-output]');
+        const radiusOutput = content.querySelector('[data-radius-output]');
+        const userAvatarToggle = content.querySelector('[data-show-user-avatar]');
 
-      radiusInput.addEventListener('input', () => {
-        radiusOutput.textContent = `${radiusInput.value}%`;
-        applyLocal({ avatarRadius: Number(radiusInput.value) });
-      });
-      radiusInput.addEventListener('change', () => {
-        notify({ avatarRadius: Number(radiusInput.value) });
-      });
+        sizeInput.addEventListener('input', () => {
+          sizeOutput.textContent = `${sizeInput.value}px`;
+          applyLocal({ avatarSize: Number(sizeInput.value) });
+        });
+        sizeInput.addEventListener('change', () => {
+          notify({ avatarSize: Number(sizeInput.value) });
+        });
 
-      userAvatarToggle.addEventListener('change', () => {
-        notify({ showUserAvatar: userAvatarToggle.checked });
-      });
+        radiusInput.addEventListener('input', () => {
+          radiusOutput.textContent = `${radiusInput.value}%`;
+          applyLocal({ avatarRadius: Number(radiusInput.value) });
+        });
+        radiusInput.addEventListener('change', () => {
+          notify({ avatarRadius: Number(radiusInput.value) });
+        });
 
-      const bindStickerList = () => {
-        const container = sheet.querySelector('[data-sticker-list]');
-        container.innerHTML = stickerListMarkup();
+        userAvatarToggle.addEventListener('change', () => {
+          notify({ showUserAvatar: userAvatarToggle.checked });
+        });
+      };
+
+      const bindPacket = () => {
+        const input = content.querySelector('[data-packet-css]');
+        content.querySelectorAll('[data-packet-preset]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const preset = PACKET_PRESETS.find(
+              (item) => item.id === button.dataset.packetPreset,
+            );
+            if (!preset) return;
+            notify({ packetCss: '', packetPresetId: preset.id });
+            paint();
+          });
+        });
+        content.querySelector('[data-apply-packet]').addEventListener('click', () => {
+          notify({ packetCss: input.value.trim(), packetPresetId: '' });
+          paint();
+          toast('红包样式已应用');
+        });
+        content.querySelector('[data-reset-packet]').addEventListener('click', () => {
+          notify({ packetCss: '', packetPresetId: 'warm' });
+          paint();
+        });
+        content.querySelector('[data-copy-packet]').addEventListener('click', () => {
+          copyDefault(DEFAULT_PACKET_CSS, '默认红包 CSS ');
+        });
+      };
+
+      const bindStickers = () => {
+        const container = content.querySelector('[data-sticker-list]');
         container.querySelectorAll('[data-sticker-pack]').forEach((checkbox) => {
           checkbox.addEventListener('change', () => {
             updateStickerPack(checkbox.dataset.stickerPack, {
@@ -432,11 +732,97 @@ export function openChatSettings({ character, style, onStyleChange }) {
           });
         });
         container.querySelector('[data-open-stickers]')?.addEventListener('click', () => {
+          closeActiveSheet({ immediate: true, reason: 'navigate' });
           window.location.hash = '#/stickers';
         });
       };
 
-      bindStickerList();
+      const bind = () => {
+        content.querySelector('[data-settings-back]')?.addEventListener('click', () => {
+          view = 'root';
+          presetFormOpen = false;
+          paint();
+          body.scrollTop = 0;
+        });
+
+        if (view === 'root') {
+          content.querySelectorAll('[data-open-view]').forEach((button) => {
+            button.addEventListener('click', () => openView(button.dataset.openView));
+          });
+          content.querySelector('[data-memory]')?.addEventListener('click', () => {
+            closeActiveSheet({ immediate: true, reason: 'navigate' });
+            window.location.hash = `#/memory/${character.id}`;
+          });
+          return;
+        }
+
+        if (view === 'send') {
+          content.querySelectorAll('[data-set-mode]').forEach((button) => {
+            button.addEventListener('click', () => {
+              notify({ sendMode: button.dataset.setMode });
+              paint();
+            });
+          });
+          return;
+        }
+
+        if (view === 'speed') {
+          const speed = content.querySelector('[data-speed]');
+          const output = content.querySelector('[data-speed-output]');
+          speed.addEventListener('input', () => {
+            const seconds = Number(speed.value) / 1000;
+            output.textContent = seconds.toFixed(3);
+            speed.closest('.range-row').querySelector('output').textContent =
+              `${seconds.toFixed(3)}s`;
+            applyLocal({ typingSpeed: seconds });
+          });
+          speed.addEventListener('change', () => {
+            notify({ typingSpeed: Number(speed.value) / 1000 });
+          });
+          return;
+        }
+
+        if (view === 'animation') {
+          bindAnimation();
+          return;
+        }
+
+        if (view === 'bubble') {
+          bindBubble();
+          return;
+        }
+
+        if (view === 'background') {
+          bindBackgroundView();
+          return;
+        }
+
+        if (view === 'avatar') {
+          bindAvatar();
+          return;
+        }
+
+        if (view === 'packet') {
+          bindPacket();
+          return;
+        }
+
+        if (view === 'stickers') {
+          bindStickers();
+        }
+      };
+
+      tabs.querySelectorAll('[data-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+          tab = button.dataset.tab;
+          view = 'root';
+          presetFormOpen = false;
+          paint();
+          body.scrollTop = 0;
+        });
+      });
+
+      paint();
     },
   });
 }

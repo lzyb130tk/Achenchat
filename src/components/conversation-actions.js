@@ -71,6 +71,7 @@ export function bindLongPress(container, selector, handler) {
     const item = event.target.closest(selector);
     if (!item) return;
     event.preventDefault();
+    if (item === suppressedItem) return;
     handler(item);
   });
 }

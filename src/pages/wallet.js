@@ -6,6 +6,7 @@ import {
   settleShopIncome,
 } from '../services/store.js';
 import {
+  escapeHTML,
   formatDateTime,
   formatMoney,
   formatMoneyDelta,
@@ -45,8 +46,8 @@ export function renderWallet() {
                       return `<div class="ledger-row">
                         <span class="ledger-row__icon">${icon(transactionIcon(transaction.type))}</span>
                         <span class="ledger-row__copy">
-                          <strong>${formatDateTime(transaction.createdAt)}</strong>
-                          <small>${transaction.label}</small>
+                          <strong>${escapeHTML(transaction.label)}</strong>
+                          <small>${formatDateTime(transaction.createdAt)}</small>
                         </span>
                         <span class="ledger-row__amount${outgoing ? ' is-out' : ''}">${formatMoneyDelta(transaction.amountFen, transaction.type)}</span>
                       </div>`;

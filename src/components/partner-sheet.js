@@ -10,7 +10,7 @@ import { icon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
-export function openPartnerSheet({ character, onChanged }) {
+export function openPartnerSheet({ character, onChanged, onMuteChange }) {
   openSheet({
     title: character.name,
     description: `${character.relationship} · ${character.role}`,
@@ -25,11 +25,14 @@ export function openPartnerSheet({ character, onChanged }) {
         <span class="action-row__copy"><strong>修改资料</strong><small>头像、名字与人设</small></span>
         <span class="action-row__arrow">${icon('caret-right')}</span>
       </button>
-      <button class="action-row" type="button" data-toggle-mute aria-pressed="${character.muted ? 'true' : 'false'}">
-        <span class="action-row__icon">${icon(character.muted ? 'bell-slash' : 'bell')}</span>
+      <label class="action-row partner-mute-row">
+        <span class="action-row__icon" data-mute-icon>${icon(character.muted ? 'bell-slash' : 'bell')}</span>
         <span class="action-row__copy"><strong>免打扰</strong><small>在别处时，不再弹出消息横幅</small></span>
-        <span class="action-row__state" data-mute-state>${character.muted ? '已开启' : '关闭'}</span>
-      </button>
+        <span class="switch">
+          <input type="checkbox" data-toggle-mute${character.muted ? ' checked' : ''} aria-label="免打扰">
+          <span class="switch__track"></span>
+        </span>
+      </label>
       <button class="action-row action-row--danger" type="button" data-clear-chat>
         <span class="action-row__icon">${icon('trash-simple')}</span>
         <span class="action-row__copy"><strong>清空这段对话</strong></span>
@@ -43,16 +46,13 @@ export function openPartnerSheet({ character, onChanged }) {
         });
       });
 
-      sheet.querySelector('[data-toggle-mute]').addEventListener('click', (event) => {
-        const button = event.currentTarget;
-        const current = getCharacter(character.id);
-        const next = !current.muted;
+      sheet.querySelector('[data-toggle-mute]').addEventListener('change', (event) => {
+        const next = event.currentTarget.checked;
         updateCharacter(character.id, { muted: next });
-        button.setAttribute('aria-pressed', String(next));
-        button.querySelector('.action-row__icon').innerHTML = icon(
+        sheet.querySelector('[data-mute-icon]').innerHTML = icon(
           next ? 'bell-slash' : 'bell',
         );
-        button.querySelector('[data-mute-state]').textContent = next ? '已开启' : '关闭';
+        onMuteChange?.(next);
         toast(next ? '已开启免打扰' : '已关闭免打扰');
       });
 

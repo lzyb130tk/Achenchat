@@ -6,6 +6,7 @@ import { renderContacts } from './pages/contacts.js';
 import { renderDiscover } from './pages/discover.js';
 import { renderMasks } from './pages/masks.js';
 import { renderMe } from './pages/me.js';
+import { renderMemory } from './pages/memory.js';
 import { renderMessages } from './pages/messages.js';
 import { renderMoments } from './pages/moments.js';
 import { renderSettings } from './pages/settings.js';
@@ -33,6 +34,11 @@ const ROUTES = [
     pattern: /^\/chat\/([^/]+)\/?$/,
     title: null,
     render: ({ refresh, match }) => renderChat({ characterId: match[1], refresh }),
+  },
+  {
+    pattern: /^\/memory\/([^/]+)\/?$/,
+    title: '聊天记忆',
+    render: ({ match }) => renderMemory({ characterId: match[1] }),
   },
 ];
 

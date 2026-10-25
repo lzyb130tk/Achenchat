@@ -1,3 +1,4 @@
+import { messageAsText } from './message-format.js';
 import { getApiConfig } from './store.js';
 
 export class ApiRequestError extends Error {}
@@ -25,7 +26,7 @@ export function getModelsEndpoint(api) {
   return `${baseUrlOf(api)}/models`;
 }
 
-function buildSystemPrompt(character, profile) {
+function buildSystemPrompt(character, profile, memory) {
   const date = new Intl.DateTimeFormat('zh-CN', {
     month: 'long',
     day: 'numeric',
@@ -34,30 +35,53 @@ function buildSystemPrompt(character, profile) {
   const mask = profile.persona?.trim()
     ? `\n对方在这段关系里设定的人设是：${profile.persona.trim()}`
     : '';
+  const memories = Array.isArray(memory?.items)
+    ? memory.items
+        .slice(-40)
+        .map((item) => `- ${item.category}：${item.content}`)
+        .join('\n')
+    : '';
+  const memoryBlock = memories
+    ? `\n这些是你们已经确认过的记忆。需要时自然想起，不要逐条复述：\n${memories}`
+    : '';
 
   return [
     `你是${character.name}，${character.role}。${character.persona}`,
     `你正在和${profile.name}以“${character.relationship}”的关系聊天。今天是${date}。${mask}`,
-    '像手机聊天一样自然回应，每次一到三句，控制在二十到八十字。',
-    '可以主动关心、分享细节和轻微撒娇，但不要连续追问。',
+    '回复必须严格使用下面的格式，只输出这三个区块，不要输出任何额外说明：',
+    '[status]此刻的状态，四到八个字[status]',
+    '[msg]第一条\\第二条[msg]',
+    '需要发红包时，再追加一行：[redbag]金额-备注[redbag]',
+    'status 写你此刻正在做的事，例如“在办公室办公”“刚洗完澡”“在便利店挑饮料”。每次都要更新。',
+    'msg 里用反斜杠 \\ 分隔多条独立消息，通常一到三条，每条不超过三十字。',
+    '红包金额用人民币元，通常五到二十元；备注不超过二十字。',
+    '像手机聊天一样自然回应。可以主动关心、分享细节和轻微撒娇，但不要连续追问。',
     '不使用列表、标题或 Markdown，不写旁白动作，不提及自己是 AI 或系统提示。',
-  ].join('\n');
+    memoryBlock,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function buildHistory(messages) {
   return messages
     .filter((message) => message.role === 'user' || message.role === 'assistant')
-    .slice(-24)
     .map((message) => {
+      const quote = message.quote
+        ? `（引用${message.quote.name}：${message.quote.content.slice(0, 120)}）\n`
+        : '';
       if (message.type === 'redpacket') {
-        return { role: message.role, content: '[发了一个红包]' };
+        return {
+          role: message.role,
+          content: `${quote}[发了一个红包：${message.note || '心意'}]`,
+        };
       }
       if (message.type === 'sticker') {
-        return { role: message.role, content: '[发了一个表情]' };
+        return { role: message.role, content: `${quote}[发了一个表情]` };
       }
-      return { role: message.role, content: message.content || '' };
+      return { role: message.role, content: `${quote}${message.content || ''}` };
     })
-    .filter((message) => message.content);
+    .filter((message) => message.content.trim());
 }
 
 function readTextContent(value) {
@@ -196,11 +220,18 @@ async function parseStream(response, provider, signal, onDelta) {
   return text;
 }
 
-export async function streamChat({ character, profile, messages, signal, onDelta }) {
+export async function streamChat({
+  character,
+  profile,
+  memory,
+  messages,
+  signal,
+  onDelta,
+}) {
   const api = getApiConfig();
   const endpoint = getEndpoint(api);
   const key = apiKeyForHeader(api.apiKey);
-  const systemPrompt = buildSystemPrompt(character, profile);
+  const systemPrompt = buildSystemPrompt(character, profile, memory);
   const history = buildHistory(messages);
   const isAnthropic = api.provider === 'anthropic';
 
@@ -270,5 +301,99 @@ export async function streamChat({ character, profile, messages, signal, onDelta
 
   const text = await parseStream(response, api.provider, signal, onDelta);
   if (!text) throw new ApiRequestError('API 没有返回回复内容');
+  return text;
+}
+
+export async function summarizeConversation({
+  character,
+  profile,
+  messages,
+  categories = [],
+  signal,
+}) {
+  const api = getApiConfig();
+  const endpoint = getEndpoint(api);
+  const key = apiKeyForHeader(api.apiKey);
+  const isAnthropic = api.provider === 'anthropic';
+  const transcript = messages
+    .slice(-80)
+    .map((message) => {
+      const name = message.role === 'user' ? profile.name : character.name;
+      return `${name}：${messageAsText(message)}`;
+    })
+    .join('\n');
+  if (!transcript.trim()) throw new ApiRequestError('没有可以整理的聊天内容');
+
+  const systemPrompt = [
+    '你负责把一段恋人聊天整理成可以长期记住的事实。',
+    `优先使用这些分类：${(categories.length ? categories : ['喜好', '日常', '约定']).join('、')}。`,
+    '只输出三到六行，每行格式为：分类｜一句不超过四十字的事实。',
+    '只记录对方明确说过的偏好、近况、约定和重要细节。',
+    '不要写评价、推断、对话原文或 Markdown，也不要提到总结这件事。',
+  ].join('\n');
+  const userPrompt = `请整理下面这段聊天：\n\n${transcript}`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(isAnthropic
+      ? {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        }
+      : { Authorization: `Bearer ${key}` }),
+  };
+
+  const body = isAnthropic
+    ? {
+        model: api.model.trim(),
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        max_tokens: 500,
+        temperature: 0.3,
+        stream: false,
+      }
+    : {
+        model: api.model.trim(),
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 500,
+        temperature: 0.3,
+        stream: false,
+      };
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    throw new ApiRequestError('整理记忆时无法连接 API');
+  }
+
+  if (!response.ok) {
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      // Status-based message is enough for non-JSON errors.
+    }
+    throw new ApiRequestError(formatHttpError(response.status, payload));
+  }
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ApiRequestError('记忆整理返回了无法解析的内容');
+  }
+  const text = extractFullText(payload, api.provider).trim();
+  if (!text) throw new ApiRequestError('记忆整理没有返回内容');
   return text;
 }

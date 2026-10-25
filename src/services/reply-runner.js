@@ -1,24 +1,29 @@
 import { showMessageBanner } from '../components/message-banner.js';
-import { ApiRequestError, streamChat } from './api.js';
+import { ApiRequestError, streamChat, summarizeConversation } from './api.js';
 import { notifyDataChanged } from './events.js';
 import {
+  addMemoryEntry,
   addMessage,
   getCharacter,
+  getChatMemory,
+  getChatStyle,
   getConversation,
   getEnabledStickerUrls,
   getProfile,
   hasApiConfig,
   markConversationRead,
+  markMemorySummary,
+  setConversationStatus,
 } from './store.js';
+import {
+  messageLength,
+  parseAIReply,
+  readStatus,
+} from './message-format.js';
 
 const runs = new Map();
 const channels = new Map();
-const RED_PACKET_NOTES = [
-  '今天想请你喝杯甜的。',
-  '一点小心意，收下吧。',
-  '路过小店时想起你。',
-  '给今天认真生活的你。',
-];
+const summaryRuns = new Set();
 
 let activeCharacterId = null;
 
@@ -45,53 +50,135 @@ function latestMessagePayload(character, message) {
   };
 }
 
-function addExtraMessage(character, active) {
-  const roll = Math.random();
+function addStickerExtra(character, active) {
   const stickerUrls = getEnabledStickerUrls();
-
-  if (roll < 0.14) {
-    const amountFen = Math.round((600 + Math.random() * 1400) / 100) * 100;
-    const note = RED_PACKET_NOTES[Math.floor(Math.random() * RED_PACKET_NOTES.length)];
-    const message = addMessage(character.id, 'assistant', '', {
-      type: 'redpacket',
-      amountFen,
-      note,
-      claimed: false,
-      unread: !active,
-    });
-    emit(character.id, 'message', { message });
-    notifyDataChanged();
-    return;
-  }
-
-  if (roll < 0.32 && stickerUrls.length) {
-    const sticker = stickerUrls[Math.floor(Math.random() * stickerUrls.length)];
-    const message = addMessage(character.id, 'assistant', '', {
-      type: 'sticker',
-      url: sticker.url,
-      packName: sticker.packName,
-      unread: !active,
-    });
-    emit(character.id, 'message', { message });
-    notifyDataChanged();
-  }
+  if (!stickerUrls.length || Math.random() >= 0.16) return;
+  const sticker = stickerUrls[Math.floor(Math.random() * stickerUrls.length)];
+  const message = addMessage(character.id, 'assistant', '', {
+    type: 'sticker',
+    url: sticker.url,
+    packName: sticker.packName,
+    unread: !active,
+  });
+  emit(character.id, 'message', { message });
+  notifyDataChanged();
 }
 
-function persistReply(characterId, content, active) {
+function scheduleExtra(characterId, character, active, segments, style) {
+  if (!getEnabledStickerUrls().length) return;
+  const revealMs = segments.reduce(
+    (total, segment) =>
+      total + Math.min(4500, 180 + messageLength(segment) * style.typingSpeed * 1000),
+    0,
+  );
+  const delay = Math.max(1800, revealMs + 900 + Math.random() * 900);
+  window.setTimeout(() => addStickerExtra(character, active), delay);
+}
+
+function persistReply(characterId, parsed, active) {
   const character = getCharacter(characterId);
-  if (!character || !content) return null;
-  const message = addMessage(characterId, 'assistant', content, { unread: !active });
-  emit(characterId, 'done', { message, active });
+  if (!character || !parsed.segments.length) return null;
+  const style = getChatStyle(characterId);
+  const status = parsed.status || '';
+  if (status) setConversationStatus(characterId, status);
+
+  const messages = parsed.segments.map((segment, index) =>
+    segment.type === 'redpacket'
+      ? addMessage(characterId, 'assistant', '', {
+          type: 'redpacket',
+          amountFen: segment.amountFen,
+          note: segment.note,
+          claimed: false,
+          unread: !active && index === parsed.segments.length - 1,
+        })
+      : addMessage(characterId, 'assistant', segment.content, {
+          unread: !active && index === parsed.segments.length - 1,
+        }),
+  );
+  const lastMessage = messages.at(-1);
+  emit(characterId, 'done', {
+    messages,
+    status,
+    active,
+  });
   notifyDataChanged();
 
-  if (!active) {
-    if (!character.muted && document.visibilityState !== 'hidden') {
-      showMessageBanner(latestMessagePayload(character, message));
-    }
+  if (!active && !character.muted && document.visibilityState !== 'hidden') {
+    showMessageBanner(latestMessagePayload(character, lastMessage));
   }
 
-  window.setTimeout(() => addExtraMessage(character, active), 360);
-  return message;
+  scheduleExtra(characterId, character, active, parsed.segments, style);
+  maybeSummarize(characterId);
+  return lastMessage;
+}
+
+function parseSummary(text) {
+  const rows = [];
+  for (const line of text.split(/\n+/)) {
+    const trimmed = line.replace(/^[-*\d.\s]+/, '').trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split(/[｜|]/);
+    if (parts.length > 1 && parts[0].trim() && parts.slice(1).join('｜').trim()) {
+      rows.push({
+        category: parts[0].trim().slice(0, 16),
+        content: parts.slice(1).join('｜').trim().slice(0, 160),
+      });
+    } else {
+      rows.push({ category: '自动总结', content: trimmed.slice(0, 160) });
+    }
+  }
+  return rows.slice(0, 6);
+}
+
+function maybeSummarize(characterId) {
+  if (!hasApiConfig() || summaryRuns.has(characterId)) return;
+  const conversation = getConversation(characterId);
+  const memory = conversation?.memory;
+  if (!conversation || !memory?.summaryEvery) return;
+  const since = memory.lastSummaryAt || 0;
+  const pending = conversation.messages.filter(
+    (message) => message.createdAt > since,
+  );
+  if (pending.length < memory.summaryEvery) return;
+
+  const character = getCharacter(characterId);
+  if (!character) return;
+  summaryRuns.add(characterId);
+  const categoryList = memory.categories.slice();
+  summarizeConversation({
+    character,
+    profile: getProfile(),
+    messages: pending,
+    categories: categoryList,
+  })
+    .then((text) => {
+      const rows = parseSummary(text);
+      if (!rows.length) return;
+      const existing = new Set(
+        getChatMemory(characterId).items.map((item) => item.content),
+      );
+      let added = 0;
+      for (const row of rows) {
+        if (existing.has(row.content)) continue;
+        addMemoryEntry(characterId, {
+          category: row.category,
+          content: row.content,
+          source: 'auto',
+        });
+        existing.add(row.content);
+        added += 1;
+      }
+      // Advance the checkpoint even when every row was already known, so the
+      // same stretch of chat is not summarized again on the next reply.
+      markMemorySummary(characterId, pending.at(-1).createdAt);
+      if (added) notifyDataChanged();
+    })
+    .catch(() => {
+      // Automatic summaries stay silent; the next reply can try again.
+    })
+    .finally(() => {
+      summaryRuns.delete(characterId);
+    });
 }
 
 export function setActiveChat(characterId) {
@@ -110,8 +197,8 @@ export function subscribeReply(characterId, handler) {
 
 export function getReplyState(characterId) {
   const run = runs.get(characterId);
-  if (!run) return { running: false, text: '' };
-  return { running: true, text: run.partial };
+  if (!run) return { running: false, text: '', status: '' };
+  return { running: true, text: run.partial, status: run.status };
 }
 
 export function isReplying(characterId) {
@@ -125,44 +212,62 @@ export function startReply(characterId) {
   if (!character || !conversation) return false;
 
   const controller = new AbortController();
-  const run = { controller, partial: '', finished: false };
+  const run = { controller, partial: '', status: '', finished: false };
   runs.set(characterId, run);
   emit(characterId, 'start', {});
-  generate(characterId, character, conversation.messages.slice(), controller, run);
+  const history = conversation.messages.slice(
+    -Math.max(2, conversation.memory?.contextCount || 24),
+  );
+  generate(characterId, character, conversation.memory, history, controller, run);
   return true;
 }
 
-async function generate(characterId, character, history, controller, run) {
+function finishFromPartial(characterId, run, active) {
+  const parsed = parseAIReply(run.partial.trim());
+  if (!parsed.segments.length) {
+    emit(characterId, 'cancelled', {});
+    return;
+  }
+  run.finished = true;
+  runs.delete(characterId);
+  persistReply(characterId, parsed, active);
+}
+
+async function generate(characterId, character, memory, history, controller, run) {
   try {
     const fullText = await streamChat({
       character,
       profile: getProfile(),
+      memory,
       messages: history,
       signal: controller.signal,
       onDelta: (delta) => {
         run.partial += delta;
+        const status = readStatus(run.partial);
+        if (status && status !== run.status) {
+          run.status = status;
+          emit(characterId, 'status', { status });
+        }
         emit(characterId, 'delta', { text: run.partial, delta });
       },
     });
 
     const content = fullText.trim();
     if (content) {
-      run.finished = true;
-      runs.delete(characterId);
-      persistReply(characterId, content, isActive(characterId));
+      const parsed = parseAIReply(content);
+      if (!parsed.segments.length) {
+        emit(characterId, 'cancelled', {});
+      } else {
+        run.finished = true;
+        runs.delete(characterId);
+        persistReply(characterId, parsed, isActive(characterId));
+      }
     } else {
       emit(characterId, 'cancelled', {});
     }
   } catch (error) {
     if (error.name === 'AbortError' || controller.signal.aborted) {
-      const content = run.partial.trim();
-      if (content) {
-        run.finished = true;
-        runs.delete(characterId);
-        persistReply(characterId, content, isActive(characterId));
-      } else {
-        emit(characterId, 'cancelled', {});
-      }
+      finishFromPartial(characterId, run, isActive(characterId));
     } else {
       const message =
         error instanceof ApiRequestError || error?.message

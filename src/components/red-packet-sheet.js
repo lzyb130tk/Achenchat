@@ -9,34 +9,32 @@ const QUICK_AMOUNTS = [520, 888, 1888];
 export function openRedPacketSheet({ character, onSent }) {
   const wallet = getWallet();
   openSheet({
-    title: '发红包',
-    description: `给${character.name}。红包会从钱包余额扣除。`,
-    content: `<div class="red-packet-form">
-      <div class="red-packet-balance">
-        <span>钱包余额</span>
-        <strong>${formatMoney(wallet.balanceFen)}</strong>
+    title: '红包',
+    description: `给${character.name}，从零钱里扣。`,
+    content: `<div class="packet-compose">
+      <div class="packet-envelope">
+        <span class="packet-envelope__to">给 ${escapeHTML(character.name)}</span>
+        <label class="packet-envelope__amount">
+          <span>¥</span>
+          <input type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" aria-label="红包金额" data-amount>
+        </label>
+        <label class="packet-envelope__note">
+          <span class="sr-only">红包留言</span>
+          <input type="text" maxlength="30" autocomplete="off" value="恭喜发财，大吉大利" data-note>
+        </label>
+        <div class="packet-envelope__quick">
+          ${QUICK_AMOUNTS.map(
+            (amount) => `<button type="button" data-quick="${amount / 100}">¥${(amount / 100).toFixed(2)}</button>`,
+          ).join('')}
+        </div>
+        <span class="packet-envelope__balance">${icon('wallet')}零钱 ${formatMoney(wallet.balanceFen)}</span>
       </div>
-      <div class="amount-field">
-        <span class="amount-field__currency">¥</span>
-        <input class="amount-field__input" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" aria-label="红包金额" data-amount>
-      </div>
-      <div class="quick-amounts">
-        ${QUICK_AMOUNTS.map(
-          (amount) => `<button class="quick-amount" type="button" data-quick="${amount / 100}">¥${(amount / 100).toFixed(2)}</button>`,
-        ).join('')}
-      </div>
-      <label class="field">
-        <span class="field__label">留言</span>
-        <span class="field__control">
-          <input class="field__input" name="note" maxlength="30" autocomplete="off" value="恭喜发财，大吉大利">
-        </span>
-      </label>
-      <p class="red-packet-form__note">${icon('wallet')}发出后立即从钱包扣除，对方可以收下。</p>
+      <p class="packet-compose__hint">对方收下后，金额会进入对方的零钱。</p>
     </div>`,
-    actions: `<button class="button button--primary" type="button" data-send-packet>发红包</button>`,
+    actions: `<button class="button button--primary" type="button" data-send-packet>塞钱进红包</button>`,
     onMount: (sheet) => {
       const amountInput = sheet.querySelector('[data-amount]');
-      const noteInput = sheet.querySelector('[name="note"]');
+      const noteInput = sheet.querySelector('[data-note]');
 
       sheet.querySelectorAll('[data-quick]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -54,7 +52,7 @@ export function openRedPacketSheet({ character, onSent }) {
         }
         const amountFen = Math.round(amount * 100);
         if (amountFen > getWallet().balanceFen) {
-          toast('钱包余额不足', { tone: 'danger' });
+          toast('零钱不足', { tone: 'danger' });
           amountInput.focus();
           return;
         }

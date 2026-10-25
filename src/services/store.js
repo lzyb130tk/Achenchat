@@ -2,6 +2,8 @@ import { CHARACTERS } from '../data/characters.js';
 import {
   DEFAULT_BUBBLE_PRESETS,
   DEFAULT_CHAT_STYLE,
+  DEFAULT_MEMORY,
+  PACKET_PRESETS,
 } from '../data/chat-options.js';
 import { createSeedConversations, DEFAULT_PROFILE } from '../data/seed.js';
 import { generateShopIncome, getShopType, nextNoon } from '../data/shop.js';
@@ -30,6 +32,7 @@ const DEFAULT_TAGS = [
 
 let state = null;
 let writeChain = Promise.resolve();
+let writeQueued = false;
 
 function makeId(prefix) {
   const value =
@@ -71,20 +74,103 @@ function createDefaultMask(source = DEFAULT_PROFILE) {
   };
 }
 
+function wrapLegacyBubbleCss(value) {
+  const css = text(value).trim();
+  if (!css || css.includes('{')) return css;
+  return `.message-bubble--assistant,
+.message-bubble--user {
+  ${css}
+}`;
+}
+
 function createChatStyle(raw = {}) {
-  const bubbleCss = text(raw.bubbleCss);
   const background = ['default', 'warm', 'night', 'dawn'].includes(raw.background)
     ? raw.background
     : DEFAULT_CHAT_STYLE.background;
+  const speed = finite(raw.typingSpeed, DEFAULT_CHAT_STYLE.typingSpeed);
+  const packetPresetId = PACKET_PRESETS.some((item) => item.id === raw.packetPresetId)
+    ? raw.packetPresetId
+    : DEFAULT_CHAT_STYLE.packetPresetId;
   return {
-    bubbleCss,
+    bubbleCss: wrapLegacyBubbleCss(raw.bubbleCss),
     presetId: text(raw.presetId, DEFAULT_CHAT_STYLE.presetId),
+    packetCss: text(raw.packetCss),
+    packetPresetId,
+    animationId: text(raw.animationId, DEFAULT_CHAT_STYLE.animationId),
+    animationCss: text(raw.animationCss),
+    typingSpeed: Math.round(Math.min(0.12, Math.max(0.005, speed)) * 1000) / 1000,
+    sendMode: raw.sendMode === 'multi' ? 'multi' : 'single',
     background,
     backgroundImage: text(raw.backgroundImage),
     avatarSize: Math.min(48, Math.max(20, Math.round(finite(raw.avatarSize, 28)))),
     avatarRadius: Math.min(50, Math.max(0, Math.round(finite(raw.avatarRadius, 50)))),
     showUserAvatar: Boolean(raw.showUserAvatar),
   };
+}
+
+function normalizeQuote(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const content = text(raw.content).trim().slice(0, 500);
+  if (!content) return null;
+  return {
+    messageId: text(raw.messageId).slice(0, 120),
+    role: raw.role === 'assistant' ? 'assistant' : 'user',
+    name: text(raw.name).trim().slice(0, 40) || '对方',
+    content,
+  };
+}
+
+function normalizeMemory(raw = {}) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const categorySet = new Set(DEFAULT_MEMORY.categories);
+  if (Array.isArray(source.categories)) {
+    source.categories.forEach((category) => {
+      const value = text(category).trim().slice(0, 16);
+      if (value) categorySet.add(value);
+    });
+  }
+  const seen = new Set();
+  const items = Array.isArray(source.items)
+    ? source.items
+        .map((item) => {
+          const content = text(item?.content).trim().slice(0, 600);
+          if (!content) return null;
+          const category = text(item?.category).trim().slice(0, 16) || '其他';
+          categorySet.add(category);
+          let id = text(item?.id);
+          if (!id || seen.has(id)) id = makeId('memory');
+          seen.add(id);
+          return {
+            id,
+            category,
+            content,
+            source: item?.source === 'auto' ? 'auto' : 'manual',
+            createdAt: finite(item?.createdAt, Date.now()),
+          };
+        })
+        .filter(Boolean)
+        .slice(-300)
+    : [];
+  const contextCount = Math.min(
+    120,
+    Math.max(2, Math.round(finite(source.contextCount, DEFAULT_MEMORY.contextCount))),
+  );
+  const rawEvery = Math.round(finite(source.summaryEvery, DEFAULT_MEMORY.summaryEvery));
+  const summaryEvery = rawEvery <= 0 ? 0 : Math.min(200, Math.max(5, rawEvery));
+  return {
+    contextCount,
+    summaryEvery,
+    categories: [...categorySet].slice(0, 24),
+    items,
+    lastSummaryAt: Math.max(0, finite(source.lastSummaryAt)),
+  };
+}
+
+function normalizeConversationStatus(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = text(raw.text).trim().slice(0, 32);
+  if (!value) return null;
+  return { text: value, at: finite(raw.at, Date.now()) };
 }
 
 function createWelcomeWallet() {
@@ -132,6 +218,7 @@ function normalizeMessage(raw) {
   if (raw.role !== 'user' && raw.role !== 'assistant') return null;
 
   const type = raw.type === 'redpacket' || raw.type === 'sticker' ? raw.type : 'text';
+  const quote = normalizeQuote(raw.quote);
   if (type === 'redpacket') {
     const amountFen = Math.round(finite(raw.amountFen));
     if (amountFen <= 0) return null;
@@ -143,6 +230,7 @@ function normalizeMessage(raw) {
       note: text(raw.note, '恭喜发财，大吉大利'),
       claimed: Boolean(raw.claimed),
       claimedAt: Number.isFinite(raw.claimedAt) ? raw.claimedAt : null,
+      ...(quote ? { quote } : {}),
       createdAt: raw.createdAt,
     };
   }
@@ -156,6 +244,7 @@ function normalizeMessage(raw) {
       type,
       url,
       packName: text(raw.packName),
+      ...(quote ? { quote } : {}),
       createdAt: raw.createdAt,
     };
   }
@@ -165,6 +254,7 @@ function normalizeMessage(raw) {
     role: raw.role,
     type: 'text',
     content: text(raw.content),
+    ...(quote ? { quote } : {}),
     createdAt: raw.createdAt,
   };
 }
@@ -176,6 +266,8 @@ function normalizeConversation(raw) {
     pinned: Boolean(raw.pinned),
     messages: raw.messages.map(normalizeMessage).filter(Boolean).slice(-200),
     style: createChatStyle(raw.style),
+    memory: normalizeMemory(raw.memory),
+    status: normalizeConversationStatus(raw.status),
   };
 }
 
@@ -294,7 +386,7 @@ function normalizeBubblePresets(raw) {
   return raw
     .map((preset, index) => {
       const name = text(preset?.name).trim();
-      const css = text(preset?.css).trim();
+      const css = wrapLegacyBubbleCss(preset?.css);
       if (!name || !css) return null;
       return {
         id: text(preset?.id) || `bubble-${index + 1}`,
@@ -465,13 +557,18 @@ export async function initStore() {
 }
 
 function persist() {
-  if (!state) return;
-  const snapshot = clone(state);
-  writeChain = writeChain
-    .then(() => dbSet(DB_KEY, snapshot))
-    .catch(() => {
-      // Keep the in-memory state usable when a write fails.
-    });
+  if (!state || writeQueued) return;
+  writeQueued = true;
+  queueMicrotask(() => {
+    writeQueued = false;
+    if (!state) return;
+    const snapshot = clone(state);
+    writeChain = writeChain
+      .then(() => dbSet(DB_KEY, snapshot))
+      .catch(() => {
+        // Keep the in-memory state usable when a write fails.
+      });
+  });
 }
 
 export function getState() {
@@ -706,6 +803,8 @@ function createEmptyConversation() {
     pinned: false,
     messages: [],
     style: createChatStyle(),
+    memory: normalizeMemory(DEFAULT_MEMORY),
+    status: null,
   };
 }
 
@@ -731,6 +830,8 @@ export function addMessage(characterId, role, content, options = {}) {
     type,
     createdAt: Date.now(),
   };
+  const quote = normalizeQuote(options.quote);
+  if (quote) message.quote = quote;
 
   if (type === 'redpacket') {
     message.amountFen = Math.max(1, Math.round(options.amountFen || 0));
@@ -760,6 +861,117 @@ export function updateMessage(characterId, messageId, patch) {
   return message;
 }
 
+export function deleteMessage(characterId, messageId) {
+  const conversation = state.conversations[characterId];
+  if (!conversation) return null;
+  const index = conversation.messages.findIndex((item) => item.id === messageId);
+  if (index < 0) return null;
+  const [removed] = conversation.messages.splice(index, 1);
+  persist();
+  return removed;
+}
+
+export function setConversationStatus(characterId, statusText) {
+  const conversation = ensureConversation(characterId);
+  const value = text(statusText).trim().slice(0, 32);
+  if (!value) return conversation.status;
+  if (conversation.status?.text === value) return conversation.status;
+  conversation.status = { text: value, at: Date.now() };
+  persist();
+  return conversation.status;
+}
+
+export function getChatMemory(characterId) {
+  return ensureConversation(characterId).memory;
+}
+
+export function updateMemorySettings(characterId, patch) {
+  const conversation = ensureConversation(characterId);
+  conversation.memory = normalizeMemory({ ...conversation.memory, ...patch });
+  persist();
+  return conversation.memory;
+}
+
+export function addMemoryCategory(characterId, name) {
+  const value = text(name).trim().slice(0, 16);
+  if (!value) return null;
+  const conversation = ensureConversation(characterId);
+  if (!conversation.memory.categories.includes(value)) {
+    conversation.memory.categories.push(value);
+    persist();
+  }
+  return value;
+}
+
+export function addMemoryEntry(characterId, { category, content, source = 'manual' }) {
+  const value = text(content).trim().slice(0, 600);
+  if (!value) return null;
+  const conversation = ensureConversation(characterId);
+  const name = text(category).trim().slice(0, 16) || '其他';
+  if (!conversation.memory.categories.includes(name)) {
+    conversation.memory.categories.push(name);
+  }
+  const entry = {
+    id: makeId('memory'),
+    category: name,
+    content: value,
+    source: source === 'auto' ? 'auto' : 'manual',
+    createdAt: Date.now(),
+  };
+  conversation.memory.items.push(entry);
+  conversation.memory.items = conversation.memory.items.slice(-300);
+  persist();
+  return entry;
+}
+
+export function updateMemoryEntry(characterId, entryId, patch) {
+  const conversation = state.conversations[characterId];
+  const entry = conversation?.memory.items.find((item) => item.id === entryId);
+  if (!entry) return null;
+  if (typeof patch.content === 'string' && patch.content.trim()) {
+    entry.content = patch.content.trim().slice(0, 600);
+  }
+  if (typeof patch.category === 'string' && patch.category.trim()) {
+    const category = patch.category.trim().slice(0, 16);
+    entry.category = category;
+    if (!conversation.memory.categories.includes(category)) {
+      conversation.memory.categories.push(category);
+    }
+  }
+  persist();
+  return entry;
+}
+
+export function deleteMemoryEntry(characterId, entryId) {
+  const conversation = state.conversations[characterId];
+  if (!conversation) return false;
+  const index = conversation.memory.items.findIndex((item) => item.id === entryId);
+  if (index < 0) return false;
+  conversation.memory.items.splice(index, 1);
+  persist();
+  return true;
+}
+
+export function deleteMemoryCategory(characterId, name) {
+  const conversation = state.conversations[characterId];
+  if (!conversation) return false;
+  const value = text(name).trim();
+  if (!value || conversation.memory.items.some((item) => item.category === value)) {
+    return false;
+  }
+  const index = conversation.memory.categories.indexOf(value);
+  if (index < 0) return false;
+  conversation.memory.categories.splice(index, 1);
+  persist();
+  return true;
+}
+
+export function markMemorySummary(characterId, at) {
+  const conversation = ensureConversation(characterId);
+  conversation.memory.lastSummaryAt = Math.max(0, finite(at, Date.now()));
+  persist();
+}
+
 export function markConversationRead(characterId) {
   const conversation = state.conversations[characterId];
   if (conversation?.unread) {
@@ -772,6 +984,7 @@ export function clearConversation(characterId) {
   const conversation = ensureConversation(characterId);
   conversation.messages = [];
   conversation.unread = 0;
+  conversation.status = null;
   persist();
 }
 
@@ -849,7 +1062,7 @@ export function getBubblePresets() {
 
 export function addBubblePreset({ name, css }) {
   const trimmedName = text(name).trim();
-  const trimmedCss = text(css).trim();
+  const trimmedCss = wrapLegacyBubbleCss(css);
   if (!trimmedName || !trimmedCss) return null;
   const preset = { id: makeId('bubble'), name: trimmedName, css: trimmedCss };
   state.bubblePresets.push(preset);
@@ -861,7 +1074,8 @@ export function updateBubblePreset(id, { name, css }) {
   const preset = state.bubblePresets.find((item) => item.id === id);
   if (!preset) return null;
   if (typeof name === 'string' && name.trim()) preset.name = name.trim();
-  if (typeof css === 'string' && css.trim()) preset.css = css.trim();
+  const normalizedCss = wrapLegacyBubbleCss(css);
+  if (normalizedCss) preset.css = normalizedCss;
   persist();
   return preset;
 }
