@@ -106,6 +106,7 @@ function createChatStyle(raw = {}) {
     animationCss: text(raw.animationCss),
     typingSpeed: Math.round(Math.min(0.12, Math.max(0.005, speed)) * 1000) / 1000,
     sendMode: raw.sendMode === 'multi' ? 'multi' : 'single',
+    messageGap: Math.min(16, Math.max(0, Math.round(finite(raw.messageGap, DEFAULT_CHAT_STYLE.messageGap)))),
     background,
     backgroundImage: text(raw.backgroundImage),
     avatarSize: Math.min(48, Math.max(20, Math.round(finite(raw.avatarSize, 28)))),
@@ -238,6 +239,7 @@ function normalizeMessage(raw) {
 
   const type = raw.type === 'redpacket' || raw.type === 'sticker' ? raw.type : 'text';
   const quote = normalizeQuote(raw.quote);
+  const rawField = text(raw.raw).trim() ? { raw: text(raw.raw).slice(0, 4000) } : {};
   if (type === 'redpacket') {
     const amountFen = Math.round(finite(raw.amountFen));
     if (amountFen <= 0) return null;
@@ -250,6 +252,7 @@ function normalizeMessage(raw) {
       claimed: Boolean(raw.claimed),
       claimedAt: Number.isFinite(raw.claimedAt) ? raw.claimedAt : null,
       ...(quote ? { quote } : {}),
+      ...rawField,
       createdAt: raw.createdAt,
     };
   }
@@ -265,6 +268,7 @@ function normalizeMessage(raw) {
       packName: text(raw.packName),
       name: text(raw.name).trim().slice(0, 20),
       ...(quote ? { quote } : {}),
+      ...rawField,
       createdAt: raw.createdAt,
     };
   }
@@ -275,6 +279,7 @@ function normalizeMessage(raw) {
     type: 'text',
     content: text(raw.content),
     ...(quote ? { quote } : {}),
+    ...rawField,
     createdAt: raw.createdAt,
   };
 }
@@ -367,6 +372,7 @@ function normalizeOverrides(raw, characterIds, tagIds) {
       item.name = override.name.trim();
     }
     if (typeof override.persona === 'string') item.persona = override.persona;
+    if (typeof override.tagline === 'string') item.tagline = override.tagline;
     if (typeof override.avatar === 'string') item.avatar = override.avatar;
     if (typeof override.tagId === 'string') {
       item.tagId = tagIds.has(override.tagId) ? override.tagId : '';
@@ -744,6 +750,7 @@ function decorateCharacter(base) {
     mark: override.name ? lastMark(name) : base.mark,
     avatar: override.avatar !== undefined ? override.avatar : text(base.avatar),
     persona: override.persona !== undefined ? override.persona : text(base.persona),
+    tagline: override.tagline !== undefined ? override.tagline : text(base.tagline),
     tagId:
       override.tagId !== undefined
         ? override.tagId
@@ -797,6 +804,7 @@ export function updateCharacter(id, patch) {
       custom.mark = lastMark(custom.name);
     }
     if (typeof patch.persona === 'string') custom.persona = patch.persona;
+    if (typeof patch.tagline === 'string') custom.tagline = patch.tagline;
     if (typeof patch.avatar === 'string') custom.avatar = patch.avatar;
     if (typeof patch.tagId === 'string') {
       custom.tagId = state.tags.some((tag) => tag.id === patch.tagId) ? patch.tagId : '';
@@ -812,6 +820,7 @@ export function updateCharacter(id, patch) {
     override.name = patch.name.trim();
   }
   if (typeof patch.persona === 'string') override.persona = patch.persona;
+  if (typeof patch.tagline === 'string') override.tagline = patch.tagline;
   if (typeof patch.avatar === 'string') override.avatar = patch.avatar;
   if (typeof patch.tagId === 'string') {
     override.tagId = state.tags.some((tag) => tag.id === patch.tagId) ? patch.tagId : '';
@@ -908,6 +917,7 @@ export function addMessage(characterId, role, content, options = {}) {
   };
   const quote = normalizeQuote(options.quote);
   if (quote) message.quote = quote;
+  if (options.raw) message.raw = text(options.raw).slice(0, 4000);
 
   if (type === 'redpacket') {
     message.amountFen = Math.max(1, Math.round(options.amountFen || 0));
@@ -946,6 +956,18 @@ export function deleteMessage(characterId, messageId) {
   const [removed] = conversation.messages.splice(index, 1);
   persist();
   return removed;
+}
+
+export function removeLastAssistantReply(characterId) {
+  const conversation = state.conversations[characterId];
+  if (!conversation) return { removed: [] };
+  const messages = conversation.messages;
+  let index = messages.length - 1;
+  while (index >= 0 && messages[index].role === 'assistant') index -= 1;
+  if (index === messages.length - 1) return { removed: [] };
+  const removed = messages.splice(index + 1);
+  persist();
+  return { removed };
 }
 
 export function setConversationStatus(characterId, statusText) {

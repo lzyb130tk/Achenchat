@@ -233,7 +233,7 @@ export function renderContacts({ refresh }) {
         items: characters.map((character) => ({
           character,
           href: `#/chat/${character.id}`,
-          subtitle: `${character.role} · ${character.tagline}`,
+          subtitle: `${character.tagline}`,
           searchText: `${character.name} ${character.role} ${character.tagline} ${character.relationship}`,
         })),
       });

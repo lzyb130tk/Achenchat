@@ -55,7 +55,10 @@ const VIEW_TITLES = {
 export function applyChatStyle(screen, style) {
   screen.style.setProperty('--chat-avatar-size', `${style.avatarSize}px`);
   screen.style.setProperty('--chat-avatar-radius', `${style.avatarRadius}%`);
+  screen.style.setProperty('--chat-message-gap', `${style.messageGap}px`);
   screen.dataset.chatBackground = style.background || 'default';
+  if (style.bubbleCss) screen.dataset.customBubble = '';
+  else delete screen.dataset.customBubble;
   screen.classList.toggle('is-hiding-user-avatar', !style.showUserAvatar);
 
   const scroller = screen.querySelector('.chat-scroll');
@@ -387,7 +390,12 @@ export function openChatSettings({ character, style, onStyleChange }) {
           <button class="text-button text-button--small" type="button" data-copy-animation>${icon('copy')}复制默认代码</button>`;
       };
 
-      const bubbleMarkup = () => `<p class="settings-note">同时替换你和${character.name}的气泡。类名：<span class="code-hint">.message-bubble--assistant</span> / <span class="code-hint">.message-bubble--user</span></p>
+      const bubbleMarkup = () => `<label class="range-row">
+          <span class="range-row__top"><span>消息间隔</span><output data-gap-output>${current.messageGap}px</output></span>
+          <input class="range" type="range" min="0" max="16" step="1" value="${current.messageGap}" data-message-gap>
+        </label>
+        <p class="settings-note">同一位连续消息之间的间距，越大越疏朗。</p>
+        <p class="settings-note">同时替换你和${character.name}的气泡。类名：<span class="code-hint">.message-bubble--assistant</span> / <span class="code-hint">.message-bubble--user</span></p>
         <div class="bubble-settings-preview">
           <div class="bubble-preview-line">
             <div class="message-bubble message-bubble--assistant">在呢，慢慢说。</div>
@@ -615,6 +623,16 @@ export function openChatSettings({ character, style, onStyleChange }) {
       const bindBubble = () => {
         const input = content.querySelector('[data-bubble-css]');
         const presetForm = content.querySelector('[data-preset-form]');
+        const gap = content.querySelector('[data-message-gap]');
+        const gapOutput = content.querySelector('[data-gap-output]');
+
+        gap.addEventListener('input', () => {
+          gapOutput.textContent = `${gap.value}px`;
+          applyLocal({ messageGap: Number(gap.value) });
+        });
+        gap.addEventListener('change', () => {
+          notify({ messageGap: Number(gap.value) });
+        });
 
         const savePreset = () => {
           const name = presetForm.querySelector('[name="presetName"]').value.trim();

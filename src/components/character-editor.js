@@ -46,12 +46,19 @@ export function openCharacterEditor({ character = null, onSaved = null } = {}) {
           <textarea class="field__input field__textarea" name="persona" rows="6" placeholder="性格、说话方式、你们的相处方式，写多少都可以。">${escapeHTML(character?.persona || '')}</textarea>
         </span>
       </label>
+      <label class="field">
+        <span class="field__label">签名</span>
+        <span class="field__control">
+          <input class="field__input" name="tagline" maxlength="24" autocomplete="off" value="${escapeHTML(character?.tagline || '')}" placeholder="一句话介绍，会显示在对话里">
+        </span>
+      </label>
     </div>`,
     actions: `<button class="button button--primary" type="button" data-save-character>${isEdit ? '保存' : '开始聊天'}</button>`,
     onMount: (sheet) => {
       const nameInput = sheet.querySelector('[name="name"]');
       const tagSelect = sheet.querySelector('[name="tagId"]');
       const personaInput = sheet.querySelector('[name="persona"]');
+      const taglineInput = sheet.querySelector('[name="tagline"]');
       const field = setupAvatarField(sheet, {
         initial: character?.avatar || '',
         mark: character?.mark || '新',
@@ -69,6 +76,7 @@ export function openCharacterEditor({ character = null, onSaved = null } = {}) {
         const payload = {
           name,
           persona: personaInput.value.trim(),
+          tagline: taglineInput.value.trim().slice(0, 24),
           avatar: field.getValue(),
           tagId: tagSelect.value,
         };

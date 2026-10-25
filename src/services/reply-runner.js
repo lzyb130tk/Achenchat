@@ -15,6 +15,7 @@ import {
   markConversationRead,
   markMemorySummary,
   setConversationStatus,
+  updateCharacter,
 } from './store.js';
 import {
   messageLength,
@@ -78,13 +79,14 @@ function scheduleExtra(characterId, character, active, segments, style) {
   window.setTimeout(() => addStickerExtra(character, active), delay);
 }
 
-function persistReply(characterId, parsed, active) {
+function persistReply(characterId, parsed, active, raw) {
   const character = getCharacter(characterId);
   if (!character || !parsed.segments.length) return null;
   const style = getChatStyle(characterId);
   const status = parsed.status || '';
   if (status) setConversationStatus(characterId, status);
 
+  const rawText = typeof raw === 'string' ? raw.trim() : '';
   const messages = parsed.segments.map((segment, index) => {
     const unread = !active && index === parsed.segments.length - 1;
     if (segment.type === 'redpacket') {
@@ -94,6 +96,7 @@ function persistReply(characterId, parsed, active) {
         note: segment.note,
         claimed: false,
         unread,
+        raw: rawText,
       });
     }
     if (segment.type === 'sticker') {
@@ -103,9 +106,10 @@ function persistReply(characterId, parsed, active) {
         name: segment.name,
         packName: segment.packName,
         unread,
+        raw: rawText,
       });
     }
-    return addMessage(characterId, 'assistant', segment.content, { unread });
+    return addMessage(characterId, 'assistant', segment.content, { unread, raw: rawText });
   });
   const lastMessage = messages.at(-1);
   emit(characterId, 'done', {
@@ -115,6 +119,12 @@ function persistReply(characterId, parsed, active) {
   });
   notifyDataChanged();
   incrementMemoryRound(characterId);
+
+  const tagline = parsed.tagline || '';
+  if (tagline && tagline !== character.tagline) {
+    updateCharacter(characterId, { tagline });
+    emit(characterId, 'tagline', { tagline });
+  }
 
   if (!active && !character.muted && document.visibilityState !== 'hidden') {
     showMessageBanner(latestMessagePayload(character, lastMessage));
@@ -247,7 +257,7 @@ function finishFromPartial(characterId, run, active) {
   }
   run.finished = true;
   runs.delete(characterId);
-  persistReply(characterId, parsed, active);
+  persistReply(characterId, parsed, active, run.partial.trim());
 }
 
 async function generate(characterId, character, memory, history, controller, run) {
@@ -279,7 +289,7 @@ async function generate(characterId, character, memory, history, controller, run
       } else {
         run.finished = true;
         runs.delete(characterId);
-        persistReply(characterId, parsed, isActive(characterId));
+        persistReply(characterId, parsed, isActive(characterId), content);
       }
     } else {
       emit(characterId, 'cancelled', {});

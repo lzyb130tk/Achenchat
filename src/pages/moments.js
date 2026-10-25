@@ -24,7 +24,7 @@ export function renderMoments() {
         ${characterAvatar(character, 'md')}
         <span class="moment-card__identity">
           <strong>${escapeHTML(character.name)}</strong>
-          <small>${escapeHTML(character.role)} · ${formatRelativeTime(timestamp)}</small>
+          <small>${formatRelativeTime(timestamp)}</small>
         </span>
       </header>
       <p class="moment-card__text">${escapeHTML(moment.text)}</p>

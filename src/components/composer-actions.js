@@ -3,7 +3,7 @@ import { escapeHTML } from '../services/utils.js';
 import { icon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 
-export function openComposerActions({ onRedPacket, onSticker }) {
+export function openComposerActions({ onRedPacket, onSticker, onRetry }) {
   openSheet({
     title: '更多',
     content: `<div class="composer-action-grid">
@@ -15,6 +15,10 @@ export function openComposerActions({ onRedPacket, onSticker }) {
         <span class="composer-action__icon">${icon('sticker')}</span>
         <span>表情</span>
       </button>
+      <button class="composer-action" type="button" data-composer-retry>
+        <span class="composer-action__icon">${icon('arrow-clockwise')}</span>
+        <span>重试</span>
+      </button>
     </div>`,
     onMount: (sheet) => {
       sheet.querySelector('[data-composer-redpacket]').addEventListener('click', () => {
@@ -24,6 +28,10 @@ export function openComposerActions({ onRedPacket, onSticker }) {
       sheet.querySelector('[data-composer-sticker]').addEventListener('click', () => {
         closeActiveSheet({ immediate: true, reason: 'replace' });
         onSticker?.();
+      });
+      sheet.querySelector('[data-composer-retry]').addEventListener('click', () => {
+        closeActiveSheet({ immediate: true, reason: 'replace' });
+        onRetry?.();
       });
     },
   });

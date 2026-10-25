@@ -8,13 +8,13 @@ export const CHAT_BACKGROUNDS = [
 export const DEFAULT_BUBBLE_CSS = `.message-bubble--assistant {
   background: var(--color-surface);
   color: var(--color-ink);
-  border-radius: 19px 19px 19px 6px;
+  border-radius: 19px;
 }
 
 .message-bubble--user {
   background: var(--color-action);
   color: var(--color-action-ink);
-  border-radius: 19px 19px 6px 19px;
+  border-radius: 19px;
 }`;
 
 export const DEFAULT_BUBBLE_PRESETS = [
@@ -262,6 +262,7 @@ export const DEFAULT_CHAT_STYLE = {
   animationCss: '',
   typingSpeed: 0.035,
   sendMode: 'single',
+  messageGap: 4,
   background: 'default',
   backgroundImage: '',
   avatarSize: 28,

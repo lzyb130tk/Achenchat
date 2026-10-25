@@ -123,6 +123,12 @@ export function startApp() {
   watchBrokenImages();
   applyAppearance(getAppearance());
   watchSystemTheme(getAppearance);
+
+  document.addEventListener('contextmenu', (event) => {
+    if (event.target.closest('input, textarea, [contenteditable]')) return;
+    event.preventDefault();
+  });
+
   renderCurrent();
 
   window.addEventListener('hashchange', () => {

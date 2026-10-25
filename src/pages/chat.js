@@ -15,6 +15,7 @@ import {
 import { openPartnerSheet } from '../components/partner-sheet.js';
 import { showRedPacketReveal } from '../components/red-packet-reveal.js';
 import { openRedPacketSheet } from '../components/red-packet-sheet.js';
+import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import { getSparkSvg } from '../data/chat-options.js';
 import { copyText } from '../services/clipboard.js';
@@ -29,8 +30,10 @@ import {
   getConversation,
   getProfile,
   hasApiConfig,
+  removeLastAssistantReply,
   setConversationStatus,
   updateChatStyle,
+  updateMessage,
 } from '../services/store.js';
 import {
   getReplyState,
@@ -72,7 +75,7 @@ function chatHeader(character, status, style, streak) {
         </span>
       </span>
     </button>
-    <button class="icon-button chat-header__action" type="button" aria-label="对话选项" data-open-profile>${icon('dots-three')}</button>
+    <button class="icon-button chat-header__action" type="button" aria-label="对话选项" data-open-brief>${icon('dots-three')}</button>
     <button class="icon-button chat-header__action" type="button" aria-label="聊天设置" data-open-settings>${icon('gear-six')}</button>
   </header>`;
 }
@@ -115,17 +118,53 @@ function messageBody(message) {
   return `<div class="message-bubble message-bubble--${message.role === 'user' ? 'user' : 'assistant'}">${quoteMarkup(message.quote)}<span class="message-bubble__text">${escapeHTML(message.content || '')}</span></div>`;
 }
 
-function messageRow(message, character, profile, showAvatar, animate = false) {
+function messageRow(
+  message,
+  character,
+  profile,
+  showAvatar,
+  animate = false,
+  position = 'single',
+) {
   const isUser = message.role === 'user';
   const avatarMarkup = isUser
     ? `<span class="message-row__avatar message-row__avatar--user">${profileAvatar(profile, 'xs')}</span>`
     : `<span class="message-row__avatar">${showAvatar ? characterAvatar(character, 'xs') : ''}</span>`;
 
-  return `<div class="message-row message-row--${isUser ? 'user' : 'assistant'}${message.type !== 'text' ? ' message-row--rich' : ''}${animate ? ' is-new' : ''}" data-message-id="${message.id}">
+  return `<div class="message-row message-row--${isUser ? 'user' : 'assistant'} message-row--${position}${message.type !== 'text' ? ' message-row--rich' : ''}${animate ? ' is-new' : ''}" data-message-id="${message.id}">
     ${isUser ? '' : avatarMarkup}
     ${messageBody(message)}
     ${isUser ? avatarMarkup : ''}
   </div>`;
+}
+
+function setRowPosition(row, position) {
+  row.classList.remove(
+    'message-row--first',
+    'message-row--middle',
+    'message-row--last',
+    'message-row--single',
+  );
+  row.classList.add(`message-row--${position}`);
+}
+
+function groupPositions(messages) {
+  return messages.map((message, index) => {
+    const prev = messages[index - 1];
+    const next = messages[index + 1];
+    const sameAsPrev =
+      prev &&
+      prev.role === message.role &&
+      isSameDay(prev.createdAt, message.createdAt);
+    const sameAsNext =
+      next &&
+      next.role === message.role &&
+      isSameDay(message.createdAt, next.createdAt);
+    if (sameAsPrev && sameAsNext) return 'middle';
+    if (sameAsPrev) return 'last';
+    if (sameAsNext) return 'first';
+    return 'single';
+  });
 }
 
 function dayDivider(timestamp) {
@@ -142,10 +181,11 @@ function emptyState(character) {
 
 function threadMarkup(messages, character, profile) {
   if (!messages.length) return emptyState(character);
+  const positions = groupPositions(messages);
   let previousTimestamp = null;
   let previousRole = null;
   return messages
-    .map((message) => {
+    .map((message, index) => {
       let markup = '';
       if (!previousTimestamp || !isSameDay(previousTimestamp, message.createdAt)) {
         markup += dayDivider(message.createdAt);
@@ -153,7 +193,14 @@ function threadMarkup(messages, character, profile) {
       }
       const showAvatar =
         message.role === 'user' ? false : previousRole !== message.role;
-      markup += messageRow(message, character, profile, showAvatar);
+      markup += messageRow(
+        message,
+        character,
+        profile,
+        showAvatar,
+        false,
+        positions[index],
+      );
       previousTimestamp = message.createdAt;
       previousRole = message.role;
       return markup;
@@ -176,6 +223,7 @@ export function renderChat({ characterId, refresh }) {
   screen.className = 'screen screen--chat';
   screen.innerHTML = `
     ${chatHeader(character, initialStatus, initialStyle, initialStreak)}
+    <div class="chat-tagline-flash" data-tagline-flash role="status">对方更新了签名</div>
     <main class="chat-scroll" data-chat-scroll>
       <div class="chat-thread" data-chat-thread role="log" aria-label="和${escapeHTML(character.name)}的对话"></div>
     </main>
@@ -248,9 +296,21 @@ export function renderChat({ characterId, refresh }) {
       markup += dayDivider(message.createdAt);
       previousRole = null;
     }
+    const sameGroup = message.role === previousRole;
     const showAvatar =
       message.role === 'user' ? false : previousRole !== message.role;
-    markup += messageRow(message, character, profile, showAvatar, animate);
+    const position = sameGroup ? 'last' : 'single';
+    if (sameGroup) {
+      const rows = thread.querySelectorAll('.message-row[data-message-id]');
+      const prevRow = rows[rows.length - 1];
+      if (prevRow) {
+        setRowPosition(
+          prevRow,
+          prevRow.classList.contains('message-row--single') ? 'first' : 'middle',
+        );
+      }
+    }
+    markup += messageRow(message, character, profile, showAvatar, animate, position);
     const holder = document.createElement('div');
     holder.innerHTML = markup;
     while (holder.firstChild) thread.appendChild(holder.firstChild);
@@ -266,6 +326,7 @@ export function renderChat({ characterId, refresh }) {
     let markup = '';
     if (!previousTimestamp || !isSameDay(previousTimestamp, Date.now())) {
       markup += dayDivider(Date.now());
+      previousTimestamp = Date.now();
       previousRole = null;
     }
     const showAvatar = previousRole !== 'assistant';
@@ -280,9 +341,15 @@ export function renderChat({ characterId, refresh }) {
   const removePendingRow = () => {
     pendingRow?.remove();
     pendingRow = null;
-    const latest = getConversation(character.id)?.messages.at(-1);
-    previousTimestamp = latest?.createdAt || null;
-    previousRole = latest?.role || null;
+  };
+
+  const syncRowPositions = () => {
+    if (revealPending.length) return;
+    const messages = getConversation(character.id)?.messages || [];
+    const positions = groupPositions(messages);
+    thread.querySelectorAll('.message-row[data-message-id]').forEach((row, index) => {
+      if (positions[index]) setRowPosition(row, positions[index]);
+    });
   };
 
   const revealGap = (message) => {
@@ -365,10 +432,104 @@ export function renderChat({ characterId, refresh }) {
     });
   };
 
+  let taglineTimer = null;
+  const flashTagline = () => {
+    const node = screen.querySelector('[data-tagline-flash]');
+    if (!node) return;
+    node.classList.add('is-visible');
+    if (taglineTimer) window.clearTimeout(taglineTimer);
+    taglineTimer = window.setTimeout(() => node.classList.remove('is-visible'), 1800);
+  };
+
+  const openRawSheet = (message) => {
+    const raw = message.raw?.trim() || messageAsText(message);
+    openSheet({
+      title: '原始输出',
+      description: 'AI 本次返回的完整内容，方便排查格式问题。',
+      content: `<pre class="raw-output" data-raw-output>${escapeHTML(raw)}</pre>`,
+      actions: `<button class="button button--primary" type="button" data-copy-raw>复制</button>`,
+      onMount: (sheet) => {
+        sheet.querySelector('[data-copy-raw]').addEventListener('click', async () => {
+          const copied = await copyText(raw);
+          toast(copied ? '已复制' : '复制失败', {
+            tone: copied ? 'default' : 'danger',
+          });
+        });
+      },
+    });
+  };
+
+  const openEditSheet = (message) => {
+    openSheet({
+      title: '修改回复',
+      description: '改动会存入记录，也会影响之后的上下文。',
+      content: `<label class="field">
+        <span class="field__control field__control--area">
+          <textarea class="field__input field__textarea" rows="5" data-edit-content>${escapeHTML(message.content || '')}</textarea>
+        </span>
+      </label>`,
+      actions: `<div class="button-row">
+        <button class="button button--secondary" type="button" data-cancel-edit>取消</button>
+        <button class="button button--primary" type="button" data-save-edit>保存</button>
+      </div>`,
+      onMount: (sheet) => {
+        const textarea = sheet.querySelector('[data-edit-content]');
+        textarea.focus();
+        sheet.querySelector('[data-cancel-edit]').addEventListener('click', closeActiveSheet);
+        sheet.querySelector('[data-save-edit]').addEventListener('click', () => {
+          const value = textarea.value.trim();
+          if (!value) {
+            toast('回复内容不能为空', { tone: 'danger' });
+            textarea.focus();
+            return;
+          }
+          updateMessage(character.id, message.id, { content: value });
+          const text = thread.querySelector(
+            `[data-message-id="${message.id}"] .message-bubble__text`,
+          );
+          if (text) text.textContent = value;
+          closeActiveSheet();
+          toast('回复已修改');
+        });
+      },
+    });
+  };
+
+  const retryReply = () => {
+    if (isReplying(character.id)) {
+      toast('对方正在回复，稍等一下');
+      return;
+    }
+    if (revealPending.length) flushReveal();
+    const result = removeLastAssistantReply(character.id);
+    if (!result.removed.length) {
+      toast('还没有可以重试的回复');
+      return;
+    }
+    const removedIds = new Set(result.removed.map((message) => message.id));
+    thread.querySelectorAll('.message-row[data-message-id]').forEach((row) => {
+      if (removedIds.has(row.dataset.messageId)) row.remove();
+    });
+    let lastChild = thread.lastElementChild;
+    while (lastChild && lastChild.classList.contains('chat-day')) {
+      lastChild.remove();
+      lastChild = thread.lastElementChild;
+    }
+    const latest = getConversation(character.id)?.messages.at(-1);
+    previousTimestamp = latest?.createdAt || null;
+    previousRole = latest?.role || null;
+    if (!hasApiConfig()) {
+      toast('先配置 API，才能重新生成', { tone: 'danger' });
+      return;
+    }
+    startReply(character.id);
+  };
+
   const composer = createChatComposer({
     characterName: character.name,
     hasConfig: hasApiConfig(),
     sendMode: chatStyle.sendMode,
+    onCompose: () => scrollToBottom(true),
     onConfigure: () => {
       window.location.hash = '#/settings/api';
     },
@@ -382,6 +543,7 @@ export function renderChat({ characterId, refresh }) {
         onSticker: () => {
           openStickerPicker({ onPick: sendSticker });
         },
+        onRetry: retryReply,
       });
     },
     onReceive: () => {
@@ -440,6 +602,10 @@ export function renderChat({ characterId, refresh }) {
       else appendMessage(event.message, { animate: true });
       return;
     }
+    if (event.type === 'tagline') {
+      flashTagline();
+      return;
+    }
     if (event.type === 'cancelled') {
       removePendingRow();
       composer.setStreaming(false);
@@ -476,6 +642,10 @@ export function renderChat({ characterId, refresh }) {
           tone: copied ? 'default' : 'danger',
         });
       },
+      onEdit:
+        message.role === 'assistant' ? () => openEditSheet(message) : undefined,
+      onRaw:
+        message.role === 'assistant' ? () => openRawSheet(message) : undefined,
       onQuote: () => {
         composer.setQuote({
           messageId: message.id,
@@ -500,6 +670,8 @@ export function renderChat({ characterId, refresh }) {
           thread.innerHTML = emptyState(character);
           previousTimestamp = null;
           previousRole = null;
+        } else {
+          syncRowPositions();
         }
         toast('消息已删除');
       },
@@ -550,6 +722,14 @@ export function renderChat({ characterId, refresh }) {
     });
   });
 
+  screen.querySelector('[data-open-brief]').addEventListener('click', () => {
+    openPartnerSheet({
+      character: getCharacter(character.id),
+      compact: true,
+      onChanged: refresh,
+    });
+  });
+
   requestAnimationFrame(() => {
     scrollToBottom(true);
     const pending = takePendingPrompt();
@@ -565,6 +745,7 @@ export function renderChat({ characterId, refresh }) {
       disposed = true;
       clearRevealTimer();
       revealPending = [];
+      if (taglineTimer) window.clearTimeout(taglineTimer);
       closeMessageMenu();
       unsubscribe();
       setActiveChat(null);

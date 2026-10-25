@@ -1,7 +1,11 @@
-const TAG_PATTERN = /\[(status|msg|redbag|sticker)\]/gi;
-const TAG_TOKEN_PATTERN = /\[\/?(?:status|msg|redbag|sticker)\]/gi;
+const TAG_PATTERN = /\[(status|msg|redbag|sticker|tagline)\]/gi;
+const TAG_TOKEN_PATTERN = /\[\/?(?:status|msg|redbag|sticker|tagline)\]/gi;
 
 function cleanStatus(value) {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 24);
+}
+
+function cleanTagline(value) {
   return value.replace(/\s+/g, ' ').trim().slice(0, 24);
 }
 
@@ -48,7 +52,7 @@ function collectBlocks(raw) {
 function plainFallback(raw, blocks) {
   let plain = raw;
   const hiddenBlocks = blocks
-    .filter((block) => block.tag === 'status' || block.tag === 'sticker')
+    .filter((block) => block.tag === 'status' || block.tag === 'sticker' || block.tag === 'tagline')
     .sort((a, b) => b.from - a.from);
   for (const block of hiddenBlocks) {
     plain = `${plain.slice(0, block.from)} ${plain.slice(block.to)}`;
@@ -77,6 +81,8 @@ export function parseAIReply(raw, { stickers = [] } = {}) {
   const blocks = collectBlocks(source);
   const statusBlock = [...blocks].reverse().find((block) => block.tag === 'status');
   const status = statusBlock ? cleanStatus(statusBlock.content) : '';
+  const taglineBlock = [...blocks].reverse().find((block) => block.tag === 'tagline');
+  const tagline = taglineBlock ? cleanTagline(taglineBlock.content) : '';
   const segments = [];
   const stickerByName = new Map(
     stickers
@@ -116,7 +122,7 @@ export function parseAIReply(raw, { stickers = [] } = {}) {
     }
   }
 
-  return { status, segments };
+  return { status, tagline, segments };
 }
 
 export function messageAsText(message) {

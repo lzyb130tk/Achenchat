@@ -11,6 +11,7 @@ export function createChatComposer({
   onMore,
   onReceive,
   onModeChange,
+  onCompose,
 }) {
   const element = document.createElement('div');
   element.className = 'chat-composer';
@@ -144,7 +145,10 @@ export function createChatComposer({
   input.addEventListener('input', () => {
     resize();
     updateSendState();
+    onCompose?.();
   });
+
+  input.addEventListener('focus', () => onCompose?.());
 
   input.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;

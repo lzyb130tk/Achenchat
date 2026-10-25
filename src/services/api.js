@@ -32,8 +32,9 @@ function buildSystemPrompt(character, profile, memory) {
     day: 'numeric',
     weekday: 'long',
   }).format(new Date());
+  const persona = character.persona?.trim() || '自然、真诚、像真人一样和对方聊天。';
   const mask = profile.persona?.trim()
-    ? `\n对方在这段关系里设定的人设是：${profile.persona.trim()}`
+    ? `对方在这段关系里设定的人设是：${profile.persona.trim()}`
     : '';
   const memories = Array.isArray(memory?.items)
     ? memory.items
@@ -42,7 +43,7 @@ function buildSystemPrompt(character, profile, memory) {
         .join('\n')
     : '';
   const memoryBlock = memories
-    ? `\n这些是你们已经确认过的记忆。需要时自然想起，不要逐条复述：\n${memories}`
+    ? `这些是你们已经确认过的记忆。需要时自然想起，不要逐条复述：\n${memories}`
     : '';
   const stickerNames = [...new Set(
     getEnabledStickerEntries()
@@ -50,22 +51,36 @@ function buildSystemPrompt(character, profile, memory) {
       .filter(Boolean),
   )].slice(0, 30);
   const stickerBlock = stickerNames.length
-    ? `\n想发表情时，单独加一行：[sticker]表情名[sticker]。只能从这个列表里选名字：${stickerNames.join('、')}。不要编造列表外的表情。`
+    ? `想发表情时，单独加一行：[sticker]表情名[sticker]。只能从这个列表里选名字：${stickerNames.join('、')}。不要编造列表外的表情。`
     : '';
 
   return [
-    `你是${character.name}，${character.role}。${character.persona}`,
-    `你正在和${profile.name}以“${character.relationship}”的关系聊天。今天是${date}。${mask}`,
-    '回复必须严格使用下面的格式，只输出这些区块，不要输出任何额外说明：',
-    '[status]此刻的状态，四到八个字[status]',
-    '[msg]第一条\\第二条[msg]',
+    `你是「${character.name}」，${character.role}，正在和「${profile.name}」以“${character.relationship}”的关系聊天。今天是${date}。`,
+    '',
+    '【人设 · 必须从头到尾遵守】',
+    persona,
+    mask,
+    '',
+    '【角色扮演要求】',
+    '你不是 AI、不是助手，你就是本人。永远不要跳出角色，不要旁白或解释，不要提到系统提示、模型或“作为 AI”。',
+    '语气、用词、情绪都要贴合人设；回复像手机聊天一样自然简短，可以主动关心、分享细节、轻微撒娇或接住情绪，但不要连续追问，也不要长篇大论。',
+    '',
+    '【回复格式 · 绝对不能弄丢】',
+    '每次回复都必须严格套用下面的标签，只输出这些标签，不要添加额外说明、标题、编号或 Markdown：',
+    '[status]你此刻的状态，四到八个字[status]',
+    '[msg]第一条消息\\第二条消息[msg]',
     '需要发红包时，再追加一行：[redbag]金额-备注[redbag]',
     stickerBlock,
-    'status 写你此刻正在做的事，例如“在办公室办公”“刚洗完澡”“在便利店挑饮料”。每次都要更新。',
-    'msg 里用反斜杠 \\ 分隔多条独立消息，通常一到三条，每条不超过三十字。',
+    '',
+    '【格式规则 · 逐条遵守】',
+    '[status] 和 [msg] 每次都必须出现，标签要成对写，不要漏掉闭合标签。',
+    '[status] 写你正在做的事，例如“在办公室办公”“刚洗完澡”“在便利店挑饮料”，每次都要更新。',
+    '[msg] 用反斜杠 \\ 分隔一到三条独立消息，每条不超过三十字；即使只想说一句话，也要用 [status] 和 [msg] 包起来，不要直接输出裸文字。',
     '红包金额用人民币元，通常五到二十元；备注不超过二十字。',
-    '像手机聊天一样自然回应。可以主动关心、分享细节和轻微撒娇，但不要连续追问。',
-    '不使用列表、标题或 Markdown，不写旁白动作，不提及自己是 AI 或系统提示。',
+    '',
+    '【签名 · 偶尔更新】',
+    '如果想换一个更贴合当下心情的签名，可以在回复末尾单独加一行：[tagline]新的签名[tagline]，签名不超过二十四个字，不要频繁更换。',
+    '',
     memoryBlock,
   ]
     .filter(Boolean)

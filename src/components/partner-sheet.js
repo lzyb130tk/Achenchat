@@ -10,14 +10,14 @@ import { icon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
-export function openPartnerSheet({ character, onChanged, onMuteChange }) {
+export function openPartnerSheet({ character, onChanged, onMuteChange, compact = false }) {
   openSheet({
     title: character.name,
     description: `${character.relationship} · ${character.role}`,
     content: `<div class="partner-profile">
       ${characterAvatar(character, '2xl')}
       <p class="partner-profile__tagline">“${escapeHTML(character.tagline)}”</p>
-      <p class="partner-profile__persona">${escapeHTML(character.persona || '还没有写下人设。')}</p>
+      ${compact ? '' : `<p class="partner-profile__persona">${escapeHTML(character.persona || '还没有写下人设。')}</p>`}
     </div>
     <div class="action-list action-list--compact">
       <button class="action-row" type="button" data-edit-character>

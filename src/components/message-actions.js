@@ -18,7 +18,7 @@ export function closeMessageMenu() {
   closeMenu();
 }
 
-export function openMessageMenu({ anchor, onCopy, onQuote, onDelete }) {
+export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onRaw }) {
   closeMenu();
   const layer = document.createElement('div');
   layer.className = 'message-menu-layer';
@@ -31,6 +31,12 @@ export function openMessageMenu({ anchor, onCopy, onQuote, onDelete }) {
       <button class="message-menu__item" type="button" role="menuitem" data-menu-action="quote">
         ${icon('arrow-elbow-down-right')}<span>引用</span>
       </button>
+      ${onEdit ? `<button class="message-menu__item" type="button" role="menuitem" data-menu-action="edit">
+        ${icon('pencil-simple')}<span>修改</span>
+      </button>` : ''}
+      ${onRaw ? `<button class="message-menu__item" type="button" role="menuitem" data-menu-action="raw">
+        ${icon('file-text')}<span>查看原始输出</span>
+      </button>` : ''}
       <button class="message-menu__item message-menu__item--danger" type="button" role="menuitem" data-menu-action="delete">
         ${icon('trash-simple')}<span>删除</span>
       </button>
@@ -111,6 +117,8 @@ export function openMessageMenu({ anchor, onCopy, onQuote, onDelete }) {
       closeMenu();
       if (action === 'copy') onCopy?.();
       else if (action === 'quote') onQuote?.();
+      else if (action === 'edit') onEdit?.();
+      else if (action === 'raw') onRaw?.();
       else if (action === 'delete') onDelete?.();
     });
   });

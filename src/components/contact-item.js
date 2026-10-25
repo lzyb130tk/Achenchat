@@ -12,7 +12,7 @@ export function contactItem({
     ${characterAvatar(character, 'md')}
     <span class="contact-item__main">
       <span class="contact-item__name">${escapeHTML(character.name)}</span>
-      <span class="contact-item__meta">${escapeHTML(character.role)} · ${escapeHTML(character.tagline)}</span>
+      <span class="contact-item__meta">${escapeHTML(character.tagline)}</span>
     </span>
     ${character.muted ? `<span class="contact-item__muted" aria-label="已免打扰">${icon('bell-slash')}</span>` : ''}`;
 

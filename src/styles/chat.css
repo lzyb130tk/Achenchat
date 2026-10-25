@@ -1,4 +1,5 @@
 .screen--chat {
+  position: relative;
   background:
     radial-gradient(120% 50% at 50% 0%, var(--color-surface-soft), transparent 62%),
     var(--color-bg);
@@ -182,6 +183,32 @@
   height: 5px;
 }
 
+.chat-tagline-flash {
+  position: absolute;
+  z-index: 6;
+  top: 64px;
+  left: 50%;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: 1.5;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -6px);
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.chat-tagline-flash.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .chat-scroll {
   flex: 1;
   min-height: 0;
@@ -225,12 +252,12 @@
 }
 
 .message-row + .message-row {
-  margin-top: 4px;
+  margin-top: var(--chat-message-gap, 4px);
 }
 
 .message-row--user + .message-row--assistant,
 .message-row--assistant + .message-row--user {
-  margin-top: 14px;
+  margin-top: calc(var(--chat-message-gap, 4px) + 10px);
 }
 
 .message-row--user {
@@ -261,15 +288,34 @@
 }
 
 .message-bubble--assistant {
-  border-radius: 19px 19px 19px 6px;
+  border-radius: 19px;
   background: var(--color-surface);
   color: var(--color-ink);
 }
 
 .message-bubble--user {
-  border-radius: 19px 19px 6px 19px;
+  border-radius: 19px;
   background: var(--color-action);
   color: var(--color-action-ink);
+}
+
+/* Grouped corners (Telegram-style). Custom bubble CSS keeps full control. */
+.screen--chat:not([data-custom-bubble]) .message-row--first .message-bubble--assistant,
+.screen--chat:not([data-custom-bubble]) .message-row--single .message-bubble--assistant {
+  border-radius: 19px 19px 19px 6px;
+}
+
+.screen--chat:not([data-custom-bubble]) .message-row--first .message-bubble--user,
+.screen--chat:not([data-custom-bubble]) .message-row--single .message-bubble--user {
+  border-radius: 19px 19px 6px 19px;
+}
+
+.screen--chat:not([data-custom-bubble]) .message-row--last .message-bubble--assistant {
+  border-radius: 6px 19px 19px 19px;
+}
+
+.screen--chat:not([data-custom-bubble]) .message-row--last .message-bubble--user {
+  border-radius: 19px 6px 19px 19px;
 }
 
 .message-bubble.is-thinking {
@@ -1462,6 +1508,21 @@
 .message-menu__item--danger,
 .message-menu__item--danger .ph {
   color: var(--color-danger);
+}
+
+.raw-output {
+  max-height: 46vh;
+  margin: 0;
+  padding: 12px;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  color: var(--color-ink-secondary);
+  font-family: "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 /* Chat settings hierarchy */
