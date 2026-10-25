@@ -1,0 +1,20 @@
+{
+  "name": "Achat",
+  "short_name": "Achat",
+  "description": "和 AI 恋人慢慢聊天。",
+  "lang": "zh-CN",
+  "start_url": "./index.html#/messages",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4efe8",
+  "theme_color": "#f4efe8",
+  "icons": [
+    {
+      "src": "src/assets/achat-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Achat">
+  <defs>
+    <radialGradient id="glow" cx="78%" cy="12%" r="76%">
+      <stop offset="0" stop-color="#d48660" stop-opacity=".68"/>
+      <stop offset=".56" stop-color="#8a5238" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#2b221c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#352820"/>
+      <stop offset="1" stop-color="#211a16"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#base)"/>
+  <rect width="512" height="512" rx="116" fill="url(#glow)"/>
+  <circle cx="398" cy="108" r="116" fill="#e2a17a" opacity=".14"/>
+  <text x="256" y="348" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="312" font-weight="400" fill="#fcf3e8">a</text>
+</svg>
