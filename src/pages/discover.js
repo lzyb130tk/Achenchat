@@ -1,18 +1,83 @@
 import { appHeader } from '../components/app-header.js';
 import { bottomNav } from '../components/bottom-nav.js';
-import { avatar } from '../components/avatar.js';
+import { avatar, characterAvatar } from '../components/avatar.js';
 import { icon } from '../components/icons.js';
-import { SCENES, getCharacter } from '../data/characters.js';
-import { setPendingPrompt } from '../services/prompt.js';
-import { escapeHTML } from '../services/utils.js';
+import { sectionHeading } from '../components/section-heading.js';
+import { openSheet } from '../components/sheet.js';
+import {
+  MINI_PROGRAMS,
+  drawMiniResult,
+  getMiniProgram,
+} from '../data/mini-programs.js';
+import { MOMENTS } from '../data/moments.js';
+import { getCharacter } from '../services/store.js';
+import { escapeHTML, formatRelativeTime } from '../services/utils.js';
 
-function sceneTitle(scene) {
-  return escapeHTML(scene.title).replace('\n', '<br>');
+function openMiniProgram(id) {
+  const program = getMiniProgram(id);
+  if (!program) return;
+  let result = drawMiniResult(program);
+
+  const content = () => `<div class="mini-result mini-result--${program.tone}">
+    <span class="mini-result__icon">${icon(program.icon)}</span>
+    <span class="mini-result__prompt">${escapeHTML(program.prompt)}</span>
+    <p class="mini-result__text">${escapeHTML(result)}</p>
+  </div>`;
+
+  openSheet({
+    title: program.name,
+    content: content(),
+    actions: `<button class="button button--primary" type="button" data-reroll>再来一次</button>`,
+    onMount: (sheet) => {
+      sheet.querySelector('[data-reroll]').addEventListener('click', () => {
+        let next = drawMiniResult(program);
+        if (program.results.length > 1) {
+          while (next === result) next = drawMiniResult(program);
+        }
+        result = next;
+        sheet.querySelector('.mini-result').outerHTML = content();
+      });
+    },
+  });
+}
+
+function momentsEntry() {
+  const visible = MOMENTS.slice(0, 3)
+    .map((moment) => getCharacter(moment.characterId))
+    .filter(Boolean);
+  const lead = MOMENTS[0];
+  const timestamp = Date.now() - lead.minutesAgo * 60000;
+
+  return `<a class="moments-entry" href="#/moments">
+    <span class="moments-entry__top">
+      <span class="moments-entry__label">${icon('image-square')}朋友圈</span>
+      <span class="moments-entry__time">${formatRelativeTime(timestamp)}</span>
+    </span>
+    <span class="moments-entry__quote">“${escapeHTML(lead.text)}”</span>
+    <span class="moments-entry__footer">
+      <span class="moments-entry__avatars">
+        ${visible
+          .map((character) => characterAvatar(character, 'xs'))
+          .join('')}
+        <span class="moments-entry__names">${visible.length} 位伙伴的近况</span>
+      </span>
+      <span class="moments-entry__arrow">${icon('arrow-up-right')}</span>
+    </span>
+  </a>`;
+}
+
+function shakeEntry() {
+  return `<a class="shake-entry" href="#/shake">
+    <span class="shake-entry__icon">${avatar({ mark: '遇', tone: 'sky', size: 'md', label: '摇一摇' })}</span>
+    <span class="shake-entry__copy">
+      <strong>摇一摇</strong>
+      <small>随机遇见一个人，从一次偶遇开始。</small>
+    </span>
+    <span class="shake-entry__arrow">${icon('caret-right')}</span>
+  </a>`;
 }
 
 export function renderDiscover() {
-  const [featured, ...more] = SCENES;
-  const character = getCharacter(featured.characterId);
   const screen = document.createElement('section');
   screen.className = 'screen';
 
@@ -20,49 +85,27 @@ export function renderDiscover() {
     ${appHeader({ title: '发现' })}
     <main class="page-scroll">
       <div class="page-content page-content--discover">
-        <a class="discover-feature" href="#/chat/${featured.characterId}" data-scene="${featured.id}">
-          <span class="discover-feature__glow" aria-hidden="true"></span>
-          <span class="discover-feature__top">
-            <span class="discover-feature__badge">${icon(featured.icon)}${escapeHTML(featured.kicker)}</span>
-            <span class="discover-feature__arrow">${icon('arrow-up-right')}</span>
-          </span>
-          <span class="discover-feature__copy">
-            <span class="discover-feature__title">${sceneTitle(featured)}</span>
-            <span class="discover-feature__subtitle">${escapeHTML(featured.subtitle)}</span>
-          </span>
-          <span class="discover-feature__cta">
-            ${avatar({ mark: character.mark, tone: character.tone, size: 'xs', label: character.name })}
-            <span>开始聊天</span>
-            <span class="discover-feature__cta-arrow">${icon('arrow-right')}</span>
-          </span>
-        </a>
-        <section class="scenes-block">
-          <div class="section-heading"><h2>更多片刻</h2></div>
-          <div class="scene-list">
-            ${more
-              .map((scene) => {
-                const sceneCharacter = getCharacter(scene.characterId);
-                return `<a class="scene-item" href="#/chat/${scene.characterId}" data-scene="${scene.id}">
-                  <span class="scene-item__icon">${icon(scene.icon)}</span>
-                  <span class="scene-item__copy">
-                    <span class="scene-item__title">${escapeHTML(scene.title)}</span>
-                    <span class="scene-item__meta">和${escapeHTML(sceneCharacter.name)} · ${escapeHTML(scene.kicker)}</span>
-                  </span>
-                  <span class="scene-item__arrow">${icon('caret-right')}</span>
-                </a>`;
-              })
-              .join('')}
+        ${momentsEntry()}
+        <section class="mini-block">
+          ${sectionHeading({ title: '小程序', aside: '随手用一下' })}
+          <div class="mini-grid">
+            ${MINI_PROGRAMS.map(
+              (program) => `<button class="mini-tile mini-tile--${program.tone}" type="button" data-mini="${program.id}">
+                <span class="mini-tile__icon">${icon(program.icon)}</span>
+                <span class="mini-tile__name">${escapeHTML(program.name)}</span>
+              </button>`,
+            ).join('')}
           </div>
+        </section>
+        <section class="shake-block">
+          ${shakeEntry()}
         </section>
       </div>
     </main>
     ${bottomNav('discover')}`;
 
-  screen.querySelectorAll('[data-scene]').forEach((link) => {
-    link.addEventListener('click', () => {
-      const scene = SCENES.find((item) => item.id === link.dataset.scene);
-      if (scene) setPendingPrompt(scene.starter);
-    });
+  screen.querySelectorAll('[data-mini]').forEach((button) => {
+    button.addEventListener('click', () => openMiniProgram(button.dataset.mini));
   });
 
   return { element: screen };

@@ -1,78 +1,80 @@
 import { appHeader } from '../components/app-header.js';
 import { bottomNav } from '../components/bottom-nav.js';
-import { characterAvatar } from '../components/avatar.js';
+import { openCharacterEditor } from '../components/character-editor.js';
+import {
+  bindLongPress,
+  openConversationActions,
+} from '../components/conversation-actions.js';
 import { conversationItem } from '../components/conversation-item.js';
-import { iconButton, icon } from '../components/icons.js';
+import { icon, iconButton } from '../components/icons.js';
 import { openSearchSheet } from '../components/search-sheet.js';
-import { sectionHeading } from '../components/section-heading.js';
+import { onDataChanged } from '../services/events.js';
 import { getSortedConversations } from '../services/store.js';
-import { escapeHTML } from '../services/utils.js';
+import { messagePreview } from '../services/utils.js';
 
-function featureCard(item) {
-  const { character, conversation, lastMessage } = item;
-  const assistantMessage = [...conversation.messages]
-    .reverse()
-    .find((message) => message.role === 'assistant');
-  const quote = (assistantMessage || lastMessage).content;
-
-  return `<a class="feature-chat" href="#/chat/${character.id}">
-    <span class="feature-chat__top">
-      <span class="feature-chat__eyebrow"><span class="status-dot status-dot--accent"></span>此刻在线 · ${escapeHTML(character.relationship)}</span>
-      ${characterAvatar(character, 'md')}
-    </span>
-    <span class="feature-chat__content">
-      <span class="feature-chat__name">${escapeHTML(character.name)}</span>
-      <span class="feature-chat__quote">“${escapeHTML(quote)}”</span>
-    </span>
-    <span class="feature-chat__footer">
-      <span class="feature-chat__cta">继续聊天 ${icon('arrow-up-right')}</span>
-      ${conversation.unread ? `<span class="feature-chat__unread">${conversation.unread} 条新消息</span>` : ''}
-    </span>
-  </a>`;
-}
-
-function emptyState() {
-  return `<section class="empty-state">
-    <span class="empty-state__icon">${icon('chat-circle-dots')}</span>
+function emptyState(onCreate) {
+  const element = document.createElement('section');
+  element.className = 'empty-state';
+  element.innerHTML = `<span class="empty-state__icon">${icon('chat-circle-dots')}</span>
     <h2>还没有对话</h2>
     <p>去找一个想说话的人。</p>
-    <a class="button button--primary empty-state__button" href="#/contacts">看看联系人</a>
-  </section>`;
+    <button class="button button--primary empty-state__button" type="button" data-empty-create>新建伙伴</button>`;
+  element.querySelector('[data-empty-create]').addEventListener('click', onCreate);
+  return element;
 }
 
-export function renderMessages() {
+export function renderMessages({ refresh }) {
   const screen = document.createElement('section');
   screen.className = 'screen';
   const conversations = getSortedConversations();
-  const [featured, ...rest] = conversations;
+
+  const openCreate = () => {
+    openCharacterEditor({
+      onSaved: (character) => {
+        window.location.hash = `#/chat/${character.id}`;
+      },
+    });
+  };
+
+  const headerAction = `${iconButton({
+    name: 'magnifying-glass',
+    label: '搜索消息',
+    action: 'data-action="search"',
+  })}${iconButton({
+    name: 'plus',
+    label: '新建伙伴',
+    action: 'data-action="create"',
+  })}`;
 
   screen.innerHTML = `
-    ${appHeader({
-      title: '消息',
-      action: iconButton({ name: 'magnifying-glass', label: '搜索消息', action: 'data-action="search"' }),
-    })}
+    ${appHeader({ title: '消息', action: headerAction })}
     <main class="page-scroll">
       <div class="page-content page-content--messages">
-        ${featured ? featureCard(featured) : emptyState()}
-        ${rest.length
-          ? `<section class="recent-block">
-              ${sectionHeading({ title: '最近', aside: `${rest.length} 段对话` })}
-              <div class="conversation-list">
-                ${rest
-                  .map(({ character, conversation, lastMessage }) =>
-                    conversationItem({
-                      character,
-                      lastMessage,
-                      unread: conversation.unread,
-                    }),
-                  )
-                  .join('')}
-              </div>
-            </section>`
+        ${conversations.length
+          ? `<div class="conversation-list conversation-list--main">
+              ${conversations
+                .map(({ character, conversation, lastMessage }) =>
+                  conversationItem({
+                    character,
+                    lastMessage,
+                    unread: conversation.unread,
+                    pinned: conversation.pinned,
+                    data: `data-conversation-id="${character.id}"`,
+                  }),
+                )
+                .join('')}
+            </div>
+            <p class="list-hint">长按对话可以置顶、免打扰或删除</p>`
           : ''}
       </div>
     </main>
     ${bottomNav('messages')}`;
+
+  if (!conversations.length) {
+    screen
+      .querySelector('.page-content--messages')
+      .appendChild(emptyState(openCreate));
+  }
 
   screen.querySelector('[data-action="search"]')?.addEventListener('click', () => {
     openSearchSheet({
@@ -82,11 +84,34 @@ export function renderMessages() {
       items: conversations.map(({ character, lastMessage }) => ({
         character,
         href: `#/chat/${character.id}`,
-        subtitle: lastMessage.content,
-        searchText: `${character.name} ${character.role} ${character.tagline} ${lastMessage.content}`,
+        subtitle: messagePreview(lastMessage),
+        searchText: `${character.name} ${character.role} ${character.tagline} ${messagePreview(lastMessage)}`,
       })),
     });
   });
 
-  return { element: screen };
+  screen.querySelector('[data-action="create"]')?.addEventListener('click', openCreate);
+
+  bindLongPress(screen, '[data-conversation-id]', (item) => {
+    const found = conversations.find(
+      ({ character }) => character.id === item.dataset.conversationId,
+    );
+    if (!found) return;
+    openConversationActions({
+      character: found.character,
+      conversation: found.conversation,
+      refresh,
+    });
+  });
+
+  const unsubscribe = onDataChanged(() => {
+    refresh();
+  });
+
+  return {
+    element: screen,
+    cleanup() {
+      unsubscribe();
+    },
+  };
 }

@@ -1,6 +1,13 @@
 import { icon } from './icons.js';
 
-export function createChatComposer({ characterName, hasConfig, onSend, onStop, onConfigure }) {
+export function createChatComposer({
+  characterName,
+  hasConfig,
+  onSend,
+  onStop,
+  onConfigure,
+  onRedPacket,
+}) {
   const element = document.createElement('div');
   element.className = 'chat-composer';
   element.innerHTML = `
@@ -11,6 +18,9 @@ export function createChatComposer({ characterName, hasConfig, onSend, onStop, o
     </button>`}
     <div class="chat-composer__bar">
       <div class="chat-composer__field">
+        <button class="chat-composer__extra" type="button" aria-label="发红包" data-red-packet>
+          ${icon('envelope-simple')}
+        </button>
         <textarea
           class="chat-composer__input"
           rows="1"
@@ -27,6 +37,7 @@ export function createChatComposer({ characterName, hasConfig, onSend, onStop, o
 
   const input = element.querySelector('.chat-composer__input');
   const sendButton = element.querySelector('[data-send]');
+  const redPacketButton = element.querySelector('[data-red-packet]');
   let streaming = false;
 
   const resize = () => {
@@ -69,10 +80,12 @@ export function createChatComposer({ characterName, hasConfig, onSend, onStop, o
   });
 
   element.querySelector('[data-configure]')?.addEventListener('click', onConfigure);
+  redPacketButton.addEventListener('click', () => onRedPacket?.());
 
   const setStreaming = (value) => {
     streaming = value;
     input.disabled = value;
+    redPacketButton.disabled = value;
     sendButton.classList.toggle('is-stopping', value);
     sendButton.setAttribute('aria-label', value ? '停止生成' : '发送');
     sendButton.innerHTML = value ? icon('stop', 'fill') : icon('paper-plane-tilt', 'fill');

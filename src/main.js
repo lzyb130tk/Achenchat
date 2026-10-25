@@ -1,3 +1,8 @@
 import { startApp } from './app.js';
+import { initStore } from './services/store.js';
 
-startApp();
+initStore()
+  .catch((error) => {
+    console.error('Store initialization failed', error);
+  })
+  .finally(startApp);

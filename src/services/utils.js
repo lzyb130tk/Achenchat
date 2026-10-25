@@ -47,3 +47,40 @@ export function formatFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+export function formatMoney(fen) {
+  return `¥${(Math.max(0, fen) / 100).toFixed(2)}`;
+}
+
+export function formatMoneyDelta(fen, type = '') {
+  const sign = type === 'redpacket-out' ? '−' : '+';
+  return `${sign}${formatMoney(fen)}`;
+}
+
+export function formatDateTime(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const time = new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+  if (startOfDay(now) === startOfDay(date)) return `今天 ${time}`;
+  if (startOfDay(now) - startOfDay(date) === 86400000) return `昨天 ${time}`;
+  return `${new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+  }).format(date)} ${time}`;
+}
+
+export function messagePreview(message) {
+  if (!message) return '';
+  if (message.type === 'redpacket') return '[红包] 恭喜发财，大吉大利';
+  if (message.type === 'sticker') return '[表情]';
+  return message.content || '';
+}
+
+export function firstNameMark(name) {
+  return Array.from(String(name || '你').trim() || '你').slice(-1)[0];
+}
+

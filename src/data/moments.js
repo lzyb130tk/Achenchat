@@ -1,0 +1,42 @@
+export const MOMENTS = [
+  {
+    id: 'moment-su-1',
+    characterId: 'su-mian',
+    text: '画到一半，窗外的光忽然落在纸上。就停在这里吧，剩下的一半留给你来的时候看。',
+    minutesAgo: 24,
+    likes: 18,
+    comments: [{ name: '迟夏', text: '这份光我闻到了甜味。' }],
+  },
+  {
+    id: 'moment-lin-1',
+    characterId: 'lin-ye',
+    text: '爬到半山腰开始下雨。躲进亭子里，反而看见了最好看的一片云。',
+    minutesAgo: 96,
+    likes: 26,
+    comments: [],
+  },
+  {
+    id: 'moment-chi-1',
+    characterId: 'chi-xia',
+    text: '今天试了桂花和一点点海盐。奇怪吗？尝过的人都说，像秋天坐在海边。',
+    minutesAgo: 210,
+    likes: 31,
+    comments: [{ name: '知微', text: '给我留一杯。' }],
+  },
+  {
+    id: 'moment-zhi-1',
+    characterId: 'zhi-wei',
+    text: '收了一本旧诗集，扉页写着“给十年后的你”。不知道十年前的人，有没有等到回信。',
+    minutesAgo: 330,
+    likes: 14,
+    comments: [],
+  },
+  {
+    id: 'moment-jiang-1',
+    characterId: 'jiang-yu',
+    text: '图纸改到第七版。删掉一条走廊之后，风终于能从南边穿进来。',
+    minutesAgo: 520,
+    likes: 9,
+    comments: [],
+  },
+];

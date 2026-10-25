@@ -9,9 +9,9 @@ function focusableElements(container) {
   )].filter((element) => element.offsetParent !== null);
 }
 
-export function closeActiveSheet({ immediate = false } = {}) {
+export function closeActiveSheet({ immediate = false, reason = 'dismiss' } = {}) {
   if (!activeSheet) return;
-  const { layer, returnFocus, cleanup } = activeSheet;
+  const { layer, returnFocus, cleanup, onDismiss } = activeSheet;
   activeSheet = null;
   cleanup();
   layer.classList.remove('is-open');
@@ -21,6 +21,9 @@ export function closeActiveSheet({ immediate = false } = {}) {
   };
   if (immediate) remove();
   else window.setTimeout(remove, 260);
+  if (reason === 'dismiss' && typeof onDismiss === 'function') {
+    window.setTimeout(onDismiss, 0);
+  }
 }
 
 export function openSheet({
@@ -30,8 +33,9 @@ export function openSheet({
   actions = '',
   className = '',
   onMount,
+  onDismiss,
 }) {
-  closeActiveSheet({ immediate: true });
+  closeActiveSheet({ immediate: true, reason: 'replace' });
 
   const app = document.getElementById('app');
   const titleId = `sheet-title-${Date.now()}`;
@@ -83,6 +87,7 @@ export function openSheet({
   activeSheet = {
     layer,
     returnFocus,
+    onDismiss,
     cleanup: () => document.removeEventListener('keydown', onKeydown),
   };
 

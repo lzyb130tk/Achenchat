@@ -34,8 +34,9 @@ function openStorageSheet() {
     <div class="detail-list">
       <div class="detail-row"><span>对话</span><strong>${stats.conversationCount} 段 · ${stats.messageCount} 条</strong></div>
       <div class="detail-row"><span>伙伴</span><strong>${stats.partnerCount} 位</strong></div>
+      <div class="detail-row"><span>存储方式</span><strong>IndexedDB · 本机</strong></div>
     </div>
-    <p class="sheet-note">所有内容仅保存在这台设备。</p>`,
+    <p class="sheet-note">所有内容仅保存在这台设备，不会上传到别处。</p>`,
   });
 }
 
@@ -58,7 +59,7 @@ function openAboutSheet() {
 function openBackupSheet(refresh) {
   openSheet({
     title: '数据备份与导入',
-    description: '备份包含对话与偏好，不包含 API 密钥。',
+    description: '备份包含对话、面具、钱包与偏好，不包含 API 密钥。',
     content: `<div class="action-list">
       <button class="action-row" type="button" data-export-backup>
         <span class="action-row__icon">${icon('download-simple')}</span>
@@ -109,7 +110,7 @@ function openBackupSheet(refresh) {
 
         openSheet({
           title: '导入备份',
-          description: '当前所有对话与偏好会被替换，API 密钥会保留。',
+          description: '当前所有数据会被替换，API 密钥会保留。',
           actions: `<div class="button-row">
             <button class="button button--secondary" type="button" data-cancel-import>取消</button>
             <button class="button button--primary" type="button" data-confirm-import>导入</button>
@@ -139,7 +140,7 @@ function openBackupSheet(refresh) {
 function openClearSheet(refresh) {
   openSheet({
     title: '清空数据',
-    description: '所有对话、偏好与本机 API 密钥都会被删除，且无法恢复。',
+    description: '所有对话、面具、钱包余额与本机 API 密钥都会被删除，且无法恢复。',
     actions: `<div class="button-row">
       <button class="button button--secondary" type="button" data-cancel-clear>取消</button>
       <button class="button button--danger" type="button" data-confirm-clear>清空</button>
