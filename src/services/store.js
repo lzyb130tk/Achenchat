@@ -106,6 +106,7 @@ function createChatStyle(raw = {}) {
     animationCss: text(raw.animationCss),
     typingSpeed: Math.round(Math.min(0.12, Math.max(0.005, speed)) * 1000) / 1000,
     sendMode: raw.sendMode === 'multi' ? 'multi' : 'single',
+    messageGroup: raw.messageGroup === 'each' ? 'each' : 'group',
     messageGap: Math.min(16, Math.max(0, Math.round(finite(raw.messageGap, DEFAULT_CHAT_STYLE.messageGap)))),
     background,
     backgroundImage: text(raw.backgroundImage),

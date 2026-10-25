@@ -211,7 +211,13 @@ async function parseStream(response, provider, signal, onDelta) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('data:')) return;
     const data = trimmed.slice(5).trim();
-    if (!data || data === '[DONE]') return;
+    if (!data) return;
+    // Some relays keep the connection open after [DONE]; treat it as the end
+    // of the reply instead of waiting for the body to close.
+    if (data === '[DONE]') {
+      finished = true;
+      return;
+    }
     let payload;
     try {
       payload = JSON.parse(data);
@@ -227,6 +233,10 @@ async function parseStream(response, provider, signal, onDelta) {
       text += delta;
       onDelta(delta);
     }
+    // OpenAI-compatible servers may mark the last chunk instead of sending [DONE].
+    if (provider !== 'anthropic' && payload?.choices?.[0]?.finish_reason) {
+      finished = true;
+    }
   };
 
   while (true) {
@@ -238,6 +248,12 @@ async function parseStream(response, provider, signal, onDelta) {
     buffer = lines.pop() || '';
     for (const line of lines) consume(line);
     if (finished) break;
+  }
+
+  if (finished) {
+    // Release the connection without aborting the run we already completed.
+    reader.cancel().catch(() => {});
+    return text;
   }
 
   buffer += decoder.decode();

@@ -262,6 +262,7 @@ export const DEFAULT_CHAT_STYLE = {
   animationCss: '',
   typingSpeed: 0.035,
   sendMode: 'single',
+  messageGroup: 'group',
   messageGap: 4,
   background: 'default',
   backgroundImage: '',

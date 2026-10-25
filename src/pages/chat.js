@@ -128,7 +128,7 @@ function messageRow(
 ) {
   const isUser = message.role === 'user';
   const avatarMarkup = isUser
-    ? `<span class="message-row__avatar message-row__avatar--user">${profileAvatar(profile, 'xs')}</span>`
+    ? `<span class="message-row__avatar message-row__avatar--user">${showAvatar ? profileAvatar(profile, 'xs') : ''}</span>`
     : `<span class="message-row__avatar">${showAvatar ? characterAvatar(character, 'xs') : ''}</span>`;
 
   return `<div class="message-row message-row--${isUser ? 'user' : 'assistant'} message-row--${position}${message.type !== 'text' ? ' message-row--rich' : ''}${animate ? ' is-new' : ''}" data-message-id="${message.id}">
@@ -148,7 +148,8 @@ function setRowPosition(row, position) {
   row.classList.add(`message-row--${position}`);
 }
 
-function groupPositions(messages) {
+function groupPositions(messages, mode = 'group') {
+  if (mode === 'each') return messages.map(() => 'single');
   return messages.map((message, index) => {
     const prev = messages[index - 1];
     const next = messages[index + 1];
@@ -167,6 +168,10 @@ function groupPositions(messages) {
   });
 }
 
+function showsAvatar(mode, role, previousRole) {
+  return mode === 'each' || previousRole !== role;
+}
+
 function dayDivider(timestamp) {
   return `<div class="chat-day"><span>${formatChatDay(timestamp)}</span></div>`;
 }
@@ -179,9 +184,9 @@ function emptyState(character) {
   </div>`;
 }
 
-function threadMarkup(messages, character, profile) {
+function threadMarkup(messages, character, profile, messageGroup = 'group') {
   if (!messages.length) return emptyState(character);
-  const positions = groupPositions(messages);
+  const positions = groupPositions(messages, messageGroup);
   let previousTimestamp = null;
   let previousRole = null;
   return messages
@@ -191,8 +196,7 @@ function threadMarkup(messages, character, profile) {
         markup += dayDivider(message.createdAt);
         previousRole = null;
       }
-      const showAvatar =
-        message.role === 'user' ? false : previousRole !== message.role;
+      const showAvatar = showsAvatar(messageGroup, message.role, previousRole);
       markup += messageRow(
         message,
         character,
@@ -236,6 +240,7 @@ export function renderChat({ characterId, refresh }) {
   let disposed = false;
   let revealPending = [];
   let revealTimer = null;
+  let pendingGroupSync = false;
   const deletedIds = new Set();
 
   const setHeaderStatus = (value) => {
@@ -258,7 +263,12 @@ export function renderChat({ characterId, refresh }) {
   let previousRole = conversation.messages.at(-1)?.role || null;
 
   const paintStatic = () => {
-    thread.innerHTML = threadMarkup(conversation.messages, character, profile);
+    thread.innerHTML = threadMarkup(
+      conversation.messages,
+      character,
+      profile,
+      chatStyle.messageGroup,
+    );
     applyChatStyle(screen, chatStyle);
   };
   paintStatic();
@@ -296,9 +306,13 @@ export function renderChat({ characterId, refresh }) {
       markup += dayDivider(message.createdAt);
       previousRole = null;
     }
-    const sameGroup = message.role === previousRole;
-    const showAvatar =
-      message.role === 'user' ? false : previousRole !== message.role;
+    const sameGroup =
+      chatStyle.messageGroup === 'group' && message.role === previousRole;
+    const showAvatar = showsAvatar(
+      chatStyle.messageGroup,
+      message.role,
+      previousRole,
+    );
     const position = sameGroup ? 'last' : 'single';
     if (sameGroup) {
       const rows = thread.querySelectorAll('.message-row[data-message-id]');
@@ -329,7 +343,11 @@ export function renderChat({ characterId, refresh }) {
       previousTimestamp = Date.now();
       previousRole = null;
     }
-    const showAvatar = previousRole !== 'assistant';
+    const showAvatar = showsAvatar(
+      chatStyle.messageGroup,
+      'assistant',
+      previousRole,
+    );
     markup += `<div class="message-row message-row--assistant message-row--pending"><span class="message-row__avatar">${showAvatar ? characterAvatar(character, 'xs') : ''}</span><div class="message-bubble message-bubble--assistant is-thinking"><span class="typing-dots" aria-label="正在输入"><i></i><i></i><i></i></span></div></div>`;
     const holder = document.createElement('div');
     holder.innerHTML = markup;
@@ -343,13 +361,38 @@ export function renderChat({ characterId, refresh }) {
     pendingRow = null;
   };
 
-  const syncRowPositions = () => {
+  const syncRowAppearance = () => {
     if (revealPending.length) return;
     const messages = getConversation(character.id)?.messages || [];
-    const positions = groupPositions(messages);
-    thread.querySelectorAll('.message-row[data-message-id]').forEach((row, index) => {
-      if (positions[index]) setRowPosition(row, positions[index]);
-    });
+    const positions = groupPositions(messages, chatStyle.messageGroup);
+    let previousRole = null;
+    let previousTimestamp = null;
+    thread
+      .querySelectorAll('.message-row[data-message-id]')
+      .forEach((row, index) => {
+        const message = messages[index];
+        if (!message) return;
+        if (positions[index]) setRowPosition(row, positions[index]);
+        if (!previousTimestamp || !isSameDay(previousTimestamp, message.createdAt)) {
+          previousRole = null;
+        }
+        const slot = row.querySelector('.message-row__avatar');
+        if (slot) {
+          const show = showsAvatar(
+            chatStyle.messageGroup,
+            message.role,
+            previousRole,
+          );
+          const inner = show
+            ? message.role === 'user'
+              ? profileAvatar(profile, 'xs')
+              : characterAvatar(character, 'xs')
+            : '';
+          slot.innerHTML = inner;
+        }
+        previousTimestamp = message.createdAt;
+        previousRole = message.role;
+      });
   };
 
   const revealGap = (message) => {
@@ -375,6 +418,10 @@ export function renderChat({ characterId, refresh }) {
     const rest = revealPending;
     finishReveal();
     rest.forEach((message) => appendMessage(message, { animate: false }));
+    if (pendingGroupSync) {
+      pendingGroupSync = false;
+      syncRowAppearance();
+    }
   };
 
   const revealStep = () => {
@@ -389,6 +436,11 @@ export function renderChat({ characterId, refresh }) {
     composer.setReceiving(false);
     if (revealPending.length) {
       revealTimer = window.setTimeout(revealStep, revealGap(message));
+      return;
+    }
+    if (pendingGroupSync) {
+      pendingGroupSync = false;
+      syncRowAppearance();
     }
   };
 
@@ -442,10 +494,13 @@ export function renderChat({ characterId, refresh }) {
   };
 
   const openRawSheet = (message) => {
-    const raw = message.raw?.trim() || messageAsText(message);
+    const hasRaw = Boolean(message.raw?.trim());
+    const raw = hasRaw ? message.raw.trim() : messageAsText(message);
     openSheet({
       title: '原始输出',
-      description: 'AI 本次返回的完整内容，方便排查格式问题。',
+      description: hasRaw
+        ? '本轮 AI 返回的完整原始内容，含 [status]、[msg] 等标签，方便排查格式问题。'
+        : '这条消息没有保存原始输出（较早的消息或种子对话），下面显示解析后的文字。',
       content: `<pre class="raw-output" data-raw-output>${escapeHTML(raw)}</pre>`,
       actions: `<button class="button button--primary" type="button" data-copy-raw>复制</button>`,
       onMount: (sheet) => {
@@ -518,6 +573,7 @@ export function renderChat({ characterId, refresh }) {
     const latest = getConversation(character.id)?.messages.at(-1);
     previousTimestamp = latest?.createdAt || null;
     previousRole = latest?.role || null;
+    syncRowAppearance();
     if (!hasApiConfig()) {
       toast('先配置 API，才能重新生成', { tone: 'danger' });
       return;
@@ -643,7 +699,9 @@ export function renderChat({ characterId, refresh }) {
         });
       },
       onEdit:
-        message.role === 'assistant' ? () => openEditSheet(message) : undefined,
+        message.role === 'assistant' && message.type === 'text'
+          ? () => openEditSheet(message)
+          : undefined,
       onRaw:
         message.role === 'assistant' ? () => openRawSheet(message) : undefined,
       onQuote: () => {
@@ -671,7 +729,7 @@ export function renderChat({ characterId, refresh }) {
           previousTimestamp = null;
           previousRole = null;
         } else {
-          syncRowPositions();
+          syncRowAppearance();
         }
         toast('消息已删除');
       },
@@ -705,10 +763,15 @@ export function renderChat({ characterId, refresh }) {
       character,
       style: chatStyle,
       onStyleChange: (next) => {
+        const groupChanged = next.messageGroup !== chatStyle.messageGroup;
         chatStyle = next;
         applyChatStyle(screen, chatStyle);
         updateSparkBadge();
         composer.setMode(chatStyle.sendMode);
+        if (groupChanged) {
+          if (revealPending.length) pendingGroupSync = true;
+          else syncRowAppearance();
+        }
       },
     });
   });

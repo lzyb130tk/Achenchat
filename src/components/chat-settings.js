@@ -390,7 +390,20 @@ export function openChatSettings({ character, style, onStyleChange }) {
           <button class="text-button text-button--small" type="button" data-copy-animation>${icon('copy')}复制默认代码</button>`;
       };
 
-      const bubbleMarkup = () => `<label class="range-row">
+      const bubbleMarkup = () => `<div class="subsection-head"><h4>消息形式</h4></div>
+        <div class="choice-list">
+          <button class="choice-card${current.messageGroup !== 'each' ? ' is-selected' : ''}" type="button" data-message-group="group">
+            <span class="choice-card__icon">${icon('stack')}</span>
+            <span class="choice-card__copy"><strong>连续气泡</strong><small>一个头像带几条消息，气泡连在一起</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+          <button class="choice-card${current.messageGroup === 'each' ? ' is-selected' : ''}" type="button" data-message-group="each">
+            <span class="choice-card__icon">${icon('chats-circle')}</span>
+            <span class="choice-card__copy"><strong>逐条气泡</strong><small>每条消息单独一个气泡和一个头像</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+        </div>
+        <label class="range-row">
           <span class="range-row__top"><span>消息间隔</span><output data-gap-output>${current.messageGap}px</output></span>
           <input class="range" type="range" min="0" max="16" step="1" value="${current.messageGap}" data-message-gap>
         </label>
@@ -625,6 +638,13 @@ export function openChatSettings({ character, style, onStyleChange }) {
         const presetForm = content.querySelector('[data-preset-form]');
         const gap = content.querySelector('[data-message-gap]');
         const gapOutput = content.querySelector('[data-gap-output]');
+
+        content.querySelectorAll('[data-message-group]').forEach((button) => {
+          button.addEventListener('click', () => {
+            notify({ messageGroup: button.dataset.messageGroup });
+            paint();
+          });
+        });
 
         gap.addEventListener('input', () => {
           gapOutput.textContent = `${gap.value}px`;

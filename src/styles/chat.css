@@ -1621,6 +1621,10 @@
   letter-spacing: -0.015em;
 }
 
+.settings-subnav + .subsection-head {
+  margin-top: 0;
+}
+
 .settings-note {
   margin-bottom: 15px;
   padding: 0 2px;
