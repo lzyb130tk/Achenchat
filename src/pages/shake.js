@@ -58,7 +58,7 @@ export function renderShake() {
     const { character, messages } = pending;
     resultSlot.innerHTML = `<section class="stranger-card">
       <div class="stranger-card__head">
-        ${avatar({ mark: character.mark, tone: character.tone, size: 'lg', label: character.name })}
+        ${avatar({ mark: character.mark, tone: character.tone, size: 'lg', label: character.name, src: character.avatar || '' })}
         <div class="stranger-card__identity">
           <h3>${escapeHTML(character.name)}</h3>
           <p>${escapeHTML(character.role)} · ${escapeHTML(character.relationship)}</p>

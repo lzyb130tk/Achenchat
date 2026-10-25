@@ -1,5 +1,5 @@
-const TAG_PATTERN = /\[(status|msg|redbag)\]/gi;
-const TAG_TOKEN_PATTERN = /\[\/?(?:status|msg|redbag)\]/gi;
+const TAG_PATTERN = /\[(status|msg|redbag|sticker)\]/gi;
+const TAG_TOKEN_PATTERN = /\[\/?(?:status|msg|redbag|sticker)\]/gi;
 
 function cleanStatus(value) {
   return value.replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -47,10 +47,10 @@ function collectBlocks(raw) {
 
 function plainFallback(raw, blocks) {
   let plain = raw;
-  const statusBlocks = blocks
-    .filter((block) => block.tag === 'status')
+  const hiddenBlocks = blocks
+    .filter((block) => block.tag === 'status' || block.tag === 'sticker')
     .sort((a, b) => b.from - a.from);
-  for (const block of statusBlocks) {
+  for (const block of hiddenBlocks) {
     plain = `${plain.slice(0, block.from)} ${plain.slice(block.to)}`;
   }
   return plain.replace(TAG_TOKEN_PATTERN, ' ').trim();
@@ -72,12 +72,17 @@ function parseAmount(content) {
   };
 }
 
-export function parseAIReply(raw) {
+export function parseAIReply(raw, { stickers = [] } = {}) {
   const source = typeof raw === 'string' ? raw : '';
   const blocks = collectBlocks(source);
   const statusBlock = [...blocks].reverse().find((block) => block.tag === 'status');
   const status = statusBlock ? cleanStatus(statusBlock.content) : '';
   const segments = [];
+  const stickerByName = new Map(
+    stickers
+      .filter((sticker) => sticker?.name && sticker?.url)
+      .map((sticker) => [String(sticker.name).trim(), sticker]),
+  );
 
   for (const block of blocks) {
     if (block.tag === 'msg') {
@@ -89,6 +94,19 @@ export function parseAIReply(raw) {
     if (block.tag === 'redbag') {
       const packet = parseAmount(block.content);
       if (packet) segments.push({ type: 'redpacket', ...packet });
+      continue;
+    }
+    if (block.tag === 'sticker') {
+      const name = block.content.replace(/\s+/g, ' ').trim().slice(0, 20);
+      const sticker = stickerByName.get(name);
+      if (sticker) {
+        segments.push({
+          type: 'sticker',
+          url: sticker.url,
+          name: sticker.name,
+          packName: sticker.packName,
+        });
+      }
     }
   }
 
@@ -106,13 +124,15 @@ export function messageAsText(message) {
   if (message.type === 'redpacket') {
     return `[红包] ${message.note || '恭喜发财，大吉大利'}`;
   }
-  if (message.type === 'sticker') return '[表情]';
+  if (message.type === 'sticker') {
+    return message.name ? `[表情：${message.name}]` : '[表情]';
+  }
   return message.content || '';
 }
 
 export function messageLength(message) {
   if (!message) return 0;
   if (message.type === 'redpacket') return (message.note || '').length + 4;
-  if (message.type === 'sticker') return 2;
+  if (message.type === 'sticker') return 4 + (message.name || '').length;
   return (message.content || '').length;
 }

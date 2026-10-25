@@ -114,18 +114,23 @@ h3 {
   z-index: 150;
   display: flex;
   flex: 0 0 auto;
-  height: calc(30px + env(safe-area-inset-top));
+  height: calc(40px + env(safe-area-inset-top));
   align-items: center;
   justify-content: space-between;
-  padding: env(safe-area-inset-top) 22px 0;
+  padding: calc(10px + env(safe-area-inset-top)) 22px 0;
   background: var(--color-bg);
   color: var(--color-ink);
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   user-select: none;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+html[data-route^="/chat/"] .status-bar {
+  background: var(--color-surface-soft);
 }
 
 .status-bar__time {
@@ -135,7 +140,7 @@ h3 {
 .status-bar__signals {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 
 .status-bar__signal,
@@ -146,16 +151,16 @@ h3 {
 }
 
 .status-bar__signal .ph {
-  font-size: 0.82rem;
+  font-size: 1.1rem;
 }
 
 .status-bar__battery .ph {
-  font-size: 0.95rem;
+  font-size: 1.22rem;
 }
 
 .status-bar__battery span {
-  min-width: 26px;
-  font-size: 0.625rem;
+  min-width: 32px;
+  font-size: 0.75rem;
   font-weight: var(--weight-medium);
   text-align: right;
 }

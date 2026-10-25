@@ -1,5 +1,4 @@
 import { appHeader } from '../components/app-header.js';
-import { openChoiceSheet } from '../components/choice-sheet.js';
 import { icon, iconButton } from '../components/icons.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
@@ -45,21 +44,50 @@ function openContextSheet(characterId, onSaved) {
 
 function openSummarySheet(characterId, onSaved) {
   const memory = getChatMemory(characterId);
-  openChoiceSheet({
+  const enabled = memory.summaryEvery > 0;
+  const rounds = Math.max(1, memory.summaryEvery || 20);
+  openSheet({
     title: '自动总结',
-    current: String(memory.summaryEvery || 0),
-    options: [
-      { value: '0', label: '关闭', meta: '只保留手动写下的记忆', icon: 'minus-circle' },
-      { value: '10', label: '每 10 条', meta: '对话很密集时' },
-      { value: '20', label: '每 20 条' },
-      { value: '30', label: '每 30 条', meta: '比较均衡' },
-      { value: '50', label: '每 50 条' },
-      { value: '100', label: '每 100 条', meta: '更省 token' },
-    ],
-    onChoose: (value) => {
-      updateMemorySettings(characterId, { summaryEvery: Number(value) });
-      toast(Number(value) ? `每 ${value} 条消息自动整理` : '已关闭自动总结');
-      onSaved?.();
+    description: 'AI 回复一次算一轮。达到轮数后，会自动整理这段对话的记忆。',
+    content: `<label class="switch-row">
+        <span class="switch-row__copy">
+          <strong>自动总结</strong>
+          <small>关闭后只保留手动写下的记忆</small>
+        </span>
+        <span class="switch">
+          <input type="checkbox" data-summary-enabled${enabled ? ' checked' : ''} aria-label="开启自动总结">
+          <span class="switch__track"></span>
+        </span>
+      </label>
+      <label class="field" data-summary-field>
+        <span class="field__label">每多少轮</span>
+        <span class="field__control">
+          <input class="field__input" type="number" inputmode="numeric" min="1" max="200" step="1" value="${rounds}" data-summary-rounds${enabled ? '' : ' disabled'}>
+        </span>
+      </label>
+      <p class="sheet-note" data-summary-progress>已经积累 ${memory.roundsSinceSummary || 0} 轮。</p>`,
+    actions: `<button class="button button--primary" type="button" data-save-summary>保存</button>`,
+    onMount: (sheet) => {
+      const toggle = sheet.querySelector('[data-summary-enabled]');
+      const input = sheet.querySelector('[data-summary-rounds]');
+      const field = sheet.querySelector('[data-summary-field]');
+      const syncEnabled = () => {
+        input.disabled = !toggle.checked;
+        field.classList.toggle('is-disabled', !toggle.checked);
+      };
+      toggle.addEventListener('change', syncEnabled);
+      syncEnabled();
+      sheet.querySelector('[data-save-summary]').addEventListener('click', () => {
+        let every = 0;
+        if (toggle.checked) {
+          const parsed = Math.round(Number(input.value));
+          every = Math.min(200, Math.max(1, Number.isFinite(parsed) ? parsed : 20));
+        }
+        updateMemorySettings(characterId, { summaryEvery: every });
+        closeActiveSheet();
+        toast(every ? `每 ${every} 轮自动整理` : '已关闭自动总结');
+        onSaved?.();
+      });
     },
   });
 }
@@ -231,7 +259,7 @@ export function renderMemory({ characterId }) {
       <p class="page-intro">只属于你和${escapeHTML(character.name)}的记忆。每次回复时，这些事会一起交给 AI。</p>
       <section class="memory-overview">
         <span class="memory-overview__figure"><strong>${memory.items.length}</strong><span>条记忆</span></span>
-        <span class="memory-overview__hint">最近 ${memory.contextCount} 条对话 · ${memory.summaryEvery ? `每 ${memory.summaryEvery} 条整理` : '不自动整理'}</span>
+        <span class="memory-overview__hint">最近 ${memory.contextCount} 条对话 · ${memory.summaryEvery ? `每 ${memory.summaryEvery} 轮整理 · 已积累 ${memory.roundsSinceSummary || 0} 轮` : '不自动整理'}</span>
       </section>
       <div class="settings-group">
         <div class="settings-group__card">
@@ -247,7 +275,7 @@ export function renderMemory({ characterId }) {
             <span class="settings-row__icon">${icon('clock-counter-clockwise')}</span>
             <span class="settings-row__label">自动总结</span>
             <span class="settings-row__trailing">
-              <span class="settings-row__value">${memory.summaryEvery ? `每 ${memory.summaryEvery} 条` : '已关闭'}</span>
+              <span class="settings-row__value">${memory.summaryEvery ? `每 ${memory.summaryEvery} 轮` : '已关闭'}</span>
               <span class="settings-row__chevron">${icon('caret-right')}</span>
             </span>
           </button>

@@ -11,14 +11,12 @@ import {
   getProfile,
   getShop,
   getStickerPacks,
-  getStats,
   getWallet,
 } from '../services/store.js';
 import { escapeHTML, formatMoney } from '../services/utils.js';
 
 export function renderMe({ refresh }) {
   const profile = getProfile();
-  const stats = getStats();
   const wallet = getWallet();
   const shop = getShop();
   const shopType = shop ? getShopType(shop.typeId) : null;
@@ -54,11 +52,6 @@ export function renderMe({ refresh }) {
             <span>切换面具</span>
             <small>${maskCount} 个</small>
           </a>
-          <div class="profile-stats">
-            <div><strong>${stats.partnerCount}</strong><span>位伙伴</span></div>
-            <div><strong>${stats.conversationCount}</strong><span>段对话</span></div>
-            <div><strong>${stats.days}</strong><span>天陪伴</span></div>
-          </div>
         </section>
         ${settingsGroup({
           label: '我的',

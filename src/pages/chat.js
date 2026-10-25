@@ -16,6 +16,7 @@ import { openPartnerSheet } from '../components/partner-sheet.js';
 import { showRedPacketReveal } from '../components/red-packet-reveal.js';
 import { openRedPacketSheet } from '../components/red-packet-sheet.js';
 import { toast } from '../components/toast.js';
+import { getSparkSvg } from '../data/chat-options.js';
 import { copyText } from '../services/clipboard.js';
 import { messageAsText, messageLength } from '../services/message-format.js';
 import {
@@ -41,18 +42,30 @@ import {
 } from '../services/reply-runner.js';
 import { takePendingPrompt } from '../services/prompt.js';
 import {
+  chatStreakDays,
   escapeHTML,
   formatChatDay,
   isSameDay,
 } from '../services/utils.js';
 
-function chatHeader(character, status) {
+function sparkBadgeMarkup(style, streak) {
+  if (!style.sparkEnabled || streak < 1) return '';
+  return `<span class="chat-spark" title="连续聊天 ${streak} 天" aria-label="连续聊天 ${streak} 天">
+    <span class="chat-spark__icon">${getSparkSvg(style)}</span>
+    <span class="chat-spark__days">${streak} 天</span>
+  </span>`;
+}
+
+function chatHeader(character, status, style, streak) {
   return `<header class="chat-header">
     <a class="icon-button chat-header__back" href="#/messages" aria-label="返回">${icon('arrow-left')}</a>
     <button class="chat-header__identity" type="button" data-open-profile>
       ${characterAvatar(character, 'sm')}
       <span class="chat-header__copy">
-        <span class="chat-header__name">${escapeHTML(character.name)}</span>
+        <span class="chat-header__name-row">
+          <span class="chat-header__name">${escapeHTML(character.name)}</span>
+          <span class="chat-header__spark" data-chat-spark>${sparkBadgeMarkup(style, streak)}</span>
+        </span>
         <span class="chat-header__status">
           <span class="status-dot status-dot--accent"></span>
           <span data-chat-status>${escapeHTML(status || '在你身边')}</span>
@@ -89,9 +102,10 @@ function redPacketCard(message) {
 }
 
 function stickerMessage(message) {
+  const label = message.name ? escapeHTML(message.name) : '表情';
   return `<span class="sticker-message">
     <span class="sticker-message__fallback">${icon('sticker')}</span>
-    <img src="${escapeHTML(message.url)}" alt="表情" loading="lazy">
+    <img src="${escapeHTML(message.url)}" alt="${label}" title="${label}" loading="lazy">
   </span>`;
 }
 
@@ -156,11 +170,12 @@ export function renderChat({ characterId, refresh }) {
   const profile = getProfile();
   const initialStyle = getChatStyle(character.id);
   const initialStatus = conversation.status?.text || '';
+  const initialStreak = chatStreakDays(conversation.messages);
 
   const screen = document.createElement('section');
   screen.className = 'screen screen--chat';
   screen.innerHTML = `
-    ${chatHeader(character, initialStatus)}
+    ${chatHeader(character, initialStatus, initialStyle, initialStreak)}
     <main class="chat-scroll" data-chat-scroll>
       <div class="chat-thread" data-chat-thread role="log" aria-label="和${escapeHTML(character.name)}的对话"></div>
     </main>
@@ -178,6 +193,14 @@ export function renderChat({ characterId, refresh }) {
   const setHeaderStatus = (value) => {
     if (!value || disposed) return;
     statusNode.textContent = value;
+  };
+
+  const updateSparkBadge = () => {
+    if (disposed) return;
+    const slot = screen.querySelector('[data-chat-spark]');
+    if (!slot) return;
+    const messages = getConversation(character.id)?.messages || [];
+    slot.innerHTML = sparkBadgeMarkup(chatStyle, chatStreakDays(messages));
   };
 
   setActiveChat(character.id);
@@ -233,6 +256,7 @@ export function renderChat({ characterId, refresh }) {
     while (holder.firstChild) thread.appendChild(holder.firstChild);
     previousTimestamp = message.createdAt;
     previousRole = message.role;
+    updateSparkBadge();
     scrollToBottom(forceScroll);
   };
 
@@ -311,11 +335,12 @@ export function renderChat({ characterId, refresh }) {
     revealStep();
   };
 
-  const sendSticker = (url, packName) => {
+  const sendSticker = (sticker) => {
     const message = addMessage(character.id, 'user', '', {
       type: 'sticker',
-      url,
-      packName,
+      url: sticker.url,
+      name: sticker.name,
+      packName: sticker.packName,
     });
     appendMessage(message, { animate: true, forceScroll: true });
     if (chatStyle.sendMode === 'single' && hasApiConfig() && !isReplying(character.id)) {
@@ -510,6 +535,7 @@ export function renderChat({ characterId, refresh }) {
       onStyleChange: (next) => {
         chatStyle = next;
         applyChatStyle(screen, chatStyle);
+        updateSparkBadge();
         composer.setMode(chatStyle.sendMode);
       },
     });

@@ -4,10 +4,12 @@ import {
   DEFAULT_CHAT_STYLE,
   DEFAULT_MEMORY,
   PACKET_PRESETS,
+  SPARK_ICONS,
 } from '../data/chat-options.js';
 import { createSeedConversations, DEFAULT_PROFILE } from '../data/seed.js';
 import { generateShopIncome, getShopType, nextNoon } from '../data/shop.js';
 import { dbGet, dbSet } from './db.js';
+import { sanitizeSvgIcon } from './utils.js';
 
 const DB_KEY = 'state';
 const LEGACY_KEY = 'achat.state.v1';
@@ -91,6 +93,10 @@ function createChatStyle(raw = {}) {
   const packetPresetId = PACKET_PRESETS.some((item) => item.id === raw.packetPresetId)
     ? raw.packetPresetId
     : DEFAULT_CHAT_STYLE.packetPresetId;
+  const sparkIcon =
+    raw.sparkIcon === 'custom' || SPARK_ICONS.some((item) => item.id === raw.sparkIcon)
+      ? raw.sparkIcon
+      : DEFAULT_CHAT_STYLE.sparkIcon;
   return {
     bubbleCss: wrapLegacyBubbleCss(raw.bubbleCss),
     presetId: text(raw.presetId, DEFAULT_CHAT_STYLE.presetId),
@@ -105,6 +111,9 @@ function createChatStyle(raw = {}) {
     avatarSize: Math.min(48, Math.max(20, Math.round(finite(raw.avatarSize, 28)))),
     avatarRadius: Math.min(50, Math.max(0, Math.round(finite(raw.avatarRadius, 50)))),
     showUserAvatar: Boolean(raw.showUserAvatar),
+    sparkEnabled: Boolean(raw.sparkEnabled),
+    sparkIcon,
+    sparkSvg: sanitizeSvgIcon(raw.sparkSvg),
   };
 }
 
@@ -156,10 +165,19 @@ function normalizeMemory(raw = {}) {
     Math.max(2, Math.round(finite(source.contextCount, DEFAULT_MEMORY.contextCount))),
   );
   const rawEvery = Math.round(finite(source.summaryEvery, DEFAULT_MEMORY.summaryEvery));
-  const summaryEvery = rawEvery <= 0 ? 0 : Math.min(200, Math.max(5, rawEvery));
+  const summaryEvery = rawEvery <= 0 ? 0 : Math.min(200, Math.max(1, rawEvery));
   return {
     contextCount,
     summaryEvery,
+    roundsSinceSummary: Math.min(
+      1000,
+      Math.max(
+        0,
+        Math.round(
+          finite(source.roundsSinceSummary, DEFAULT_MEMORY.roundsSinceSummary),
+        ),
+      ),
+    ),
     categories: [...categorySet].slice(0, 24),
     items,
     lastSummaryAt: Math.max(0, finite(source.lastSummaryAt)),
@@ -203,6 +221,7 @@ function createDefaultState({ seeded = true, emptyWallet = false } = {}) {
     activeMaskId: 'mask-me',
     tags: DEFAULT_TAGS.map((tag) => ({ ...tag })),
     customCharacters: [],
+    hiddenCharacters: [],
     characterOverrides: {},
     conversations: seeded ? createSeedConversations() : {},
     wallet: emptyWallet ? createEmptyWallet() : createWelcomeWallet(),
@@ -244,6 +263,7 @@ function normalizeMessage(raw) {
       type,
       url,
       packName: text(raw.packName),
+      name: text(raw.name).trim().slice(0, 20),
       ...(quote ? { quote } : {}),
       createdAt: raw.createdAt,
     };
@@ -357,21 +377,59 @@ function normalizeOverrides(raw, characterIds, tagIds) {
   return result;
 }
 
+function uniqueStickerName(value, used) {
+  const base =
+    text(value)
+      .replace(/[\r\n\t]+/g, ' ')
+      .replace(/[[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 20) || '表情';
+  let name = base;
+  let index = 2;
+  while (used.has(name)) {
+    const suffix = ` ${index}`;
+    name = `${base.slice(0, 20 - suffix.length)}${suffix}`;
+    index += 1;
+  }
+  used.add(name);
+  return name;
+}
+
+function normalizeStickerItems(rawItems, legacyUrls = []) {
+  const items = [];
+  const seenUrls = new Set();
+  const usedNames = new Set();
+  const source = Array.isArray(rawItems)
+    ? rawItems
+    : Array.isArray(legacyUrls)
+      ? legacyUrls.map((url) => ({ url, name: '' }))
+      : [];
+
+  for (const item of source) {
+    const url = text(item?.url).trim();
+    if (!/^https?:\/\//i.test(url) || seenUrls.has(url)) continue;
+    seenUrls.add(url);
+    items.push({
+      url,
+      name: uniqueStickerName(item?.name || `表情 ${items.length + 1}`, usedNames),
+    });
+    if (items.length >= 200) break;
+  }
+  return items;
+}
+
 function normalizeStickerPacks(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((pack) => {
       const name = text(pack?.name).trim();
-      const urls = Array.isArray(pack?.urls)
-        ? pack.urls
-            .map((url) => text(url).trim())
-            .filter((url) => /^https?:\/\//i.test(url))
-        : [];
-      if (!name || !urls.length) return null;
+      const items = normalizeStickerItems(pack?.items, pack?.urls);
+      if (!name || !items.length) return null;
       return {
         id: text(pack?.id, makeId('pack')),
         name,
-        urls,
+        items,
         enabled: pack?.enabled !== false,
         createdAt: finite(pack?.createdAt, Date.now()),
       };
@@ -444,10 +502,18 @@ function normalizeState(candidate) {
     ? candidate.activeMaskId
     : masks[0].id;
   const customCharacters = normalizeCustomCharacters(candidate?.customCharacters, tagIds);
+  const hiddenCharacters = Array.isArray(candidate?.hiddenCharacters)
+    ? [...new Set(
+        candidate.hiddenCharacters.filter(
+          (id) => typeof id === 'string' && CHARACTERS.some((character) => character.id === id),
+        ),
+      )]
+    : [];
+  const hiddenSet = new Set(hiddenCharacters);
   const characterIds = new Set([
     ...CHARACTERS.map((character) => character.id),
     ...customCharacters.map((character) => character.id),
-  ]);
+  ].filter((id) => !hiddenSet.has(id)));
   const characterOverrides = normalizeOverrides(
     candidate?.characterOverrides,
     characterIds,
@@ -492,6 +558,7 @@ function normalizeState(candidate) {
     activeMaskId,
     tags,
     customCharacters,
+    hiddenCharacters,
     characterOverrides,
     conversations,
     wallet: normalizeWallet(candidate?.wallet),
@@ -660,6 +727,7 @@ export function deleteMask(maskId) {
 }
 
 function baseCharacter(id) {
+  if (state.hiddenCharacters.includes(id)) return null;
   return (
     CHARACTERS.find((character) => character.id === id) ||
     state.customCharacters.find((character) => character.id === id) ||
@@ -685,7 +753,10 @@ function decorateCharacter(base) {
 }
 
 export function getAllCharacters() {
-  return [...CHARACTERS, ...state.customCharacters].map(decorateCharacter);
+  const hidden = new Set(state.hiddenCharacters);
+  return [...CHARACTERS, ...state.customCharacters]
+    .filter((character) => !hidden.has(character.id))
+    .map(decorateCharacter);
 }
 
 export function getCharacter(id) {
@@ -753,8 +824,13 @@ export function updateCharacter(id, patch) {
 
 export function deleteCharacter(id) {
   const index = state.customCharacters.findIndex((character) => character.id === id);
-  if (index < 0) return false;
-  state.customCharacters.splice(index, 1);
+  if (index >= 0) {
+    state.customCharacters.splice(index, 1);
+  } else if (CHARACTERS.some((character) => character.id === id)) {
+    if (!state.hiddenCharacters.includes(id)) state.hiddenCharacters.push(id);
+  } else {
+    return false;
+  }
   delete state.characterOverrides[id];
   delete state.conversations[id];
   persist();
@@ -841,6 +917,7 @@ export function addMessage(characterId, role, content, options = {}) {
   } else if (type === 'sticker') {
     message.url = text(options.url);
     message.packName = text(options.packName);
+    message.name = text(options.name).trim().slice(0, 20);
   } else {
     message.content = text(content);
   }
@@ -966,10 +1043,25 @@ export function deleteMemoryCategory(characterId, name) {
   return true;
 }
 
-export function markMemorySummary(characterId, at) {
+export function markMemorySummary(characterId, at, consumedRounds = 0) {
   const conversation = ensureConversation(characterId);
   conversation.memory.lastSummaryAt = Math.max(0, finite(at, Date.now()));
+  conversation.memory.roundsSinceSummary = Math.max(
+    0,
+    (conversation.memory.roundsSinceSummary || 0) -
+      Math.max(0, Math.round(consumedRounds)),
+  );
   persist();
+}
+
+export function incrementMemoryRound(characterId) {
+  const conversation = ensureConversation(characterId);
+  conversation.memory.roundsSinceSummary = Math.min(
+    1000,
+    (conversation.memory.roundsSinceSummary || 0) + 1,
+  );
+  persist();
+  return conversation.memory.roundsSinceSummary;
 }
 
 export function markConversationRead(characterId) {
@@ -985,6 +1077,8 @@ export function clearConversation(characterId) {
   conversation.messages = [];
   conversation.unread = 0;
   conversation.status = null;
+  conversation.memory.lastSummaryAt = 0;
+  conversation.memory.roundsSinceSummary = 0;
   persist();
 }
 
@@ -1092,16 +1186,14 @@ export function getStickerPacks() {
   return state.stickerPacks;
 }
 
-export function addStickerPack({ name, urls, enabled = true }) {
+export function addStickerPack({ name, items, enabled = true }) {
   const value = text(name).trim();
-  const list = urls
-    .map((url) => text(url).trim())
-    .filter((url) => /^https?:\/\//i.test(url));
+  const list = normalizeStickerItems(items);
   if (!value || !list.length) return null;
   const pack = {
     id: makeId('pack'),
     name: value,
-    urls: list,
+    items: list,
     enabled,
     createdAt: Date.now(),
   };
@@ -1115,11 +1207,9 @@ export function updateStickerPack(id, patch) {
   if (!pack) return null;
   if (typeof patch.name === 'string' && patch.name.trim()) pack.name = patch.name.trim();
   if (typeof patch.enabled === 'boolean') pack.enabled = patch.enabled;
-  if (Array.isArray(patch.urls)) {
-    const list = patch.urls
-      .map((url) => text(url).trim())
-      .filter((url) => /^https?:\/\//i.test(url));
-    if (list.length) pack.urls = list;
+  if (Array.isArray(patch.items)) {
+    const list = normalizeStickerItems(patch.items);
+    if (list.length) pack.items = list;
   }
   persist();
   return pack;
@@ -1133,13 +1223,20 @@ export function deleteStickerPack(id) {
   return true;
 }
 
-export function getEnabledStickerUrls() {
+export function getEnabledStickerEntries() {
   return state.stickerPacks
     .filter((pack) => pack.enabled)
     .flatMap((pack) =>
-      pack.urls.map((url) => ({ url, packName: pack.name, packId: pack.id })),
+      pack.items.map((item) => ({
+        url: item.url,
+        name: item.name,
+        packName: pack.name,
+        packId: pack.id,
+      })),
     );
 }
+
+export const getEnabledStickerUrls = getEnabledStickerEntries;
 
 export function getWallet() {
   return state.wallet;

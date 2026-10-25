@@ -41,6 +41,15 @@ const FOLLOW_UPS = [
 
 const TONES = ['apricot', 'sage', 'rose', 'sky', 'sand'];
 
+const AVATARS = [
+  'src/assets/avatars/su-mian.svg',
+  'src/assets/avatars/lin-ye.svg',
+  'src/assets/avatars/chi-xia.svg',
+  'src/assets/avatars/jiang-yu.svg',
+  'src/assets/avatars/zhi-wei.svg',
+  'src/assets/avatars/stranger.svg',
+];
+
 function pick(list, random = Math.random) {
   return list[Math.floor(random() * list.length)];
 }
@@ -64,6 +73,7 @@ export function createRandomStranger({ existingNames = [], random = Math.random 
       role,
       relationship: '刚认识',
       tone: pick(TONES, random),
+      avatar: pick(AVATARS, random),
       tagline: '从一次偶遇开始。',
       persona,
     },

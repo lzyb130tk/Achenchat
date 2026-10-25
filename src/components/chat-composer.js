@@ -29,13 +29,13 @@ export function createChatComposer({
       <button class="chat-composer__quote-close" type="button" aria-label="取消引用" data-quote-clear>${icon('x')}</button>
     </div>
     <div class="chat-composer__bar">
-      <button class="chat-composer__receive" type="button" data-receive aria-label="接收回复">
-        ${icon('tray-arrow-down')}
-        <span data-receive-label>接收</span>
-      </button>
       <div class="chat-composer__field">
         <button class="chat-composer__extra" type="button" aria-label="更多功能" data-composer-more>
           ${icon('plus')}
+        </button>
+        <button class="chat-composer__receive" type="button" data-receive aria-label="接收回复" hidden>
+          <span data-receive-icon>${icon('arrow-down')}</span>
+          <span class="sr-only" data-receive-label>接收</span>
         </button>
         <textarea
           class="chat-composer__input"
@@ -56,6 +56,7 @@ export function createChatComposer({
   const moreButton = element.querySelector('[data-composer-more]');
   const receiveButton = element.querySelector('[data-receive]');
   const receiveLabel = element.querySelector('[data-receive-label]');
+  const receiveIcon = element.querySelector('[data-receive-icon]');
   const quoteBar = element.querySelector('[data-quote]');
   const quoteName = element.querySelector('[data-quote-name]');
   const quoteText = element.querySelector('[data-quote-text]');
@@ -81,6 +82,7 @@ export function createChatComposer({
     receiveButton.classList.toggle('is-waiting', receiving);
     receiveButton.disabled = receiving || streaming;
     receiveLabel.textContent = receiving ? '等待' : '接收';
+    receiveIcon.innerHTML = receiving ? icon('hourglass-medium') : icon('arrow-down');
     receiveButton.setAttribute(
       'aria-label',
       receiving ? '等待对方回复' : '接收对方回复',

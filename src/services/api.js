@@ -1,5 +1,5 @@
 import { messageAsText } from './message-format.js';
-import { getApiConfig } from './store.js';
+import { getApiConfig, getEnabledStickerEntries } from './store.js';
 
 export class ApiRequestError extends Error {}
 
@@ -44,14 +44,23 @@ function buildSystemPrompt(character, profile, memory) {
   const memoryBlock = memories
     ? `\n这些是你们已经确认过的记忆。需要时自然想起，不要逐条复述：\n${memories}`
     : '';
+  const stickerNames = [...new Set(
+    getEnabledStickerEntries()
+      .map((sticker) => sticker.name)
+      .filter(Boolean),
+  )].slice(0, 30);
+  const stickerBlock = stickerNames.length
+    ? `\n想发表情时，单独加一行：[sticker]表情名[sticker]。只能从这个列表里选名字：${stickerNames.join('、')}。不要编造列表外的表情。`
+    : '';
 
   return [
     `你是${character.name}，${character.role}。${character.persona}`,
     `你正在和${profile.name}以“${character.relationship}”的关系聊天。今天是${date}。${mask}`,
-    '回复必须严格使用下面的格式，只输出这三个区块，不要输出任何额外说明：',
+    '回复必须严格使用下面的格式，只输出这些区块，不要输出任何额外说明：',
     '[status]此刻的状态，四到八个字[status]',
     '[msg]第一条\\第二条[msg]',
     '需要发红包时，再追加一行：[redbag]金额-备注[redbag]',
+    stickerBlock,
     'status 写你此刻正在做的事，例如“在办公室办公”“刚洗完澡”“在便利店挑饮料”。每次都要更新。',
     'msg 里用反斜杠 \\ 分隔多条独立消息，通常一到三条，每条不超过三十字。',
     '红包金额用人民币元，通常五到二十元；备注不超过二十字。',
@@ -77,7 +86,8 @@ function buildHistory(messages) {
         };
       }
       if (message.type === 'sticker') {
-        return { role: message.role, content: `${quote}[发了一个表情]` };
+        const name = message.name ? `：${message.name}` : '';
+        return { role: message.role, content: `${quote}[发了一个表情${name}]` };
       }
       return { role: message.role, content: `${quote}${message.content || ''}` };
     })

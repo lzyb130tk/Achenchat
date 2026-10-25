@@ -1,4 +1,4 @@
-import { getEnabledStickerUrls } from '../services/store.js';
+import { getEnabledStickerEntries } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
 import { icon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
@@ -30,7 +30,7 @@ export function openComposerActions({ onRedPacket, onSticker }) {
 }
 
 export function openStickerPicker({ onPick }) {
-  const stickers = getEnabledStickerUrls();
+  const stickers = getEnabledStickerEntries();
   openSheet({
     title: '表情',
     description: stickers.length ? '选一张发过去。' : '',
@@ -38,8 +38,8 @@ export function openStickerPicker({ onPick }) {
       ? `<div class="sticker-picker">
           ${stickers
             .map(
-              (sticker) => `<button class="sticker-picker__item" type="button" data-sticker-url="${escapeHTML(sticker.url)}" data-sticker-pack="${escapeHTML(sticker.packName)}" aria-label="${escapeHTML(sticker.packName)}表情">
-                <img src="${escapeHTML(sticker.url)}" alt="" loading="lazy">
+              (sticker, index) => `<button class="sticker-picker__item" type="button" data-sticker-index="${index}" aria-label="${escapeHTML(sticker.name)}">
+                <img src="${escapeHTML(sticker.url)}" alt="${escapeHTML(sticker.name)}" loading="lazy">
               </button>`,
             )
             .join('')}
@@ -50,10 +50,12 @@ export function openStickerPicker({ onPick }) {
           <button class="button button--secondary settings-empty__button" type="button" data-open-stickers>去添加表情包</button>
         </div>`,
     onMount: (sheet) => {
-      sheet.querySelectorAll('[data-sticker-url]').forEach((button) => {
+      sheet.querySelectorAll('[data-sticker-index]').forEach((button) => {
         button.addEventListener('click', () => {
+          const sticker = stickers[Number(button.dataset.stickerIndex)];
+          if (!sticker) return;
           closeActiveSheet({ immediate: true });
-          onPick?.(button.dataset.stickerUrl, button.dataset.stickerPack);
+          onPick?.(sticker);
         });
       });
       sheet.querySelector('[data-open-stickers]')?.addEventListener('click', () => {

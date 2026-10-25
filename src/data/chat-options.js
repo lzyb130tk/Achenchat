@@ -204,10 +204,54 @@ export const DEFAULT_ANIMATION_CSS = MESSAGE_ANIMATIONS[0].css;
 export const DEFAULT_MEMORY = {
   contextCount: 24,
   summaryEvery: 0,
+  roundsSinceSummary: 0,
   categories: ['喜好', '日常', '约定'],
   items: [],
   lastSummaryAt: 0,
 };
+
+export const SPARK_ICONS = [
+  {
+    id: 'flame',
+    name: '火苗',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.2 21c3.9 0 6.3-2.6 6.3-6.1 0-2.8-1.6-5-3.8-7.2-.4 2.1-1.3 3.3-2.4 4.1.3-3.4-1.1-6.2-3.5-8.3.2 4-2.8 6.2-2.8 10.3 0 4 2.6 7.2 6.2 7.2Z" fill="currentColor"/><path d="M12.1 18.5c1.5 0 2.4-1 2.4-2.4 0-1.2-.8-2.1-1.7-2.9-.1 1-.6 1.6-1.1 1.9-.1-1.4-.7-2.3-1.4-2.9-.1 1.6-.7 2.5-.7 4-.1 1.4.9 2.3 2.5 2.3Z" fill="var(--color-surface)"/></svg>`,
+  },
+  {
+    id: 'heart',
+    name: '心跳',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 20.2c-.4 0-.8-.2-1.1-.4C7.2 16.7 3.5 13.5 3.5 9.4c0-2.6 1.9-4.6 4.4-4.6 1.7 0 3.1.9 4.1 2.3 1-1.4 2.4-2.3 4.1-2.3 2.5 0 4.4 2 4.4 4.6 0 4.1-3.7 7.3-7.4 10.4-.3.2-.7.4-1.1.4Z" fill="currentColor"/></svg>`,
+  },
+  {
+    id: 'spark',
+    name: '星芒',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.8c.5 4.5 2.8 6.8 7.2 7.2-4.4.5-6.7 2.8-7.2 7.2-.5-4.4-2.8-6.7-7.2-7.2 4.4-.4 6.7-2.7 7.2-7.2Z" fill="currentColor"/><path d="M18.4 15.2c.2 1.8 1.1 2.7 2.9 2.9-1.8.2-2.7 1.1-2.9 2.9-.2-1.8-1.1-2.7-2.9-2.9 1.8-.2 2.7-1.1 2.9-2.9Z" fill="currentColor" opacity=".55"/></svg>`,
+  },
+  {
+    id: 'moon',
+    name: '月牙',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.7 15.1A8.5 8.5 0 0 1 8.9 4.3 8.5 8.5 0 1 0 19.7 15.1Z" fill="currentColor"/><path d="M17.8 4.3c.2 1.4.9 2.1 2.3 2.3-1.4.2-2.1.9-2.3 2.3-.2-1.4-.9-2.1-2.3-2.3 1.4-.2 2.1-.9 2.3-2.3Z" fill="currentColor" opacity=".55"/></svg>`,
+  },
+  {
+    id: 'clover',
+    name: '四叶',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.1C10.8 9.8 8 9.4 6.7 8.1 5.1 6.5 6 3.6 8.1 3.1c2.1-.5 3.7 1.2 3.9 3.4.2-2.2 1.8-3.9 3.9-3.4 2.1.5 3 3.4 1.4 5-1.3 1.3-4.1 1.7-5.3 3Z" fill="currentColor" opacity=".82"/><path d="M12.9 11.9c1.3-1.2 1.7-4 3-5.3 1.6-1.6 4.5-.7 5 .4.5 2.1-1.2 3.7-3.4 3.9 2.2.2 3.9 1.8 3.4 3.9-.5 2.1-3.4 3-5 1.4-1.3-1.3-1.7-4.1-3-5.3Z" fill="currentColor" opacity=".66"/><path d="M11.9 12.9c1.2 1.3 1.6 4.1 2.9 5.4 1.6 1.6.7 4.5-1.4 5-2.1.5-3.7-1.2-3.9-3.4-.2 2.2-1.8 3.9-3.9 3.4-2.1-.5-3-3.4-1.4-5 1.3-1.3 4.1-1.7 5.4-2.9Z" fill="currentColor" opacity=".5"/><path d="M11.1 11.9c-1.3 1.2-4.1 1.6-5.4 2.9-1.6 1.6-4.5.7-5-1.4-.5-2.1 1.2-3.7 3.4-3.9-2.2-.2-3.9-1.8-3.4-3.9.5-2.1 3.4-3 5-1.4 1.3 1.3 1.7 4.1 3 5.3Z" fill="currentColor" opacity=".34"/></svg>`,
+  },
+  {
+    id: 'drop',
+    name: '水滴',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.9c3.4 4.6 6.2 7.9 6.2 11.4a6.2 6.2 0 0 1-12.4 0c0-3.5 2.8-6.8 6.2-11.4Z" fill="currentColor"/><path d="M9.1 13.2c0 2 1.1 3.4 2.9 4" fill="none" stroke="var(--color-surface)" stroke-width="1.5" stroke-linecap="round" opacity=".6"/></svg>`,
+  },
+  {
+    id: 'sun',
+    name: '暖阳',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2.3v2.4M12 19.3v2.4M2.3 12h2.4M19.3 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7"/></g></svg>`,
+  },
+  {
+    id: 'diamond',
+    name: '棱光',
+    svg: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7.1 3.5h9.8L21 9l-9 11.5L3 9l4.1-5.5Z" fill="currentColor" opacity=".28"/><path d="M7.1 3.5h9.8L21 9l-9 11.5L3 9l4.1-5.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3.4 9h17.2M7.4 3.7 9 9l3 11.2L15 9l1.6-5.3M9 9h6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity=".8"/></svg>`,
+  },
+];
 
 export const DEFAULT_CHAT_STYLE = {
   bubbleCss: '',
@@ -223,7 +267,20 @@ export const DEFAULT_CHAT_STYLE = {
   avatarSize: 28,
   avatarRadius: 50,
   showUserAvatar: false,
+  sparkEnabled: false,
+  sparkIcon: 'flame',
+  sparkSvg: '',
 };
+
+export function getSparkSvg(style) {
+  if (style?.sparkIcon === 'custom' && style.sparkSvg?.trim()) {
+    return style.sparkSvg.trim();
+  }
+  return (
+    SPARK_ICONS.find((item) => item.id === style?.sparkIcon)?.svg ||
+    SPARK_ICONS[0].svg
+  );
+}
 
 export function getAnimationCss(style) {
   if (style?.animationCss?.trim()) return style.animationCss.trim();

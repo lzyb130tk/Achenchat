@@ -5,8 +5,11 @@ import { contactItem } from '../components/contact-item.js';
 import { icon, iconButton } from '../components/icons.js';
 import { openSearchSheet } from '../components/search-sheet.js';
 import { sectionHeading } from '../components/section-heading.js';
+import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { openTagManager } from '../components/tag-manager.js';
+import { toast } from '../components/toast.js';
 import {
+  deleteCharacter,
   getAllCharacters,
   getTags,
 } from '../services/store.js';
@@ -33,6 +36,8 @@ export function renderContacts({ refresh }) {
   const tags = getTags();
   const characters = getAllCharacters();
   let activeFilter = 'all';
+  let selecting = false;
+  const selected = new Set();
 
   const openCreate = () => {
     openCharacterEditor({
@@ -43,6 +48,10 @@ export function renderContacts({ refresh }) {
   };
 
   const headerAction = `${iconButton({
+    name: 'list-checks',
+    label: '多选联系人',
+    action: 'data-action="select"',
+  })}${iconButton({
     name: 'magnifying-glass',
     label: '搜索联系人',
     action: 'data-action="search"',
@@ -53,10 +62,10 @@ export function renderContacts({ refresh }) {
   })}`;
 
   screen.innerHTML = `
-    ${appHeader({ title: '联系人', action: headerAction })}
+    <div class="app-header-slot" data-header-slot></div>
     <main class="page-scroll">
       <div class="page-content page-content--contacts">
-        <div class="tag-strip" role="group" aria-label="按标签筛选">
+        <div class="tag-strip" role="group" aria-label="按标签筛选" data-tag-strip>
           <button class="tag-chip${activeFilter === 'all' ? ' is-selected' : ''}" type="button" data-tag-filter="all">全部</button>
           ${tags
             .map(
@@ -71,7 +80,21 @@ export function renderContacts({ refresh }) {
     </main>
     ${bottomNav('contacts')}`;
 
+  const headerSlot = screen.querySelector('[data-header-slot]');
+  const tagStrip = screen.querySelector('[data-tag-strip]');
   const body = screen.querySelector('[data-contact-body]');
+
+  const renderHeader = () => {
+    headerSlot.innerHTML = selecting
+      ? `<header class="app-header app-header--compact contact-select-header">
+          <button class="contact-select-header__cancel" type="button" data-select-cancel>取消</button>
+          <div class="app-header__copy">
+            <h1 class="app-header__title">已选择 ${selected.size} 位</h1>
+          </div>
+          <button class="contact-select-header__delete" type="button" data-select-delete${selected.size ? '' : ' disabled'}>删除</button>
+        </header>`
+      : appHeader({ title: '联系人', action: headerAction });
+  };
 
   const renderBody = () => {
     const groups = groupedCharacters(characters, tags, activeFilter);
@@ -91,44 +114,145 @@ export function renderContacts({ refresh }) {
             aside: `${group.members.length} 位`,
           })}
           <div class="contact-list">
-            ${group.members.map((character) => contactItem({ character })).join('')}
+            ${group.members
+              .map((character) =>
+                contactItem({
+                  character,
+                  selectable: selecting,
+                  selected: selected.has(character.id),
+                  data: selecting ? `data-contact-select="${character.id}"` : '',
+                }),
+              )
+              .join('')}
           </div>
         </section>`,
       )
       .join('');
   };
 
+  const syncFilterChips = () => {
+    screen.querySelectorAll('[data-tag-filter]').forEach((chip) => {
+      chip.classList.toggle('is-selected', chip.dataset.tagFilter === activeFilter);
+    });
+  };
+
+  const enterSelect = () => {
+    selecting = true;
+    selected.clear();
+    activeFilter = 'all';
+    syncFilterChips();
+    tagStrip.hidden = true;
+    renderHeader();
+    renderBody();
+  };
+
+  const exitSelect = () => {
+    selecting = false;
+    selected.clear();
+    tagStrip.hidden = false;
+    renderHeader();
+    renderBody();
+  };
+
+  const toggleSelected = (id) => {
+    if (selected.has(id)) selected.delete(id);
+    else selected.add(id);
+    const row = body.querySelector(`[data-contact-select="${id}"]`);
+    if (row) {
+      const active = selected.has(id);
+      row.classList.toggle('is-selected', active);
+      row.setAttribute('aria-pressed', String(active));
+      row.querySelector('.contact-item__check').innerHTML = icon(
+        active ? 'check-circle' : 'circle',
+        active ? 'fill' : 'regular',
+      );
+    }
+    renderHeader();
+  };
+
+  const openDeleteSheet = () => {
+    if (!selected.size) return;
+    const count = selected.size;
+    openSheet({
+      title: `删除 ${count} 位伙伴？`,
+      description: '聊天记录和伙伴设置会一并清除，无法恢复。',
+      actions: `<div class="button-row">
+        <button class="button button--secondary" type="button" data-cancel-delete>取消</button>
+        <button class="button button--danger" type="button" data-confirm-delete>删除</button>
+      </div>`,
+      onMount: (sheet) => {
+        sheet.querySelector('[data-cancel-delete]').addEventListener('click', closeActiveSheet);
+        sheet.querySelector('[data-confirm-delete]').addEventListener('click', () => {
+          for (const id of selected) deleteCharacter(id);
+          closeActiveSheet({ immediate: true });
+          toast(`已删除 ${count} 位伙伴`);
+          refresh();
+        });
+      },
+    });
+  };
+
+  renderHeader();
   renderBody();
 
-  screen.querySelectorAll('[data-tag-filter]').forEach((button) => {
-    button.addEventListener('click', () => {
-      activeFilter = button.dataset.tagFilter;
-      screen.querySelectorAll('[data-tag-filter]').forEach((chip) => {
-        chip.classList.toggle('is-selected', chip === button);
+  screen.addEventListener('click', (event) => {
+    const target = event.target;
+
+    if (target.closest('[data-action="select"]')) {
+      enterSelect();
+      return;
+    }
+    if (target.closest('[data-select-cancel]')) {
+      exitSelect();
+      return;
+    }
+    if (target.closest('[data-select-delete]')) {
+      openDeleteSheet();
+      return;
+    }
+
+    const row = target.closest('[data-contact-select]');
+    if (row && selecting) {
+      event.preventDefault();
+      toggleSelected(row.dataset.contactSelect);
+      return;
+    }
+
+    const createButton = target.closest('[data-action="create"]');
+    if (createButton) {
+      openCreate();
+      return;
+    }
+
+    const searchButton = target.closest('[data-action="search"]');
+    if (searchButton) {
+      openSearchSheet({
+        title: '搜索联系人',
+        placeholder: '搜索名字或身份',
+        emptyText: '没有找到这位伙伴',
+        items: characters.map((character) => ({
+          character,
+          href: `#/chat/${character.id}`,
+          subtitle: `${character.role} · ${character.tagline}`,
+          searchText: `${character.name} ${character.role} ${character.tagline} ${character.relationship}`,
+        })),
       });
+      return;
+    }
+
+    const manageTags = target.closest('[data-manage-tags]');
+    if (manageTags) {
+      openTagManager({ onDismiss: refresh });
+      return;
+    }
+
+    const filterChip = target.closest('[data-tag-filter]');
+    if (filterChip) {
+      activeFilter = filterChip.dataset.tagFilter;
+      syncFilterChips();
       renderBody();
-    });
+    }
   });
-
-  screen.querySelector('[data-manage-tags]').addEventListener('click', () => {
-    openTagManager({ onDismiss: refresh });
-  });
-
-  screen.querySelector('[data-action="search"]')?.addEventListener('click', () => {
-    openSearchSheet({
-      title: '搜索联系人',
-      placeholder: '搜索名字或身份',
-      emptyText: '没有找到这位伙伴',
-      items: characters.map((character) => ({
-        character,
-        href: `#/chat/${character.id}`,
-        subtitle: `${character.role} · ${character.tagline}`,
-        searchText: `${character.name} ${character.role} ${character.tagline} ${character.relationship}`,
-      })),
-    });
-  });
-
-  screen.querySelector('[data-action="create"]')?.addEventListener('click', openCreate);
 
   return { element: screen };
 }

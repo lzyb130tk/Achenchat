@@ -5,8 +5,10 @@ import {
   DEFAULT_PACKET_CSS,
   MESSAGE_ANIMATIONS,
   PACKET_PRESETS,
+  SPARK_ICONS,
   getAnimationCss,
   getPacketCss,
+  getSparkSvg,
 } from '../data/chat-options.js';
 import { copyText } from '../services/clipboard.js';
 import { readImageFile } from '../services/image.js';
@@ -15,12 +17,17 @@ import {
   deleteBubblePreset,
   getBubblePresets,
   getChatMemory,
+  getConversation,
   getStickerPacks,
   updateBubblePreset,
   updateChatStyle,
   updateStickerPack,
 } from '../services/store.js';
-import { escapeHTML } from '../services/utils.js';
+import {
+  chatStreakDays,
+  escapeHTML,
+  sanitizeSvgIcon,
+} from '../services/utils.js';
 import { characterAvatar } from './avatar.js';
 import { icon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
@@ -42,6 +49,7 @@ const VIEW_TITLES = {
   avatar: '头像',
   packet: '红包样式',
   stickers: '表情包',
+  spark: '连续火花',
 };
 
 export function applyChatStyle(screen, style) {
@@ -119,7 +127,7 @@ function stickerListMarkup() {
   if (!packs.length) {
     return `<div class="settings-empty">
       <span class="settings-empty__icon">${icon('sticker')}</span>
-      <p>还没有表情包。上传图片链接后，AI 偶尔会用它们回应。</p>
+      <p>还没有表情包。导入图片并起名后，AI 会按名字理解它们。</p>
       <button class="button button--secondary settings-empty__button" type="button" data-open-stickers>去添加表情包</button>
     </div>`;
   }
@@ -129,14 +137,14 @@ function stickerListMarkup() {
       .map(
         (pack) => `<div class="switch-list__row">
           <span class="switch-list__preview">
-            ${pack.urls
+            ${pack.items
               .slice(0, 3)
-              .map((url) => `<img src="${escapeHTML(url)}" alt="" loading="lazy">`)
+              .map((item) => `<img src="${escapeHTML(item.url)}" alt="${escapeHTML(item.name)}" title="${escapeHTML(item.name)}" loading="lazy">`)
               .join('')}
           </span>
           <span class="switch-list__copy">
             <strong>${escapeHTML(pack.name)}</strong>
-            <small>${pack.urls.length} 张</small>
+            <small>${pack.items.length} 张</small>
           </span>
           <label class="switch">
             <input type="checkbox" data-sticker-pack="${pack.id}"${pack.enabled ? ' checked' : ''} aria-label="启用${escapeHTML(pack.name)}">
@@ -178,6 +186,14 @@ function backgroundLabel(current) {
   return (
     CHAT_BACKGROUNDS.find((item) => item.id === current.background)?.name ||
     '默认'
+  );
+}
+
+function sparkLabel(style) {
+  if (!style.sparkEnabled) return '已关闭';
+  if (style.sparkIcon === 'custom') return '自定义';
+  return (
+    SPARK_ICONS.find((item) => item.id === style.sparkIcon)?.name || '已开启'
   );
 }
 
@@ -238,6 +254,12 @@ export function openChatSettings({ character, style, onStyleChange }) {
                 <span class="chat-settings__row-icon">${icon('sticker')}</span>
                 <span class="chat-settings__row-label">表情包</span>
                 <span class="chat-settings__row-value">${enabled}/${packs.length} 组</span>
+                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              </button>
+              <button class="chat-settings__row" type="button" data-open-view="spark">
+                <span class="chat-settings__row-icon">${icon('flame')}</span>
+                <span class="chat-settings__row-label">连续火花</span>
+                <span class="chat-settings__row-value">${sparkLabel(current)}</span>
                 <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
               </button>
               <button class="chat-settings__row" type="button" data-open-view="packet">
@@ -465,6 +487,51 @@ export function openChatSettings({ character, style, onStyleChange }) {
 
       const stickersMarkup = () => `<div data-sticker-list>${stickerListMarkup()}</div>`;
 
+      const sparkMarkup = () => {
+        const custom = current.sparkIcon === 'custom';
+        const conversation = getConversation(character.id);
+        const streak = chatStreakDays(conversation?.messages || []);
+        return `<div class="spark-preview">
+            <span class="chat-spark">
+              <span class="chat-spark__icon">${getSparkSvg(current)}</span>
+              <span class="chat-spark__days">${streak > 0 ? `${streak} 天` : '7 天'}</span>
+            </span>
+            <small>${streak > 0 ? `已经连续聊了 ${streak} 天` : '开启后的样子'}</small>
+          </div>
+          <label class="switch-row">
+            <span class="switch-row__copy">
+              <strong>在聊天顶部显示</strong>
+              <small>断签后从第 1 天重新开始</small>
+            </span>
+            <span class="switch">
+              <input type="checkbox" data-spark-enabled${current.sparkEnabled ? ' checked' : ''} aria-label="显示连续火花">
+              <span class="switch__track"></span>
+            </span>
+          </label>
+          <div class="subsection-head"><h4>图标</h4><span class="code-hint">8 个预设</span></div>
+          <div class="spark-icon-grid">
+            ${SPARK_ICONS.map(
+              (preset) => `<button class="spark-icon${current.sparkIcon === preset.id ? ' is-selected' : ''}" type="button" data-spark-icon="${preset.id}" aria-pressed="${current.sparkIcon === preset.id}" aria-label="${preset.name}" title="${preset.name}">${preset.svg}</button>`,
+            ).join('')}
+            <button class="spark-icon spark-icon--custom${custom ? ' is-selected' : ''}" type="button" data-spark-icon="custom" aria-pressed="${custom}" aria-label="自定义 SVG">
+              ${icon('code')}<span>SVG</span>
+            </button>
+          </div>
+          <div class="spark-custom" data-spark-custom${custom ? '' : ' hidden'}>
+            <label class="field settings-code-field">
+              <span class="field__label">自定义 SVG 代码</span>
+              <span class="field__control field__control--area">
+                <textarea class="field__input field__textarea field__textarea--code" rows="6" spellcheck="false" data-spark-svg placeholder="&lt;svg viewBox=&quot;0 0 24 24&quot;&gt;…&lt;/svg&gt;">${escapeHTML(current.sparkSvg || '')}</textarea>
+              </span>
+            </label>
+            <div class="inline-buttons">
+              <button class="small-button small-button--solid" type="button" data-apply-spark>应用 SVG</button>
+            </div>
+            <p class="field__hint">只保留基础图形与颜色，脚本和外部链接会被移除。</p>
+          </div>
+          <p class="settings-note">每天聊一句就会累积一天；今天或昨天有消息时火花才会保留。</p>`;
+      };
+
       const subviewMarkup = () => {
         if (view === 'send') return sendMarkup();
         if (view === 'speed') return speedMarkup();
@@ -474,6 +541,7 @@ export function openChatSettings({ character, style, onStyleChange }) {
         if (view === 'avatar') return avatarMarkup();
         if (view === 'packet') return packetMarkup();
         if (view === 'stickers') return stickersMarkup();
+        if (view === 'spark') return sparkMarkup();
         return '';
       };
 
@@ -737,6 +805,40 @@ export function openChatSettings({ character, style, onStyleChange }) {
         });
       };
 
+      const bindSpark = () => {
+        content.querySelector('[data-spark-enabled]').addEventListener('change', (event) => {
+          notify({ sparkEnabled: event.target.checked });
+          paint();
+        });
+        content.querySelectorAll('[data-spark-icon]').forEach((button) => {
+          button.addEventListener('click', () => {
+            notify({ sparkIcon: button.dataset.sparkIcon });
+            paint();
+            if (button.dataset.sparkIcon === 'custom') {
+              content.querySelector('[data-spark-svg]')?.focus();
+            }
+          });
+        });
+        content.querySelector('[data-apply-spark]')?.addEventListener('click', () => {
+          const input = content.querySelector('[data-spark-svg]');
+          const raw = input.value.trim();
+          if (!raw) {
+            toast('粘贴一段 SVG 代码', { tone: 'danger' });
+            input.focus();
+            return;
+          }
+          const svg = sanitizeSvgIcon(raw);
+          if (!svg) {
+            toast('这段 SVG 无法识别', { tone: 'danger' });
+            input.focus();
+            return;
+          }
+          notify({ sparkEnabled: true, sparkIcon: 'custom', sparkSvg: svg });
+          paint();
+          toast('火花图标已更新');
+        });
+      };
+
       const bind = () => {
         content.querySelector('[data-settings-back]')?.addEventListener('click', () => {
           view = 'root';
@@ -809,6 +911,11 @@ export function openChatSettings({ character, style, onStyleChange }) {
 
         if (view === 'stickers') {
           bindStickers();
+          return;
+        }
+
+        if (view === 'spark') {
+          bindSpark();
         }
       };
 

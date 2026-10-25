@@ -1,6 +1,6 @@
 import { appHeader } from '../components/app-header.js';
 import { bottomNav } from '../components/bottom-nav.js';
-import { avatar, characterAvatar } from '../components/avatar.js';
+import { avatar } from '../components/avatar.js';
 import { icon } from '../components/icons.js';
 import { sectionHeading } from '../components/section-heading.js';
 import { openSheet } from '../components/sheet.js';
@@ -10,7 +10,6 @@ import {
   getMiniProgram,
 } from '../data/mini-programs.js';
 import { MOMENTS } from '../data/moments.js';
-import { getCharacter } from '../services/store.js';
 import { escapeHTML, formatRelativeTime } from '../services/utils.js';
 
 function openMiniProgram(id) {
@@ -42,33 +41,25 @@ function openMiniProgram(id) {
 }
 
 function momentsEntry() {
-  const visible = MOMENTS.slice(0, 3)
-    .map((moment) => getCharacter(moment.characterId))
-    .filter(Boolean);
   const lead = MOMENTS[0];
   const timestamp = Date.now() - lead.minutesAgo * 60000;
 
   return `<a class="moments-entry" href="#/moments">
-    <span class="moments-entry__top">
-      <span class="moments-entry__label">${icon('image-square')}朋友圈</span>
-      <span class="moments-entry__time">${formatRelativeTime(timestamp)}</span>
-    </span>
-    <span class="moments-entry__quote">“${escapeHTML(lead.text)}”</span>
-    <span class="moments-entry__footer">
-      <span class="moments-entry__avatars">
-        ${visible
-          .map((character) => characterAvatar(character, 'xs'))
-          .join('')}
-        <span class="moments-entry__names">${visible.length} 位伙伴的近况</span>
+    <span class="moments-entry__icon">${icon('image-square')}</span>
+    <span class="moments-entry__copy">
+      <span class="moments-entry__head">
+        <span class="moments-entry__title">朋友圈</span>
+        <span class="moments-entry__time">${formatRelativeTime(timestamp)}</span>
       </span>
-      <span class="moments-entry__arrow">${icon('arrow-up-right')}</span>
+      <span class="moments-entry__preview">${escapeHTML(lead.text)}</span>
     </span>
+    <span class="moments-entry__arrow">${icon('caret-right')}</span>
   </a>`;
 }
 
 function shakeEntry() {
   return `<a class="shake-entry" href="#/shake">
-    <span class="shake-entry__icon">${avatar({ mark: '遇', tone: 'sky', size: 'md', label: '摇一摇' })}</span>
+    <span class="shake-entry__icon">${avatar({ mark: '遇', tone: 'sky', size: 'md', label: '摇一摇', src: 'src/assets/avatars/stranger.svg' })}</span>
     <span class="shake-entry__copy">
       <strong>摇一摇</strong>
       <small>随机遇见一个人，从一次偶遇开始。</small>

@@ -8,9 +8,10 @@ import {
   getChatMemory,
   getChatStyle,
   getConversation,
-  getEnabledStickerUrls,
+  getEnabledStickerEntries,
   getProfile,
   hasApiConfig,
+  incrementMemoryRound,
   markConversationRead,
   markMemorySummary,
   setConversationStatus,
@@ -51,12 +52,13 @@ function latestMessagePayload(character, message) {
 }
 
 function addStickerExtra(character, active) {
-  const stickerUrls = getEnabledStickerUrls();
-  if (!stickerUrls.length || Math.random() >= 0.16) return;
-  const sticker = stickerUrls[Math.floor(Math.random() * stickerUrls.length)];
+  const stickers = getEnabledStickerEntries();
+  if (!stickers.length || Math.random() >= 0.1) return;
+  const sticker = stickers[Math.floor(Math.random() * stickers.length)];
   const message = addMessage(character.id, 'assistant', '', {
     type: 'sticker',
     url: sticker.url,
+    name: sticker.name,
     packName: sticker.packName,
     unread: !active,
   });
@@ -65,7 +67,8 @@ function addStickerExtra(character, active) {
 }
 
 function scheduleExtra(characterId, character, active, segments, style) {
-  if (!getEnabledStickerUrls().length) return;
+  if (segments.some((segment) => segment.type === 'sticker')) return;
+  if (!getEnabledStickerEntries().length) return;
   const revealMs = segments.reduce(
     (total, segment) =>
       total + Math.min(4500, 180 + messageLength(segment) * style.typingSpeed * 1000),
@@ -82,19 +85,28 @@ function persistReply(characterId, parsed, active) {
   const status = parsed.status || '';
   if (status) setConversationStatus(characterId, status);
 
-  const messages = parsed.segments.map((segment, index) =>
-    segment.type === 'redpacket'
-      ? addMessage(characterId, 'assistant', '', {
-          type: 'redpacket',
-          amountFen: segment.amountFen,
-          note: segment.note,
-          claimed: false,
-          unread: !active && index === parsed.segments.length - 1,
-        })
-      : addMessage(characterId, 'assistant', segment.content, {
-          unread: !active && index === parsed.segments.length - 1,
-        }),
-  );
+  const messages = parsed.segments.map((segment, index) => {
+    const unread = !active && index === parsed.segments.length - 1;
+    if (segment.type === 'redpacket') {
+      return addMessage(characterId, 'assistant', '', {
+        type: 'redpacket',
+        amountFen: segment.amountFen,
+        note: segment.note,
+        claimed: false,
+        unread,
+      });
+    }
+    if (segment.type === 'sticker') {
+      return addMessage(characterId, 'assistant', '', {
+        type: 'sticker',
+        url: segment.url,
+        name: segment.name,
+        packName: segment.packName,
+        unread,
+      });
+    }
+    return addMessage(characterId, 'assistant', segment.content, { unread });
+  });
   const lastMessage = messages.at(-1);
   emit(characterId, 'done', {
     messages,
@@ -102,6 +114,7 @@ function persistReply(characterId, parsed, active) {
     active,
   });
   notifyDataChanged();
+  incrementMemoryRound(characterId);
 
   if (!active && !character.muted && document.visibilityState !== 'hidden') {
     showMessageBanner(latestMessagePayload(character, lastMessage));
@@ -135,15 +148,17 @@ function maybeSummarize(characterId) {
   const conversation = getConversation(characterId);
   const memory = conversation?.memory;
   if (!conversation || !memory?.summaryEvery) return;
+  if ((memory.roundsSinceSummary || 0) < memory.summaryEvery) return;
   const since = memory.lastSummaryAt || 0;
   const pending = conversation.messages.filter(
     (message) => message.createdAt > since,
   );
-  if (pending.length < memory.summaryEvery) return;
+  if (!pending.length) return;
 
   const character = getCharacter(characterId);
   if (!character) return;
   summaryRuns.add(characterId);
+  const consumedRounds = memory.roundsSinceSummary || 0;
   const categoryList = memory.categories.slice();
   summarizeConversation({
     character,
@@ -170,7 +185,7 @@ function maybeSummarize(characterId) {
       }
       // Advance the checkpoint even when every row was already known, so the
       // same stretch of chat is not summarized again on the next reply.
-      markMemorySummary(characterId, pending.at(-1).createdAt);
+      markMemorySummary(characterId, pending.at(-1).createdAt, consumedRounds);
       if (added) notifyDataChanged();
     })
     .catch(() => {
@@ -223,7 +238,9 @@ export function startReply(characterId) {
 }
 
 function finishFromPartial(characterId, run, active) {
-  const parsed = parseAIReply(run.partial.trim());
+  const parsed = parseAIReply(run.partial.trim(), {
+    stickers: getEnabledStickerEntries(),
+  });
   if (!parsed.segments.length) {
     emit(characterId, 'cancelled', {});
     return;
@@ -254,7 +271,9 @@ async function generate(characterId, character, memory, history, controller, run
 
     const content = fullText.trim();
     if (content) {
-      const parsed = parseAIReply(content);
+      const parsed = parseAIReply(content, {
+        stickers: getEnabledStickerEntries(),
+      });
       if (!parsed.segments.length) {
         emit(characterId, 'cancelled', {});
       } else {
