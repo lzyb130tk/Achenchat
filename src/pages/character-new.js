@@ -19,7 +19,7 @@ export function renderCharacterNew() {
         ${avatarField({ mark: '新', name: '新伙伴', tone: 'apricot' })}
         <label class="field"><span class="field__label">名字</span><span class="field__control"><input class="field__input" name="name" maxlength="20" autocomplete="off" placeholder="怎么称呼"></span></label>
         <label class="field"><span class="field__label">标签</span><span class="field__control field__control--select"><select class="field__input field__select" name="tagId"><option value="">未分组</option>${getTags().map((tag) => `<option value="${escapeHTML(tag.id)}">${escapeHTML(tag.name)}</option>`).join('')}</select></span></label>
-        <label class="field creation-persona"><span class="field__label">人设</span><span class="field__control field__control--area"><textarea class="field__input field__textarea" name="persona" rows="6" maxlength="500" placeholder="性格、说话方式、你们的相处方式，写多少都可以。"></textarea></span><span class="creation-count" data-persona-count>0/500</span></label>
+        <label class="field creation-persona"><span class="field__label">人设</span><span class="field__control field__control--area"><textarea class="field__input field__textarea" name="persona" rows="6" placeholder="性格、说话方式、你们的相处方式，写多少都可以。"></textarea></span><span class="creation-count" data-persona-count>0 字</span></label>
         <label class="field"><span class="field__label">签名</span><span class="field__control"><input class="field__input" name="tagline" maxlength="24" autocomplete="off" placeholder="写一句话介绍自己吧"></span></label>
       </div>
     </main>
@@ -27,7 +27,7 @@ export function renderCharacterNew() {
   const avatar = setupAvatarField(screen, { initial: '', mark: '新', name: '新伙伴', tone: 'apricot' });
   const persona = screen.querySelector('[name="persona"]');
   persona.addEventListener('input', () => {
-    screen.querySelector('[data-persona-count]').textContent = `${persona.value.length}/500`;
+    screen.querySelector('[data-persona-count]').textContent = `${persona.value.length} 字`;
   });
   let saving = false;
   screen.querySelectorAll('[data-create-character]').forEach((button) => button.addEventListener('click', () => {

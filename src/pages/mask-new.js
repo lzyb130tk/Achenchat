@@ -36,7 +36,7 @@ export function renderMaskNew() {
         <section class="mask-new__form">
           <label class="field"><span class="field__label">名字</span><span class="field__control"><input class="field__input" name="maskName" maxlength="16" autocomplete="off" placeholder="这个面具叫什么"></span></label>
           <label class="field"><span class="field__label">签名</span><span class="field__control"><input class="field__input" name="maskSignature" maxlength="30" autocomplete="off" placeholder="一句话介绍自己"></span></label>
-          <label class="field mask-new__persona"><span class="field__label">人设</span><span class="field__control field__control--area"><textarea class="field__input field__textarea" name="maskPersona" rows="6" maxlength="500" placeholder="你希望 AI 把你当作怎样的人？可以写性格、身份和相处方式。"></textarea></span><span class="mask-new__count" data-persona-count>0/500</span></label>
+          <label class="field mask-new__persona"><span class="field__label">人设</span><span class="field__control field__control--area"><textarea class="field__input field__textarea" name="maskPersona" rows="6" placeholder="你希望 AI 把你当作怎样的人？可以写性格、身份和相处方式。"></textarea></span><span class="mask-new__count" data-persona-count>0 字</span></label>
           <p class="mask-new__note">${icon('info')}人设会影响之后使用这个面具的回复</p>
         </section>
       </div>
@@ -58,7 +58,7 @@ export function renderMaskNew() {
     screen.querySelector('[data-hero-signature]').textContent = signatureInput.value.trim() || '一句话介绍自己';
   });
   personaInput.addEventListener('input', () => {
-    screen.querySelector('[data-persona-count]').textContent = `${personaInput.value.length}/500`;
+    screen.querySelector('[data-persona-count]').textContent = `${personaInput.value.length} 字`;
   });
   let saving = false;
   const save = () => {
