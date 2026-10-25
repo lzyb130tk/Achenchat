@@ -1,7 +1,8 @@
 import { appHeader } from '../components/app-header.js';
 import { icon } from '../components/icons.js';
+import { openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
-import { fetchModels } from '../services/api.js';
+import { fetchModels, testApiConnection } from '../services/api.js';
 import { getApiConfig, saveApiConfig } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
 
@@ -23,12 +24,13 @@ export function renderApiConfig() {
   let selectedModel = api.model || '';
   let loading = false;
   let requestController = null;
+  let testController = null;
 
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--api-config';
 
   screen.innerHTML = `
-    ${appHeader({ title: 'API 配置', backTo: '#/settings' })}
+    ${appHeader({ title: 'API 配置', backTo: '#/settings', action: '<button class="api-help" type="button" data-api-help>帮助</button>' })}
     <main class="page-scroll">
       <div class="page-content page-content--api">
         <div class="api-intro">
@@ -36,42 +38,43 @@ export function renderApiConfig() {
           <p>连接你的模型服务。模型列表会从接口读取，不需要手动输入。</p>
         </div>
         <form class="api-form" novalidate>
-          <div class="field">
-            <span class="field__label">接口格式</span>
-            <div class="segmented" role="group" aria-label="接口格式">
-              ${Object.entries(PROVIDER_DEFAULTS)
-                .map(
-                  ([value, item]) =>
-                    `<button class="segmented__item${value === provider ? ' is-selected' : ''}" type="button" data-provider="${value}">${item.label}</button>`,
-                )
-                .join('')}
+          <div class="segmented api-provider" role="group" aria-label="接口格式">
+            ${Object.entries(PROVIDER_DEFAULTS)
+              .map(
+                ([value, item]) =>
+                  `<button class="segmented__item${value === provider ? ' is-selected' : ''}" type="button" data-provider="${value}">${item.label}</button>`,
+              )
+              .join('')}
+          </div>
+          <div class="api-fields">
+            <label class="field">
+              <span class="field__label">接口地址</span>
+              <span class="field__control"><span class="api-field-icon">${icon('link-simple')}</span>
+                <input class="field__input" name="baseUrl" type="url" spellcheck="false" autocomplete="off" value="${escapeHTML(api.baseUrl)}" placeholder="${PROVIDER_DEFAULTS[provider].baseUrl}">
+              </span>
+            </label>
+            <label class="field">
+              <span class="field__label">API Key</span>
+              <span class="field__control"><span class="api-field-icon">${icon('lock-simple')}</span>
+                <input class="field__input" name="apiKey" type="password" spellcheck="false" autocomplete="new-password" value="${escapeHTML(api.apiKey)}" placeholder="sk-…">
+                <button class="field__action" type="button" aria-label="显示密钥" data-toggle-key>${icon('eye')}</button>
+              </span>
+            </label>
+            <div class="field">
+              <span class="field__label-row">
+                <span class="field__label">模型</span>
+                <button class="text-button text-button--small" type="button" data-refresh-models>${icon('arrows-clockwise')}<span>获取模型列表</span></button>
+              </span>
+              <span class="field__control field__control--select"><span class="api-field-icon">${icon('cube')}</span>
+                <select class="field__input field__select" name="model" aria-label="模型" data-model-select></select>
+              </span>
+              <p class="field__hint" data-model-status></p>
             </div>
+            <p class="api-connection" data-connection-line><span class="api-connection__dot"></span><span data-connection-status>待连接</span></p>
           </div>
-          <label class="field">
-            <span class="field__label">接口地址</span>
-            <span class="field__control">
-              <input class="field__input" name="baseUrl" type="url" spellcheck="false" autocomplete="off" value="${escapeHTML(api.baseUrl)}" placeholder="${PROVIDER_DEFAULTS[provider].baseUrl}">
-            </span>
-          </label>
-          <label class="field">
-            <span class="field__label">API Key</span>
-            <span class="field__control">
-              <input class="field__input" name="apiKey" type="password" spellcheck="false" autocomplete="new-password" value="${escapeHTML(api.apiKey)}" placeholder="sk-…">
-              <button class="field__action" type="button" aria-label="显示密钥" data-toggle-key>${icon('eye')}</button>
-            </span>
-          </label>
-          <div class="field">
-            <span class="field__label-row">
-              <span class="field__label">模型</span>
-              <button class="text-button text-button--small" type="button" data-refresh-models>${icon('arrows-clockwise')}<span>获取列表</span></button>
-            </span>
-            <span class="field__control field__control--select">
-              <select class="field__input field__select" name="model" aria-label="模型" data-model-select></select>
-            </span>
-            <p class="field__hint" data-model-status></p>
-          </div>
+          <button class="button api-form__test" type="button" data-test-connection>${icon('wifi-high')}测试连接</button>
           <button class="button button--primary api-form__submit" type="submit">保存配置</button>
-          <p class="api-form__note">${icon('shield-check')}密钥仅保存在这台设备的 IndexedDB。若请求失败，请确认接口允许浏览器跨域访问。</p>
+          <p class="api-form__note">${icon('shield-check')}密钥仅保存在这台设备的 IndexedDB 中，不会上传到 Achat。</p>
         </form>
       </div>
     </main>`;
@@ -82,6 +85,14 @@ export function renderApiConfig() {
   const status = screen.querySelector('[data-model-status]');
   const refreshButton = screen.querySelector('[data-refresh-models]');
   const toggleKey = screen.querySelector('[data-toggle-key]');
+  const connectionLine = screen.querySelector('[data-connection-line]');
+  const connectionStatus = screen.querySelector('[data-connection-status]');
+  const testButton = screen.querySelector('[data-test-connection]');
+
+  const setConnection = (message, tone = '') => {
+    connectionStatus.textContent = message;
+    connectionLine.dataset.tone = tone;
+  };
 
   const renderModels = () => {
     const options = [...models];
@@ -108,6 +119,7 @@ export function renderApiConfig() {
   };
 
   const invalidateModels = () => {
+    testController?.abort();
     if (loading) {
       requestController?.abort();
       loading = false;
@@ -116,6 +128,7 @@ export function renderApiConfig() {
     selectedModel = '';
     renderModels();
     setStatus('连接信息变了，重新获取一次模型。');
+    setConnection('连接信息已更改，请重新测试');
   };
 
   const loadModels = async ({ announce = true } = {}) => {
@@ -147,16 +160,19 @@ export function renderApiConfig() {
       loading = false;
       renderModels();
       setStatus(`已获取 ${list.length} 个模型，选择一个再保存。`);
+      setConnection(`模型列表已读取 · ${list.length} 个可用模型`, 'success');
     } catch (error) {
       if (error.name === 'AbortError') return;
       loading = false;
       renderModels();
       setStatus(error.message || '获取模型失败', 'danger');
+      setConnection('连接失败，请检查配置', 'danger');
       if (announce) toast(error.message || '获取模型失败', { tone: 'danger' });
     }
   };
 
   renderModels();
+  setConnection(api.model ? `已保存 · 上次使用 ${api.model}` : '待连接');
   setStatus(
     api.model
       ? `上次使用的模型：${api.model}`
@@ -172,6 +188,7 @@ export function renderApiConfig() {
         baseUrlInput.value = PROVIDER_DEFAULTS[next].baseUrl;
       }
       provider = next;
+      testController?.abort();
       baseUrlInput.placeholder = PROVIDER_DEFAULTS[next].baseUrl;
       models = [];
       selectedModel = '';
@@ -179,6 +196,7 @@ export function renderApiConfig() {
       requestController?.abort();
       renderModels();
       setStatus('接口格式已切换，重新获取模型列表。');
+      setConnection('接口格式已切换，请重新测试');
       screen.querySelectorAll('[data-provider]').forEach((item) => {
         item.classList.toggle('is-selected', item === button);
       });
@@ -190,7 +208,10 @@ export function renderApiConfig() {
 
   modelSelect.addEventListener('change', () => {
     selectedModel = modelSelect.value;
-    if (selectedModel) setStatus('模型已选择，别忘了保存。');
+    if (selectedModel) {
+      setStatus('模型已选择，别忘了保存。');
+      setConnection('模型已更改，请重新测试');
+    }
   });
 
   refreshButton.addEventListener('click', () => loadModels());
@@ -200,6 +221,41 @@ export function renderApiConfig() {
     keyInput.type = hidden ? 'text' : 'password';
     toggleKey.innerHTML = icon(hidden ? 'eye-slash' : 'eye');
     toggleKey.setAttribute('aria-label', hidden ? '隐藏密钥' : '显示密钥');
+  });
+
+  screen.querySelector('[data-api-help]').addEventListener('click', () => {
+    openSheet({
+      title: 'API 配置帮助',
+      content: '<p class="sheet-note">选择接口格式，填写服务地址和 API Key，再获取模型列表并选择模型。测试连接会向所选模型发送一条简短请求。连接失败时，请检查密钥、模型名称及服务是否允许浏览器跨域访问。</p>',
+    });
+  });
+
+  testButton.addEventListener('click', async () => {
+    const baseUrl = baseUrlInput.value.trim();
+    const apiKey = keyInput.value.trim();
+    const model = selectedModel.trim();
+    if (!/^https?:\/\/.+/i.test(baseUrl) || !apiKey || !model) {
+      toast('先填写地址、密钥并选择模型', { tone: 'danger' });
+      return;
+    }
+    testController?.abort();
+    testController = new AbortController();
+    testButton.disabled = true;
+    testButton.innerHTML = `${icon('arrows-clockwise')}正在测试…`;
+    setConnection('正在连接所选模型…');
+    try {
+      await testApiConnection({ provider, baseUrl, apiKey, model }, { signal: testController.signal });
+      setConnection(`连接正常 · 当前模型 ${model}`, 'success');
+      toast('连接正常');
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setConnection(error.message || '连接失败', 'danger');
+        toast(error.message || '连接失败', { tone: 'danger' });
+      }
+    } finally {
+      testButton.disabled = false;
+      testButton.innerHTML = `${icon('wifi-high')}测试连接`;
+    }
   });
 
   screen.querySelector('.api-form').addEventListener('submit', (event) => {
@@ -238,6 +294,7 @@ export function renderApiConfig() {
     element: screen,
     cleanup() {
       requestController?.abort();
+      testController?.abort();
     },
   };
 }

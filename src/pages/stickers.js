@@ -217,7 +217,7 @@ function packCard(pack) {
 export function renderStickers({ refresh }) {
   const packs = getStickerPacks();
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--stickers';
 
   screen.innerHTML = `
     ${appHeader({
@@ -230,16 +230,20 @@ export function renderStickers({ refresh }) {
       }),
     })}
     <main class="page-scroll">
-      <div class="page-content page-content--stickers">
-        <p class="page-intro">导入图片链接，再给每张表情起名。开启后，AI 会按名字理解并在聊天里使用它们。</p>
+      <div class="page-content page-content--stickers${packs.length ? '' : ' page-content--stickers-empty'}">
+        <p class="page-intro">AI 会理解表情含义，在合适的对话里使用。</p>
         ${
           packs.length
             ? `<div class="sticker-packs">${packs.map(packCard).join('')}</div>`
-            : `<section class="empty-state empty-state--compact">
-                <span class="empty-state__icon">${icon('sticker')}</span>
-                <h2>还没有表情包</h2>
-                <p>粘贴几张图片链接，就能让对话多一点表情。</p>
-                <button class="button button--primary empty-state__button" type="button" data-empty-add>添加表情包</button>
+            : `<section class="stickers-empty">
+                <div class="stickers-empty__main">
+                  <img class="stickers-empty__art" src="src/assets/sticker-empty.png" alt="两张可爱的猫咪表情卡片">
+                  <h2>还没有表情包</h2>
+                  <p>添加几张常用图片，让对话更有表情。</p>
+                  <button class="button button--primary stickers-empty__create" type="button" data-empty-add>${icon('plus')}创建表情包</button>
+                  <button class="stickers-empty__link" type="button" data-link-import>从链接导入</button>
+                </div>
+                <p class="stickers-empty__tip">${icon('sparkle')}<span>为表情包起一个清楚的名字，<br>AI 会更准确地使用它。</span></p>
               </section>`
         }
       </div>
@@ -248,11 +252,14 @@ export function renderStickers({ refresh }) {
   watchBrokenImages(screen);
 
   const openNew = () => {
-    openStickerEditor({ onSaved: refresh });
+    window.location.hash = '#/stickers/new';
   };
 
   screen.querySelector('[data-new-pack]').addEventListener('click', openNew);
   screen.querySelector('[data-empty-add]')?.addEventListener('click', openNew);
+  screen.querySelector('[data-link-import]')?.addEventListener('click', () => {
+    window.location.hash = '#/stickers/new/links';
+  });
 
   screen.querySelectorAll('[data-edit-pack]').forEach((button) => {
     button.addEventListener('click', () => {

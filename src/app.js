@@ -2,7 +2,10 @@ import { closeActiveSheet } from './components/sheet.js';
 import { mountStatusBar } from './components/status-bar.js';
 import { renderApiConfig } from './pages/api-config.js';
 import { renderChat } from './pages/chat.js';
+import { renderChatSettings } from './pages/chat-settings.js';
+import { renderCharacterNew } from './pages/character-new.js';
 import { renderContacts } from './pages/contacts.js';
+import { renderContactSearch } from './pages/contact-search.js';
 import { renderDiscover } from './pages/discover.js';
 import { renderMasks } from './pages/masks.js';
 import { renderMe } from './pages/me.js';
@@ -12,24 +15,40 @@ import { renderMoments } from './pages/moments.js';
 import { renderSettings } from './pages/settings.js';
 import { renderShake } from './pages/shake.js';
 import { renderShop } from './pages/shop.js';
+import { renderShopOrders } from './pages/shop-orders.js';
 import { renderStickers } from './pages/stickers.js';
+import { renderStickerNew } from './pages/sticker-new.js';
+import { renderTags } from './pages/tags.js';
+import { renderMaskNew } from './pages/mask-new.js';
 import { renderWallet } from './pages/wallet.js';
 import { applyAppearance, watchSystemTheme } from './services/appearance.js';
 import { getAppearance, getCharacter } from './services/store.js';
 
 const ROUTES = [
   { pattern: /^\/messages\/?$/, title: '消息', render: renderMessages },
-  { pattern: /^\/contacts\/?$/, title: '联系人', render: renderContacts },
+  { pattern: /^\/contacts(?:\?tag=([^/]+))?\/?$/, title: '联系人', render: renderContacts },
+  { pattern: /^\/contacts\/tags\/?$/, title: '标签与分组', render: renderTags },
+  { pattern: /^\/contacts\/search\/?$/, title: '搜索联系人', render: renderContactSearch },
+  { pattern: /^\/characters\/new\/?$/, title: '新建伙伴', render: renderCharacterNew },
   { pattern: /^\/discover\/?$/, title: '发现', render: renderDiscover },
   { pattern: /^\/me\/?$/, title: '我', render: renderMe },
   { pattern: /^\/settings\/?$/, title: '设置', render: renderSettings },
   { pattern: /^\/settings\/api\/?$/, title: 'API 配置', render: renderApiConfig },
   { pattern: /^\/wallet\/?$/, title: '钱包', render: renderWallet },
   { pattern: /^\/shop\/?$/, title: '小店', render: renderShop },
+  { pattern: /^\/shop\/orders\/?$/, title: '今日订单', render: renderShopOrders },
   { pattern: /^\/stickers\/?$/, title: '表情', render: renderStickers },
+  { pattern: /^\/stickers\/new\/links\/?$/, title: '新建表情包', render: () => renderStickerNew({ focusLinks: true }) },
+  { pattern: /^\/stickers\/new\/?$/, title: '新建表情包', render: renderStickerNew },
   { pattern: /^\/masks\/?$/, title: '面具', render: renderMasks },
+  { pattern: /^\/masks\/new\/?$/, title: '新建面具', render: renderMaskNew },
   { pattern: /^\/moments\/?$/, title: '朋友圈', render: renderMoments },
   { pattern: /^\/shake\/?$/, title: '摇一摇', render: renderShake },
+  {
+    pattern: /^\/chat\/([^/]+)\/settings\/?$/,
+    title: '聊天设置',
+    render: ({ match }) => renderChatSettings({ characterId: match[1] }),
+  },
   {
     pattern: /^\/chat\/([^/]+)\/?$/,
     title: null,

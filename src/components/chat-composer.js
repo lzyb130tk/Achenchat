@@ -1,10 +1,13 @@
 import { openChoiceSheet } from './choice-sheet.js';
+import { characterAvatar } from './avatar.js';
 import { icon } from './icons.js';
 
 export function createChatComposer({
+  character,
   characterName,
   hasConfig,
   sendMode = 'single',
+  sentCount = 0,
   onSend,
   onStop,
   onConfigure,
@@ -21,6 +24,11 @@ export function createChatComposer({
       <span>尚未连接 AI</span>
       <span class="chat-composer__hint-action">去配置</span>
     </button>`}
+    <div class="chat-composer__pending" data-multi-banner hidden>
+      ${characterAvatar(character, 'sm')}
+      <span class="chat-composer__pending-copy"><strong data-sent-count>已发送 0 条</strong><small>多条消息模式</small></span>
+      <button class="chat-composer__receive" type="button" data-receive aria-label="接收回复">${icon('arrow-down')}<span>接收回复</span></button>
+    </div>
     <div class="chat-composer__quote" data-quote hidden>
       <span class="chat-composer__quote-icon">${icon('arrow-elbow-down-right')}</span>
       <span class="chat-composer__quote-copy">
@@ -34,10 +42,6 @@ export function createChatComposer({
         <button class="chat-composer__extra" type="button" aria-label="更多功能" data-composer-more>
           ${icon('plus')}
         </button>
-        <button class="chat-composer__receive" type="button" data-receive aria-label="接收回复" hidden>
-          <span data-receive-icon>${icon('arrow-down')}</span>
-          <span class="sr-only" data-receive-label>接收</span>
-        </button>
         <textarea
           class="chat-composer__input"
           rows="1"
@@ -47,7 +51,7 @@ export function createChatComposer({
           enterkeyhint="send"
         ></textarea>
         <button class="chat-composer__send" type="button" aria-label="发送，长按切换发送方式" data-send disabled>
-          ${icon('paper-plane-tilt', 'fill')}
+          ${icon('paper-plane-tilt')}
         </button>
       </div>
     </div>`;
@@ -56,8 +60,8 @@ export function createChatComposer({
   const sendButton = element.querySelector('[data-send]');
   const moreButton = element.querySelector('[data-composer-more]');
   const receiveButton = element.querySelector('[data-receive]');
-  const receiveLabel = element.querySelector('[data-receive-label]');
-  const receiveIcon = element.querySelector('[data-receive-icon]');
+  const pendingBanner = element.querySelector('[data-multi-banner]');
+  const sentCountLabel = element.querySelector('[data-sent-count]');
   const quoteBar = element.querySelector('[data-quote]');
   const quoteName = element.querySelector('[data-quote-name]');
   const quoteText = element.querySelector('[data-quote-text]');
@@ -65,6 +69,8 @@ export function createChatComposer({
   let mode = sendMode === 'multi' ? 'multi' : 'single';
   let streaming = false;
   let receiving = false;
+  let pendingCount = Math.max(0, Number(sentCount) || 0);
+  let dismissed = false;
   let quote = null;
 
   const resize = () => {
@@ -78,16 +84,17 @@ export function createChatComposer({
   };
 
   const syncReceive = () => {
-    const visible = mode === 'multi';
-    receiveButton.hidden = !visible;
-    receiveButton.classList.toggle('is-waiting', receiving);
-    receiveButton.disabled = receiving || streaming;
-    receiveLabel.textContent = receiving ? '等待' : '接收';
-    receiveIcon.innerHTML = receiving ? icon('hourglass-medium') : icon('arrow-down');
-    receiveButton.setAttribute(
-      'aria-label',
-      receiving ? '等待对方回复' : '接收对方回复',
-    );
+    const visible = mode === 'multi' && !dismissed && !receiving && !streaming
+      && (pendingCount > 0 || Boolean(input.value.trim()));
+    pendingBanner.hidden = !visible;
+    sentCountLabel.textContent = `已发送 ${pendingCount} 条`;
+    receiveButton.disabled = pendingCount === 0;
+  };
+
+  const setSentCount = (value) => {
+    pendingCount = Math.max(0, Math.min(999, Number(value) || 0));
+    if (pendingCount) dismissed = false;
+    syncReceive();
   };
 
   const setMode = (value) => {
@@ -145,6 +152,8 @@ export function createChatComposer({
   input.addEventListener('input', () => {
     resize();
     updateSendState();
+    if (input.value.trim()) dismissed = false;
+    syncReceive();
     onCompose?.();
   });
 
@@ -204,10 +213,12 @@ export function createChatComposer({
   });
 
   receiveButton.addEventListener('click', () => {
-    if (streaming || receiving) return;
+    if (streaming || receiving || pendingCount === 0) return;
     const accepted = onReceive?.();
     if (accepted !== false) {
       receiving = true;
+      pendingCount = 0;
+      dismissed = true;
       syncReceive();
     }
   });
@@ -228,7 +239,7 @@ export function createChatComposer({
       'aria-label',
       value ? '停止生成' : '发送，长按切换发送方式',
     );
-    sendButton.innerHTML = value ? icon('stop', 'fill') : icon('paper-plane-tilt', 'fill');
+    sendButton.innerHTML = value ? icon('stop', 'fill') : icon('paper-plane-tilt');
     sendButton.disabled = value ? false : !input.value.trim();
     syncReceive();
   };
@@ -246,10 +257,13 @@ export function createChatComposer({
     setStreaming,
     setReceiving,
     setMode,
+    setSentCount,
     setValue(value) {
       input.value = value;
       resize();
       updateSendState();
+      if (input.value.trim()) dismissed = false;
+      syncReceive();
     },
     setQuote,
     clearQuote,

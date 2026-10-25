@@ -1,5 +1,6 @@
 import { messageAsText } from './message-format.js';
 import { getApiConfig, getEnabledStickerEntries } from './store.js';
+import { getDailyOrderQuestions, getShopType } from '../data/shop.js';
 
 export class ApiRequestError extends Error {}
 
@@ -200,6 +201,43 @@ export async function fetchModels(api, { signal } = {}) {
   return models;
 }
 
+export async function testApiConnection(api, { signal } = {}) {
+  const isAnthropic = api.provider === 'anthropic';
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(isAnthropic
+      ? {
+          'x-api-key': apiKeyForHeader(api.apiKey),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        }
+      : { Authorization: `Bearer ${apiKeyForHeader(api.apiKey)}` }),
+  };
+  const body = isAnthropic
+    ? { model: api.model, max_tokens: 16, messages: [{ role: 'user', content: '请回复“连接正常”。' }] }
+    : { model: api.model, max_tokens: 16, stream: false, messages: [{ role: 'user', content: '请回复“连接正常”。' }] };
+  let response;
+  try {
+    response = await fetch(getEndpoint(api), {
+      method: 'POST', headers, body: JSON.stringify(body), signal,
+    });
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    throw new ApiRequestError('连接失败，请检查网络或接口跨域设置');
+  }
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ApiRequestError('接口返回了无法解析的内容');
+  }
+  if (!response.ok) throw new ApiRequestError(formatHttpError(response.status, payload));
+  if (!extractFullText(payload, api.provider).trim()) {
+    throw new ApiRequestError('接口没有返回回复内容');
+  }
+  return true;
+}
+
 async function parseStream(response, provider, signal, onDelta) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -343,6 +381,61 @@ export async function streamChat({
   const text = await parseStream(response, api.provider, signal, onDelta);
   if (!text) throw new ApiRequestError('API 没有返回回复内容');
   return text;
+}
+
+export async function evaluateShopOrders({ typeId, answers, signal }) {
+  const api = getApiConfig();
+  if (!api.apiKey?.trim() || !api.model?.trim() || !api.baseUrl?.trim()) {
+    throw new ApiRequestError('请先配置 API 和模型');
+  }
+  const type = getShopType(typeId);
+  if (!type) throw new ApiRequestError('小店不存在');
+  const questions = getDailyOrderQuestions(typeId);
+  if (!Array.isArray(answers) || answers.length !== questions.length) {
+    throw new ApiRequestError('请完成三道选择题');
+  }
+  const system = '你是小店订单结算员。根据用户处理三笔订单的选择，评估服务质量并发放虚拟游戏工资。只返回 JSON 对象，格式为 {"wageFen":整数,"feedback":"一句不超过60字的评语"}。金额单位是人民币分，范围 500 到 5000，合理选择越多工资越高。不要输出 Markdown。';
+  const details = questions.map((item, index) => `${index + 1}. ${item.question}\n选择：${item.choices[answers[index]] || '未选择'}`).join('\n');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(api.provider === 'anthropic'
+      ? {
+          'x-api-key': apiKeyForHeader(api.apiKey),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        }
+      : { Authorization: `Bearer ${apiKeyForHeader(api.apiKey)}` }),
+  };
+  const body = api.provider === 'anthropic'
+    ? { model: api.model.trim(), system, messages: [{ role: 'user', content: `${type.name}今日订单：\n${details}` }], max_tokens: 200, stream: false }
+    : { model: api.model.trim(), messages: [{ role: 'system', content: system }, { role: 'user', content: `${type.name}今日订单：\n${details}` }], max_tokens: 200, temperature: 0.3, stream: false };
+  let response;
+  try {
+    response = await fetch(getEndpoint(api), { method: 'POST', headers, body: JSON.stringify(body), signal });
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    throw new ApiRequestError('订单结算无法连接 API');
+  }
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ApiRequestError('订单结算返回了无法解析的内容');
+  }
+  if (!response.ok) throw new ApiRequestError(formatHttpError(response.status, payload));
+  const raw = extractFullText(payload, api.provider);
+  const json = raw.match(/\{[\s\S]*\}/)?.[0];
+  let result;
+  try {
+    result = JSON.parse(json || '');
+  } catch {
+    throw new ApiRequestError('订单评估格式不正确，请重试');
+  }
+  if (!Number.isFinite(result.wageFen)) throw new ApiRequestError('订单评估没有返回工资');
+  return {
+    wageFen: Math.min(5000, Math.max(500, Math.round(result.wageFen))),
+    feedback: String(result.feedback || '今天的订单已完成。').slice(0, 120),
+  };
 }
 
 export async function summarizeConversation({

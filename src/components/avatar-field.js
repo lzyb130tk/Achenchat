@@ -22,7 +22,7 @@ export function avatarField({ mark, name, tone = 'ink' }) {
   </div>`;
 }
 
-export function setupAvatarField(root, { initial = '', mark, name, tone = 'ink' }) {
+export function setupAvatarField(root, { initial = '', mark, name, tone = 'ink', emptyPreview = '' }) {
   const field = root.querySelector('[data-avatar-field]');
   if (!field) return { getValue: () => initial };
 
@@ -35,13 +35,16 @@ export function setupAvatarField(root, { initial = '', mark, name, tone = 'ink' 
 
   const paint = () => {
     const isRemote = /^https?:\/\//i.test(value);
-    preview.innerHTML = avatar({
-      mark,
-      name,
-      tone,
-      size: '2xl',
-      src: value && (isRemote || value.startsWith('data:image/')) ? value : '',
-    });
+    const isImage = isRemote || value.startsWith('data:image/') || value === 'src/assets/default-person.svg';
+    preview.innerHTML = !value && emptyPreview
+      ? emptyPreview
+      : avatar({
+          mark,
+          name,
+          tone,
+          size: '2xl',
+          src: value && isImage ? value : '',
+        });
     clearButton.hidden = !value;
   };
 

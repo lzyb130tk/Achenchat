@@ -1,13 +1,11 @@
 import { appHeader } from '../components/app-header.js';
 import { bottomNav } from '../components/bottom-nav.js';
-import { openCharacterEditor } from '../components/character-editor.js';
 import {
   bindLongPress,
   openConversationActions,
 } from '../components/conversation-actions.js';
 import { conversationItem } from '../components/conversation-item.js';
 import { icon, iconButton } from '../components/icons.js';
-import { openSearchSheet } from '../components/search-sheet.js';
 import { onDataChanged } from '../services/events.js';
 import { getSortedConversations } from '../services/store.js';
 import { messagePreview } from '../services/utils.js';
@@ -25,15 +23,11 @@ function emptyState(onCreate) {
 
 export function renderMessages({ refresh }) {
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--messages';
   const conversations = getSortedConversations();
 
   const openCreate = () => {
-    openCharacterEditor({
-      onSaved: (character) => {
-        window.location.hash = `#/chat/${character.id}`;
-      },
-    });
+    window.location.hash = '#/characters/new';
   };
 
   const headerAction = `${iconButton({
@@ -50,8 +44,13 @@ export function renderMessages({ refresh }) {
     ${appHeader({ title: '消息', action: headerAction })}
     <main class="page-scroll">
       <div class="page-content page-content--messages">
+        <label class="messages-search">
+          <span>${icon('magnifying-glass')}</span>
+          <input type="search" data-message-search placeholder="搜索联系人或聊天" aria-label="搜索联系人或聊天" autocomplete="off">
+        </label>
         ${conversations.length
-          ? `<div class="conversation-list conversation-list--main">
+          ? `<h2 class="messages-section-title">最近消息</h2>
+            <div class="conversation-list conversation-list--main">
               ${conversations
                 .map(({ character, conversation, lastMessage }) =>
                   conversationItem({
@@ -64,8 +63,9 @@ export function renderMessages({ refresh }) {
                 )
                 .join('')}
             </div>
-            <p class="list-hint">长按对话可以置顶、免打扰或删除</p>`
+            <p class="messages-search-empty" data-search-empty hidden>没有找到相关对话</p>`
           : ''}
+        <p class="messages-privacy">聊天记录保存在本机，回复由你配置的 AI 服务处理</p>
       </div>
     </main>
     ${bottomNav('messages')}`;
@@ -76,18 +76,22 @@ export function renderMessages({ refresh }) {
       .appendChild(emptyState(openCreate));
   }
 
+  const search = screen.querySelector('[data-message-search]');
   screen.querySelector('[data-action="search"]')?.addEventListener('click', () => {
-    openSearchSheet({
-      title: '搜索消息',
-      placeholder: '搜索名字或对话',
-      emptyText: '没有找到相关对话',
-      items: conversations.map(({ character, lastMessage }) => ({
-        character,
-        href: `#/chat/${character.id}`,
-        subtitle: messagePreview(lastMessage),
-        searchText: `${character.name} ${character.role} ${character.tagline} ${messagePreview(lastMessage)}`,
-      })),
+    search.focus();
+  });
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    screen.querySelectorAll('[data-conversation-id]').forEach((item) => {
+      const found = conversations.find(({ character }) => character.id === item.dataset.conversationId);
+      const text = found
+        ? `${found.character.name} ${found.character.role || ''} ${found.character.tagline || ''} ${messagePreview(found.lastMessage)}`
+        : '';
+      item.hidden = !text.toLocaleLowerCase().includes(query);
+      if (!item.hidden) visible += 1;
     });
+    screen.querySelector('[data-search-empty]')?.toggleAttribute('hidden', visible > 0 || !query);
   });
 
   screen.querySelector('[data-action="create"]')?.addEventListener('click', openCreate);

@@ -1,5 +1,6 @@
 import {
   CHAT_BACKGROUNDS,
+  DEFAULT_CHAT_STYLE,
   DEFAULT_ANIMATION_CSS,
   DEFAULT_BUBBLE_CSS,
   DEFAULT_PACKET_CSS,
@@ -30,7 +31,6 @@ import {
 } from '../services/utils.js';
 import { characterAvatar } from './avatar.js';
 import { icon } from './icons.js';
-import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
 const BACKGROUND_PREVIEWS = {
@@ -200,7 +200,7 @@ function sparkLabel(style) {
   );
 }
 
-export function openChatSettings({ character, style, onStyleChange }) {
+export function createChatSettingsPage({ character, style }) {
   let current = { ...style };
   let tab = 'general';
   let view = 'root';
@@ -208,25 +208,35 @@ export function openChatSettings({ character, style, onStyleChange }) {
   let editingPresetId = null;
   let presetDraft = { name: '', css: '' };
 
-  openSheet({
-    title: '聊天设置',
-    description: `只影响和${character.name}的这段对话。`,
-    className: 'sheet--settings',
-    content: `<div class="chat-settings">
+  const screen = document.createElement('section');
+  screen.className = 'screen screen--chat-settings';
+  screen.innerHTML = `
+    <header class="chat-settings-page__header">
+      <a class="icon-button" href="#/chat/${character.id}" aria-label="返回聊天">${icon('arrow-left')}</a>
+      <h1>聊天设置</h1>
+      <span aria-hidden="true"></span>
+    </header>
+    <main class="page-scroll chat-settings-page__scroll">
+      <div class="chat-settings-page__content">
+        <div class="chat-settings-page__profile">
+          ${characterAvatar(character, 'lg')}
+          <span><strong>${escapeHTML(character.name)}</strong><small>仅影响和${escapeHTML(character.name)}的这段对话</small></span>
+        </div>
+        <div class="chat-settings">
       <div class="segmented chat-settings__tabs" data-chat-settings-tabs role="tablist" aria-label="聊天设置分组">
         <button class="segmented__item is-selected" type="button" role="tab" aria-selected="true" data-tab="general">通用</button>
         <button class="segmented__item" type="button" role="tab" aria-selected="false" data-tab="fun">趣味</button>
       </div>
       <div data-chat-settings-content></div>
-    </div>`,
-    onMount: (sheet) => {
-      const content = sheet.querySelector('[data-chat-settings-content]');
-      const tabs = sheet.querySelector('[data-chat-settings-tabs]');
-      const body = sheet.querySelector('.sheet__body');
+        </div>
+      </div>
+    </main>`;
+      const content = screen.querySelector('[data-chat-settings-content]');
+      const tabs = screen.querySelector('[data-chat-settings-tabs]');
+      const body = screen.querySelector('.chat-settings-page__scroll');
 
       const setCurrent = (next) => {
         current = next;
-        onStyleChange?.(current);
       };
 
       const notify = (patch) => {
@@ -331,7 +341,11 @@ export function openChatSettings({ character, style, onStyleChange }) {
               <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
             </button>
           </div>
-        </section>`;
+        </section>
+        <button class="chat-settings-page__reset" type="button" data-reset-chat-settings>
+          <span>${icon('arrow-counter-clockwise')}恢复默认设置</span>
+          ${icon('caret-right')}
+        </button>`;
       };
 
       const sendMarkup = () => `<p class="settings-note">长按输入框右侧的发送按钮，也可以随时切换。</p>
@@ -576,6 +590,7 @@ export function openChatSettings({ character, style, onStyleChange }) {
       };
 
       const paint = () => {
+        screen.classList.toggle('is-subview', view !== 'root');
         paintTabs();
         content.innerHTML =
           view === 'root'
@@ -622,7 +637,7 @@ export function openChatSettings({ character, style, onStyleChange }) {
           if (!image) return;
           try {
             const dataUrl = await readImageFile(image, { maxSize: 1400, quality: 0.82 });
-            if (!sheet.isConnected) return;
+            if (!screen.isConnected) return;
             notify({ backgroundImage: dataUrl });
             paint();
           } catch (error) {
@@ -838,7 +853,6 @@ export function openChatSettings({ character, style, onStyleChange }) {
           });
         });
         container.querySelector('[data-open-stickers]')?.addEventListener('click', () => {
-          closeActiveSheet({ immediate: true, reason: 'navigate' });
           window.location.hash = '#/stickers';
         });
       };
@@ -890,8 +904,12 @@ export function openChatSettings({ character, style, onStyleChange }) {
             button.addEventListener('click', () => openView(button.dataset.openView));
           });
           content.querySelector('[data-memory]')?.addEventListener('click', () => {
-            closeActiveSheet({ immediate: true, reason: 'navigate' });
             window.location.hash = `#/memory/${character.id}`;
+          });
+          content.querySelector('[data-reset-chat-settings]')?.addEventListener('click', () => {
+            notify({ ...DEFAULT_CHAT_STYLE });
+            paint();
+            toast('已恢复默认设置');
           });
           return;
         }
@@ -968,6 +986,5 @@ export function openChatSettings({ character, style, onStyleChange }) {
       });
 
       paint();
-    },
-  });
+  return { element: screen };
 }

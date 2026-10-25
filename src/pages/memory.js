@@ -224,7 +224,7 @@ export function renderMemory({ characterId }) {
   screen.innerHTML = `
     ${appHeader({
       title: '聊天记忆',
-      backTo: `#/chat/${character.id}`,
+      backTo: `#/chat/${character.id}/settings`,
       action: iconButton({
         name: 'plus',
         label: '新增记忆',

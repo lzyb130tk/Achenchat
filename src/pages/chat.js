@@ -1,6 +1,6 @@
 import { avatar, characterAvatar, profileAvatar } from '../components/avatar.js';
 import { createChatComposer } from '../components/chat-composer.js';
-import { applyChatStyle, openChatSettings } from '../components/chat-settings.js';
+import { applyChatStyle } from '../components/chat-settings.js';
 import {
   openComposerActions,
   openStickerPicker,
@@ -23,6 +23,7 @@ import { messageAsText, messageLength } from '../services/message-format.js';
 import {
   addMessage,
   claimRedPacket,
+  clearMultiSentCount,
   deleteMessage,
   ensureConversation,
   getChatStyle,
@@ -30,6 +31,7 @@ import {
   getConversation,
   getProfile,
   hasApiConfig,
+  incrementMultiSentCount,
   removeLastAssistantReply,
   setConversationStatus,
   updateChatStyle,
@@ -75,8 +77,7 @@ function chatHeader(character, status, style, streak) {
         </span>
       </span>
     </button>
-    <button class="icon-button chat-header__action" type="button" aria-label="对话选项" data-open-brief>${icon('dots-three')}</button>
-    <button class="icon-button chat-header__action" type="button" aria-label="聊天设置" data-open-settings>${icon('gear-six')}</button>
+    <button class="icon-button chat-header__action" type="button" aria-label="更多会话操作" data-open-chat-menu>${icon('dots-three')}</button>
   </header>`;
 }
 
@@ -462,6 +463,7 @@ export function renderChat({ characterId, refresh }) {
       packName: sticker.packName,
     });
     appendMessage(message, { animate: true, forceScroll: true });
+    if (chatStyle.sendMode === 'multi') composer.setSentCount(incrementMultiSentCount(character.id));
     if (chatStyle.sendMode === 'single' && hasApiConfig() && !isReplying(character.id)) {
       startReply(character.id);
     }
@@ -473,6 +475,7 @@ export function renderChat({ characterId, refresh }) {
       onSent: (message) => {
         if (revealPending.length) flushReveal();
         appendMessage(message, { animate: true, forceScroll: true });
+        if (chatStyle.sendMode === 'multi') composer.setSentCount(incrementMultiSentCount(character.id));
         if (
           chatStyle.sendMode === 'single' &&
           hasApiConfig() &&
@@ -582,9 +585,11 @@ export function renderChat({ characterId, refresh }) {
   };
 
   const composer = createChatComposer({
+    character,
     characterName: character.name,
     hasConfig: hasApiConfig(),
     sendMode: chatStyle.sendMode,
+    sentCount: conversation.multiSentCount || 0,
     onCompose: () => scrollToBottom(true),
     onConfigure: () => {
       window.location.hash = '#/settings/api';
@@ -609,10 +614,16 @@ export function renderChat({ characterId, refresh }) {
       }
       if (isReplying(character.id)) return false;
       if (revealPending.length) flushReveal();
-      return startReply(character.id);
+      const started = startReply(character.id);
+      if (started) clearMultiSentCount(character.id);
+      return started;
     },
     onModeChange: (mode) => {
       chatStyle = updateChatStyle(character.id, { sendMode: mode });
+      if (mode === 'single') {
+        clearMultiSentCount(character.id);
+        composer.setSentCount(0);
+      }
     },
     onSend: (text, quote) => {
       const isMulti = chatStyle.sendMode === 'multi';
@@ -624,7 +635,8 @@ export function renderChat({ characterId, refresh }) {
       if (revealPending.length) flushReveal();
       const message = addMessage(character.id, 'user', text, { quote });
       appendMessage(message, { animate: true, forceScroll: true });
-      if (!isMulti) startReply(character.id);
+      if (isMulti) composer.setSentCount(incrementMultiSentCount(character.id));
+      else startReply(character.id);
       return true;
     },
   });
@@ -758,24 +770,6 @@ export function renderChat({ characterId, refresh }) {
     });
   });
 
-  screen.querySelector('[data-open-settings]').addEventListener('click', () => {
-    openChatSettings({
-      character,
-      style: chatStyle,
-      onStyleChange: (next) => {
-        const groupChanged = next.messageGroup !== chatStyle.messageGroup;
-        chatStyle = next;
-        applyChatStyle(screen, chatStyle);
-        updateSparkBadge();
-        composer.setMode(chatStyle.sendMode);
-        if (groupChanged) {
-          if (revealPending.length) pendingGroupSync = true;
-          else syncRowAppearance();
-        }
-      },
-    });
-  });
-
   screen.querySelectorAll('[data-open-profile]').forEach((button) => {
     button.addEventListener('click', () => {
       openPartnerSheet({
@@ -785,11 +779,34 @@ export function renderChat({ characterId, refresh }) {
     });
   });
 
-  screen.querySelector('[data-open-brief]').addEventListener('click', () => {
-    openPartnerSheet({
-      character: getCharacter(character.id),
-      compact: true,
-      onChanged: refresh,
+  screen.querySelector('[data-open-chat-menu]').addEventListener('click', () => {
+    openSheet({
+      title: '会话',
+      className: 'chat-action-sheet chat-action-sheet--menu',
+      content: `<div class="composer-action-grid">
+        <button class="composer-action" type="button" data-chat-profile>
+          <span class="composer-action__icon">${icon('user-circle')}</span>
+          <span>对话资料</span>
+        </button>
+        <button class="composer-action" type="button" data-chat-settings>
+          <span class="composer-action__icon">${icon('gear-six')}</span>
+          <span>聊天设置</span>
+        </button>
+      </div>`,
+      onMount: (sheet) => {
+        sheet.querySelector('[data-chat-profile]').addEventListener('click', () => {
+          closeActiveSheet({ immediate: true, reason: 'replace' });
+          openPartnerSheet({
+            character: getCharacter(character.id),
+            compact: true,
+            onChanged: refresh,
+          });
+        });
+        sheet.querySelector('[data-chat-settings]').addEventListener('click', () => {
+          closeActiveSheet({ immediate: true, reason: 'navigate' });
+          window.location.hash = `#/chat/${character.id}/settings`;
+        });
+      },
     });
   });
 

@@ -1,5 +1,5 @@
 import { appHeader } from '../components/app-header.js';
-import { icon } from '../components/icons.js';
+import { icon, iconButton } from '../components/icons.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import {
@@ -10,6 +10,9 @@ import {
 import {
   claimEarlySalary,
   getShop,
+  getShopWeeklyOrderIncomeFen,
+  getTodayShopOrder,
+  getWallet,
   openShop,
   settleShopIncome,
 } from '../services/store.js';
@@ -89,7 +92,7 @@ export function renderShop({ refresh }) {
   const type = shop ? getShopType(shop.typeId) : null;
 
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--shop';
 
   if (!shop || !type) {
     screen.innerHTML = `
@@ -118,13 +121,23 @@ export function renderShop({ refresh }) {
   const earlyClaimed = shop.earlyClaimedAt === shop.payrollAt;
   const canClaimEarly = shop.pendingFen > 0 && !earlyClaimed;
   const fee = Math.round(shop.pendingFen * 0.1);
+  const todayOrder = getTodayShopOrder();
+  const wallet = getWallet();
+  const weekStart = new Date();
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const weeklyBaseFen = wallet.transactions
+    .filter((entry) => (entry.type === 'salary' || entry.type === 'early-salary') && entry.createdAt >= weekStart.getTime())
+    .reduce((sum, entry) => sum + entry.amountFen, 0);
+  const weeklyIncomeFen = weeklyBaseFen + getShopWeeklyOrderIncomeFen();
 
   screen.innerHTML = `
-    ${appHeader({ title: '小店', backTo: '#/me' })}
+    ${appHeader({ title: '小店', backTo: '#/me', action: iconButton({ name: 'question', label: '小店说明', action: 'data-shop-help' }) })}
     <main class="page-scroll">
       <div class="page-content page-content--shop">
         <section class="shop-store shop-store--${type.tone}">
           <span class="shop-store__wash" aria-hidden="true"></span>
+          ${type.id === 'flower' ? '<img class="shop-store__flowers" src="src/assets/shop-flowers.png" alt="" aria-hidden="true">' : ''}
           <span class="shop-store__icon">${icon(type.icon)}</span>
           <div class="shop-store__copy">
             <span class="shop-store__eyebrow">营业中</span>
@@ -147,12 +160,28 @@ export function renderShop({ refresh }) {
           <div><span>上次到账</span><strong>${shop.lastIncomeFen ? formatMoney(shop.lastIncomeFen) : '还没有'}</strong></div>
           <div><span>结算时间</span><strong>每天 12:00</strong></div>
         </div>
+        <section class="shop-overview">
+          <h2>${icon('chart-bar')}经营概览</h2>
+          <div class="shop-overview__stats">
+            <div><span>今日订单</span><strong>${todayOrder?.count || 3}</strong></div>
+            <div><span>本周收入</span><strong>${formatMoney(weeklyIncomeFen)}</strong></div>
+          </div>
+          <a class="shop-overview__row" href="#/shop/orders">${icon('receipt')}<span>${todayOrder ? '查看今日订单' : '获取今日订单详情'}</span>${icon('caret-right')}</a>
+          <a class="shop-overview__row" href="#/wallet">${icon('list-bullets')}<span>查看收入明细</span>${icon('caret-right')}</a>
+        </section>
       </div>
     </main>`;
 
   screen.querySelector('[data-early-claim]')?.addEventListener('click', () => {
     if (!canClaimEarly) return;
     openEarlyClaim(getShop(), type, refresh);
+  });
+
+  screen.querySelector('[data-shop-help]')?.addEventListener('click', () => {
+    openSheet({
+      title: '小店说明',
+      content: '<p class="sheet-note">基础工资每天 12:00 结算，也可以付 10% 手续费提前领取。每天还可完成三笔今日订单；答案由你配置的 AI 服务评估，订单工资另行存入钱包。</p>',
+    });
   });
 
   return { element: screen };

@@ -65,3 +65,35 @@ export function formatPayrollTime(timestamp, now = Date.now()) {
   if (sameDay(target, tomorrow)) return '明天 12:00';
   return `${target.getMonth() + 1} 月 ${target.getDate()} 日 12:00`;
 }
+
+export function localDayKey(timestamp = Date.now()) {
+  const day = new Date(timestamp);
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+}
+
+const ORDER_SCENARIOS = {
+  coffee: [
+    { question: '客人想喝一杯不太甜的咖啡，你会？', choices: ['问清口味，推荐少糖饮品', '直接推荐最贵的甜咖啡', '让客人自己看菜单'] },
+    { question: '午后同时来了三位客人，第一位正在等单，你会？', choices: ['说明等待时间，依次制作', '先做最简单的一单', '不回应后来客人的询问'] },
+    { question: '客人觉得饮品温度偏低，你会？', choices: ['了解情况并重新制作或加热', '告诉客人温度没有问题', '当作没有听见'] },
+  ],
+  flower: [
+    { question: '客人想送一束温柔的花给朋友，你会？', choices: ['询问喜好和预算，搭配柔和花束', '只推荐店里最贵的花', '随手拿一束让客人结账'] },
+    { question: '一枝花在包装时折断了，你会？', choices: ['主动更换，并检查整束花', '藏在花束里面继续包装', '让客人额外付钱换花'] },
+    { question: '客人预算有限，却想让花束看起来饱满，你会？', choices: ['选当季花材，认真调整层次', '劝客人必须加钱', '减少花材却按原价收费'] },
+  ],
+  book: [
+    { question: '客人想找一本适合雨天读的书，你会？', choices: ['问问偏好，推荐几本安静的书', '只推荐价格最高的一本', '说书都差不多'] },
+    { question: '客人发现旧书中有前主人的笔记，你会？', choices: ['说明书况，询问是否接受', '假装没有看到笔记', '指责客人太挑剔'] },
+    { question: '一本预留的书被另一位客人看中，你会？', choices: ['解释已预留，帮对方寻找同款', '直接把预留的书卖掉', '让两位客人自行争论'] },
+  ],
+  dessert: [
+    { question: '客人想带走一份不太甜的点心，你会？', choices: ['介绍甜度较低的口味', '推荐最甜的招牌款', '不回答，让客人自己挑'] },
+    { question: '有客人对坚果过敏，你会？', choices: ['核对配料和交叉接触风险', '猜测应该没问题', '不告知配料直接售卖'] },
+    { question: '预约的蛋糕需要晚半小时取走，你会？', choices: ['确认时间并妥善冷藏保管', '放在柜台上不管', '直接取消预约'] },
+  ],
+};
+
+export function getDailyOrderQuestions(typeId) {
+  return ORDER_SCENARIOS[typeId] || ORDER_SCENARIOS.coffee;
+}

@@ -7,7 +7,7 @@ import {
   SPARK_ICONS,
 } from '../data/chat-options.js';
 import { createSeedConversations, DEFAULT_PROFILE } from '../data/seed.js';
-import { generateShopIncome, getShopType, nextNoon } from '../data/shop.js';
+import { generateShopIncome, getShopType, localDayKey, nextNoon } from '../data/shop.js';
 import { dbGet, dbSet } from './db.js';
 import { sanitizeSvgIcon } from './utils.js';
 
@@ -290,6 +290,8 @@ function normalizeConversation(raw) {
   return {
     unread: Math.max(0, Math.round(finite(raw.unread))),
     pinned: Boolean(raw.pinned),
+    multiSentCount: Math.max(0, Math.min(999, Math.round(finite(raw.multiSentCount)))),
+    maskIds: Array.isArray(raw.maskIds) ? raw.maskIds.filter((id) => typeof id === 'string') : [],
     messages: raw.messages.map(normalizeMessage).filter(Boolean).slice(-200),
     style: createChatStyle(raw.style),
     memory: normalizeMemory(raw.memory),
@@ -473,6 +475,9 @@ function normalizeShop(raw) {
     pendingFen: Math.max(0, Math.round(finite(raw.pendingFen))),
     lastIncomeFen: Math.max(0, Math.round(finite(raw.lastIncomeFen))),
     earlyClaimedAt: Number.isFinite(raw.earlyClaimedAt) ? raw.earlyClaimedAt : null,
+    orderHistory: Array.isArray(raw.orderHistory)
+      ? raw.orderHistory.filter((item) => item && /^\d{4}-\d{2}-\d{2}$/.test(item.day) && Number.isFinite(item.wageFen)).slice(-90)
+      : [],
   };
 }
 
@@ -680,6 +685,16 @@ export function getActiveMask() {
   return state.masks.find((mask) => mask.id === state.activeMaskId) || state.masks[0];
 }
 
+export function getMaskConversationCount(maskId) {
+  return Object.values(state.conversations).filter((conversation) => {
+    if (conversation.maskIds?.includes(maskId)) return true;
+    // Older conversations did not record a mask. Attribute those with user messages to the original mask.
+    return !conversation.maskIds?.length
+      && maskId === state.masks[0]?.id
+      && conversation.messages.some((message) => message.role === 'user');
+  }).length;
+}
+
 export function getProfile() {
   return getActiveMask();
 }
@@ -869,6 +884,15 @@ export function addTag(name) {
   return tag;
 }
 
+export function updateTag(tagId, name) {
+  const value = text(name).trim();
+  const tag = state.tags.find((item) => item.id === tagId);
+  if (!tag || !value || state.tags.some((item) => item.id !== tagId && item.name === value)) return null;
+  tag.name = value;
+  persist();
+  return tag;
+}
+
 export function deleteTag(tagId) {
   const index = state.tags.findIndex((tag) => tag.id === tagId);
   if (index < 0) return false;
@@ -887,6 +911,7 @@ function createEmptyConversation() {
   return {
     unread: 0,
     pinned: false,
+    multiSentCount: 0,
     messages: [],
     style: createChatStyle(),
     memory: normalizeMemory(DEFAULT_MEMORY),
@@ -906,8 +931,27 @@ export function getConversation(characterId) {
   return state.conversations[characterId] || null;
 }
 
+export function incrementMultiSentCount(characterId) {
+  const conversation = ensureConversation(characterId);
+  conversation.multiSentCount = Math.min(999, (conversation.multiSentCount || 0) + 1);
+  persist();
+  return conversation.multiSentCount;
+}
+
+export function clearMultiSentCount(characterId) {
+  const conversation = getConversation(characterId);
+  if (!conversation) return;
+  conversation.multiSentCount = 0;
+  persist();
+}
+
 export function addMessage(characterId, role, content, options = {}) {
   const conversation = ensureConversation(characterId);
+  conversation.maskIds ||= [];
+  if (!conversation.maskIds.length && conversation.messages.some((message) => message.role === 'user')) {
+    conversation.maskIds.push(state.masks[0].id);
+  }
+  if (!conversation.maskIds.includes(state.activeMaskId)) conversation.maskIds.push(state.activeMaskId);
   const type =
     options.type === 'redpacket' || options.type === 'sticker' ? options.type : 'text';
   const message = {
@@ -1339,9 +1383,53 @@ export function openShop(typeId) {
     pendingFen: generateShopIncome(type),
     lastIncomeFen: 0,
     earlyClaimedAt: null,
+    orderHistory: [],
   };
   persist();
   return state.shop;
+}
+
+export function getTodayShopOrder() {
+  if (!state.shop) return null;
+  const day = localDayKey();
+  return state.shop.orderHistory?.find((item) => item.day === day) || null;
+}
+
+export function getShopWeeklyOrderIncomeFen() {
+  if (!state.shop) return 0;
+  const now = new Date();
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  return (state.shop.orderHistory || [])
+    .filter((item) => new Date(`${item.day}T00:00:00`) >= weekStart)
+    .reduce((total, item) => total + item.wageFen, 0);
+}
+
+export function settleDailyShopOrder({ answers, wageFen, feedback }) {
+  if (!state.shop) return { ok: false, message: '先开一家小店吧' };
+  const day = localDayKey();
+  if (getTodayShopOrder()) return { ok: false, message: '今天的订单已经结算' };
+  if (!Array.isArray(answers) || answers.length !== 3 || answers.some((answer) => !Number.isInteger(answer) || answer < 0 || answer > 2)) {
+    return { ok: false, message: '请完成三道选择题' };
+  }
+  if (!Number.isFinite(wageFen) || wageFen <= 0) {
+    return { ok: false, message: '订单工资无效，请重新评估' };
+  }
+  const amount = Math.min(5000, Math.max(500, Math.round(wageFen)));
+  const record = {
+    day,
+    count: 3,
+    answers: answers.slice(),
+    wageFen: amount,
+    feedback: String(feedback || '').slice(0, 120),
+    settledAt: Date.now(),
+  };
+  state.shop.orderHistory ||= [];
+  state.shop.orderHistory.push(record);
+  state.shop.orderHistory = state.shop.orderHistory.slice(-90);
+  state.wallet.balanceFen += amount;
+  addWalletTransaction('order-salary', amount, `${getShopType(state.shop.typeId).name} · 今日订单`);
+  persist();
+  return { ok: true, record };
 }
 
 export function settleShopIncome() {

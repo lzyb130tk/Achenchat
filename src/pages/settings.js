@@ -36,7 +36,7 @@ function openStorageSheet() {
       <div class="detail-row"><span>伙伴</span><strong>${stats.partnerCount} 位</strong></div>
       <div class="detail-row"><span>存储方式</span><strong>IndexedDB · 本机</strong></div>
     </div>
-    <p class="sheet-note">所有内容仅保存在这台设备，不会上传到别处。</p>`,
+    <p class="sheet-note">聊天记录保存在本机；发送的内容会交给你配置的 AI 服务处理。</p>`,
   });
 }
 
@@ -163,7 +163,7 @@ export function renderSettings({ refresh }) {
   const apiReady = hasApiConfig();
   const size = formatFileSize(getStorageSize());
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--settings';
 
   screen.innerHTML = `
     ${appHeader({ title: '设置', backTo: '#/me' })}
@@ -212,9 +212,9 @@ export function renderSettings({ refresh }) {
               label: '清空数据',
               action: 'clear',
               tone: 'danger',
-              chevron: false,
             }),
           ].join(''),
+          extra: `<p class="settings-privacy-note">${icon('info')}聊天记录保存在本机，回复由你配置的 AI 服务处理</p>`,
         })}
         ${settingsGroup({
           label: '关于',

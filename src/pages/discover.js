@@ -45,13 +45,11 @@ function momentsEntry() {
   const timestamp = Date.now() - lead.minutesAgo * 60000;
 
   return `<a class="moments-entry" href="#/moments">
-    <span class="moments-entry__icon">${icon('image-square')}</span>
+    <img class="moments-entry__image" src="src/assets/moments-sunlit-sketch.png" alt="阳光落在桌上的画册与白花" loading="lazy">
     <span class="moments-entry__copy">
-      <span class="moments-entry__head">
-        <span class="moments-entry__title">朋友圈</span>
-        <span class="moments-entry__time">${formatRelativeTime(timestamp)}</span>
-      </span>
+      <span class="moments-entry__title">朋友圈</span>
       <span class="moments-entry__preview">${escapeHTML(lead.text)}</span>
+      <span class="moments-entry__time">${formatRelativeTime(timestamp)}</span>
     </span>
     <span class="moments-entry__arrow">${icon('caret-right')}</span>
   </a>`;
@@ -70,7 +68,7 @@ function shakeEntry() {
 
 export function renderDiscover() {
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--discover';
 
   screen.innerHTML = `
     ${appHeader({ title: '发现' })}
@@ -78,12 +76,13 @@ export function renderDiscover() {
       <div class="page-content page-content--discover">
         ${momentsEntry()}
         <section class="mini-block">
-          ${sectionHeading({ title: '小程序', aside: '随手用一下' })}
+          ${sectionHeading({ title: '今天可以做什么', aside: '随手用一下' })}
           <div class="mini-grid">
             ${MINI_PROGRAMS.map(
               (program) => `<button class="mini-tile mini-tile--${program.tone}" type="button" data-mini="${program.id}">
                 <span class="mini-tile__icon">${icon(program.icon)}</span>
                 <span class="mini-tile__name">${escapeHTML(program.name)}</span>
+                <span class="mini-tile__arrow">${icon('caret-right')}</span>
               </button>`,
             ).join('')}
           </div>

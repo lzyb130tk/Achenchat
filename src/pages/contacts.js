@@ -1,12 +1,9 @@
 import { appHeader } from '../components/app-header.js';
 import { bottomNav } from '../components/bottom-nav.js';
-import { openCharacterEditor } from '../components/character-editor.js';
 import { contactItem } from '../components/contact-item.js';
 import { icon, iconButton } from '../components/icons.js';
-import { openSearchSheet } from '../components/search-sheet.js';
 import { sectionHeading } from '../components/section-heading.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
-import { openTagManager } from '../components/tag-manager.js';
 import { toast } from '../components/toast.js';
 import {
   deleteCharacter,
@@ -30,28 +27,21 @@ function groupedCharacters(characters, tags, filter) {
   return groups.filter((group) => group.id === filter);
 }
 
-export function renderContacts({ refresh }) {
+export function renderContacts({ refresh, match }) {
   const screen = document.createElement('section');
-  screen.className = 'screen';
+  screen.className = 'screen screen--contacts';
   const tags = getTags();
   const characters = getAllCharacters();
-  let activeFilter = 'all';
+  const requestedTag = match?.[1] ? decodeURIComponent(match[1]) : '';
+  let activeFilter = tags.some((tag) => tag.id === requestedTag) ? requestedTag : 'all';
   let selecting = false;
   const selected = new Set();
 
   const openCreate = () => {
-    openCharacterEditor({
-      onSaved: (character) => {
-        window.location.hash = `#/chat/${character.id}`;
-      },
-    });
+    window.location.hash = '#/characters/new';
   };
 
   const headerAction = `${iconButton({
-    name: 'list-checks',
-    label: '多选联系人',
-    action: 'data-action="select"',
-  })}${iconButton({
     name: 'magnifying-glass',
     label: '搜索联系人',
     action: 'data-action="search"',
@@ -74,8 +64,22 @@ export function renderContacts({ refresh }) {
             )
             .join('')}
           <button class="tag-chip tag-chip--manage" type="button" data-manage-tags>${icon('tag')}标签</button>
+          <button class="tag-chip tag-chip--select" type="button" data-action="select">${icon('list-checks')}多选</button>
+        </div>
+        <div class="contacts-shortcuts">
+          <a class="contacts-shortcut" href="#/shake">
+            <span class="contacts-shortcut__icon">${icon('user-plus')}</span>
+            <span>新的朋友</span>
+            ${icon('caret-right')}
+          </a>
+          <button class="contacts-shortcut" type="button" data-manage-tags>
+            <span class="contacts-shortcut__icon">${icon('tag')}</span>
+            <span>标签与分组</span>
+            ${icon('caret-right')}
+          </button>
         </div>
         <div data-contact-body></div>
+        <div class="contacts-footer-note" aria-hidden="true">${icon('chats-circle')}<span>新的相遇，会从这里开始</span></div>
       </div>
     </main>
     ${bottomNav('contacts')}`;
@@ -110,8 +114,7 @@ export function renderContacts({ refresh }) {
       .map(
         (group) => `<section class="contact-group">
           ${sectionHeading({
-            title: group.name,
-            aside: `${group.members.length} 位`,
+            title: `${group.name} · ${group.members.length}`,
           })}
           <div class="contact-list">
             ${group.members
@@ -138,6 +141,7 @@ export function renderContacts({ refresh }) {
 
   const enterSelect = () => {
     selecting = true;
+    screen.classList.add('is-selecting');
     selected.clear();
     activeFilter = 'all';
     syncFilterChips();
@@ -148,6 +152,7 @@ export function renderContacts({ refresh }) {
 
   const exitSelect = () => {
     selecting = false;
+    screen.classList.remove('is-selecting');
     selected.clear();
     tagStrip.hidden = false;
     renderHeader();
@@ -226,23 +231,13 @@ export function renderContacts({ refresh }) {
 
     const searchButton = target.closest('[data-action="search"]');
     if (searchButton) {
-      openSearchSheet({
-        title: '搜索联系人',
-        placeholder: '搜索名字或身份',
-        emptyText: '没有找到这位伙伴',
-        items: characters.map((character) => ({
-          character,
-          href: `#/chat/${character.id}`,
-          subtitle: `${character.tagline}`,
-          searchText: `${character.name} ${character.role} ${character.tagline} ${character.relationship}`,
-        })),
-      });
+      window.location.hash = '#/contacts/search';
       return;
     }
 
     const manageTags = target.closest('[data-manage-tags]');
     if (manageTags) {
-      openTagManager({ onDismiss: refresh });
+      window.location.hash = '#/contacts/tags';
       return;
     }
 

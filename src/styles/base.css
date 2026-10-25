@@ -134,6 +134,38 @@ html[data-route^="/chat/"] .status-bar {
   background: var(--color-surface-soft);
 }
 
+html[data-route="/messages"] .status-bar {
+  background: #f7f5f2;
+}
+
+html[data-theme="dark"][data-route="/messages"] .status-bar {
+  background: var(--color-bg);
+}
+
+html:is([data-route="/contacts"], [data-route="/discover"], [data-route="/me"], [data-route="/settings"]) .status-bar {
+  background: #f7f5f2;
+}
+
+html[data-theme="dark"]:is([data-route="/contacts"], [data-route="/discover"], [data-route="/me"], [data-route="/settings"]) .status-bar {
+  background: var(--color-bg);
+}
+
+html[data-route^="/chat/"][data-route$="/settings"] .status-bar {
+  background: #f7f5f2;
+}
+
+html[data-theme="dark"][data-route^="/chat/"][data-route$="/settings"] .status-bar {
+  background: var(--color-bg);
+}
+
+html:is([data-route="/characters/new"], [data-route="/contacts/search"], [data-route="/contacts/tags"], [data-route="/shop"], [data-route="/shop/orders"], [data-route="/wallet"], [data-route="/stickers"], [data-route="/stickers/new"], [data-route="/stickers/new/links"], [data-route="/settings/api"], [data-route="/masks"], [data-route="/masks/new"]) .status-bar {
+  background: #f7f5f2;
+}
+
+html[data-theme="dark"]:is([data-route="/characters/new"], [data-route="/contacts/search"], [data-route="/contacts/tags"], [data-route="/shop"], [data-route="/shop/orders"], [data-route="/wallet"], [data-route="/stickers"], [data-route="/stickers/new"], [data-route="/stickers/new/links"], [data-route="/settings/api"], [data-route="/masks"], [data-route="/masks/new"]) .status-bar {
+  background: var(--color-bg);
+}
+
 .status-bar__time {
   padding-top: 1px;
 }

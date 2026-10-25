@@ -177,6 +177,16 @@
     background-color var(--duration-fast) var(--ease-standard);
 }
 
+.bottom-nav__icon .nav-icon {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .bottom-nav__label {
   font-size: var(--text-2xs);
   font-weight: var(--weight-medium);
