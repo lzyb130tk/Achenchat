@@ -4078,20 +4078,23 @@ html[data-glass] .screen--chat .chat-header__status {
   letter-spacing: 0.01em;
 }
 
-/* Bubbles: white on aura, near-black for the user, no borders. */
+/* Bubbles: white on aura, near-black for the user, no borders.
+   When a custom bubble style is applied the screen carries
+   [data-custom-bubble] and every rule below steps aside, so the CSS the user
+   typed keeps full control (same contract as the grouped corners in chat.css). */
 
-html[data-glass] .screen--chat .message-bubble {
+html[data-glass] .screen--chat:not([data-custom-bubble]) .message-bubble {
   padding: 9px 13px;
   font-size: 15px;
   line-height: 1.62;
 }
 
-html[data-glass] .screen--chat .message-bubble--assistant {
+html[data-glass] .screen--chat:not([data-custom-bubble]) .message-bubble--assistant {
   background: var(--color-surface);
   box-shadow: 0 1px 2px rgba(33, 26, 20, 0.06);
 }
 
-html[data-glass] .screen--chat:not([data-chat-background="night"]) .message-bubble--user {
+html[data-glass] .screen--chat:not([data-custom-bubble]):not([data-chat-background="night"]) .message-bubble--user {
   background: var(--color-action);
   color: var(--color-action-ink);
   box-shadow: 0 6px 16px -12px rgba(33, 26, 20, 0.6);

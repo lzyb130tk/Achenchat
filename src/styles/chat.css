@@ -1775,7 +1775,9 @@ html[data-theme="dark"] .chat-action-sheet .composer-action__icon {
   justify-content: flex-end;
 }
 
-.bubble-settings-preview .message-bubble {
+/* :where() keeps this at bubble-level specificity so a custom bubble style
+   applied in the settings preview can override padding and font size. */
+.bubble-settings-preview :where(.message-bubble) {
   max-width: 88%;
   padding: 9px 13px;
   font-size: var(--text-sm);
