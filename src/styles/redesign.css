@@ -5443,3 +5443,79 @@ html[data-glass] :is(.screen--character-new, .screen--mask-new) .avatar-field__a
   color: var(--color-ink-tertiary);
   box-shadow: inset 0 0 0 1px var(--card-line);
 }
+
+/* ---------------------------------------------------------------------------
+   28. Header typing indicator (加载反馈 · 顶栏提示)
+   ------------------------------------------------------------------------ */
+
+.chat-header__typing {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  color: #2f9a68;
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .chat-header__typing {
+  color: #5cc493;
+}
+
+.chat-header.is-typing .chat-header__status .status-dot,
+.chat-header.is-typing .chat-header__status [data-chat-status] {
+  display: none;
+}
+
+.chat-header.is-typing .chat-header__typing {
+  display: inline-flex;
+}
+
+/* 状态被关掉时也要让这行提示露出来 */
+.screen--chat.is-hiding-status .chat-header.is-typing .chat-header__status {
+  display: inline-flex;
+}
+
+.chat-header__typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.chat-header__typing-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: chat-typing-dot 1.15s infinite ease-in-out;
+}
+
+.chat-header__typing-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-header__typing-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-typing-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  35% {
+    opacity: 1;
+    transform: translateY(-2.5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-header__typing-dots i {
+    opacity: 0.7;
+    animation: none;
+  }
+}

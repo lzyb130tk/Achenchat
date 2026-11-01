@@ -118,6 +118,7 @@ function createChatStyle(raw = {}) {
     typingSpeed: Math.round(Math.min(0.12, Math.max(0.005, speed)) * 1000) / 1000,
     sendMode: raw.sendMode === 'multi' ? 'multi' : 'single',
     composerStyle: raw.composerStyle === 'raised' ? 'raised' : 'default',
+    loadingStyle: raw.loadingStyle === 'header' ? 'header' : 'bubble',
     messageGroup: raw.messageGroup === 'each' ? 'each' : 'group',
     messageGap: Math.min(16, Math.max(0, Math.round(finite(raw.messageGap, DEFAULT_CHAT_STYLE.messageGap)))),
     background,
@@ -966,6 +967,28 @@ export function getConversation(characterId) {
 export function incrementMultiSentCount(characterId) {
   const conversation = ensureConversation(characterId);
   conversation.multiSentCount = Math.min(999, (conversation.multiSentCount || 0) + 1);
+  persist();
+  return conversation.multiSentCount;
+}
+
+// How many messages the user has queued up since the last reply. Derived from
+// the message list so deleting a queued message can never leave a stale count
+// behind in the "receive" badge.
+export function countPendingUserMessages(characterId) {
+  const conversation = getConversation(characterId);
+  if (!conversation) return 0;
+  const { messages } = conversation;
+  let count = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role !== 'user') break;
+    count += 1;
+  }
+  return Math.min(999, count);
+}
+
+export function recountMultiSentCount(characterId) {
+  const conversation = ensureConversation(characterId);
+  conversation.multiSentCount = countPendingUserMessages(characterId);
   persist();
   return conversation.multiSentCount;
 }

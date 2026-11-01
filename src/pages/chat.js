@@ -24,6 +24,7 @@ import {
   addMessage,
   claimRedPacket,
   clearMultiSentCount,
+  countPendingUserMessages,
   deleteMessage,
   ensureConversation,
   getChatStyle,
@@ -32,6 +33,7 @@ import {
   getProfile,
   hasApiConfig,
   incrementMultiSentCount,
+  recountMultiSentCount,
   removeLastAssistantReply,
   setConversationStatus,
   updateChatStyle,
@@ -74,6 +76,10 @@ function chatHeader(character, status, style, streak) {
         <span class="chat-header__status">
           <span class="status-dot status-dot--accent"></span>
           <span data-chat-status>${escapeHTML(status || '在你身边')}</span>
+          <span class="chat-header__typing" data-chat-typing>
+            <span class="chat-header__typing-label">正在输入</span>
+            <span class="chat-header__typing-dots"><i></i><i></i><i></i></span>
+          </span>
         </span>
       </span>
     </button>
@@ -275,6 +281,17 @@ export function renderChat({ characterId, refresh }) {
   };
   paintStatic();
 
+  // Loading feedback: either the thinking bubble (default) or a green
+  // "正在输入" line in the header, shown until the first message renders.
+  const setTyping = (active) => {
+    const header = screen.querySelector('.chat-header');
+    if (!header) return;
+    header.classList.toggle(
+      'is-typing',
+      Boolean(active) && chatStyle.loadingStyle === 'header',
+    );
+  };
+
   let stickToBottom = true;
   let scrollQueued = false;
   let pendingRow = null;
@@ -337,7 +354,12 @@ export function renderChat({ characterId, refresh }) {
   };
 
   const appendPendingRow = () => {
-    if (pendingRow || disposed) return;
+    if (disposed) return;
+    if (chatStyle.loadingStyle === 'header') {
+      setTyping(true);
+      return;
+    }
+    if (pendingRow) return;
     thread.querySelector('.chat-empty')?.remove();
     let markup = '';
     if (!previousTimestamp || !isSameDay(previousTimestamp, Date.now())) {
@@ -413,6 +435,7 @@ export function renderChat({ characterId, refresh }) {
   const finishReveal = () => {
     clearRevealTimer();
     revealPending = [];
+    setTyping(false);
     if (!disposed) composer.setReceiving(false);
   };
 
@@ -432,9 +455,11 @@ export function renderChat({ characterId, refresh }) {
     const message = revealPending.shift();
     if (!message) {
       composer.setReceiving(false);
+      setTyping(false);
       return;
     }
     appendMessage(message, { animate: true });
+    setTyping(false);
     composer.setReceiving(false);
     if (revealPending.length) {
       revealTimer = window.setTimeout(revealStep, revealGap(message));
@@ -448,6 +473,7 @@ export function renderChat({ characterId, refresh }) {
 
   const queueReveal = (messages) => {
     if (!messages?.length) {
+      setTyping(false);
       composer.setReceiving(false);
       return;
     }
@@ -583,6 +609,8 @@ export function renderChat({ characterId, refresh }) {
       return;
     }
     startReply(character.id);
+    clearMultiSentCount(character.id);
+    composer.setSentCount(0);
   };
 
   const composer = createChatComposer({
@@ -591,7 +619,7 @@ export function renderChat({ characterId, refresh }) {
     hasConfig: hasApiConfig(),
     sendMode: chatStyle.sendMode,
     composerStyle: chatStyle.composerStyle,
-    sentCount: conversation.multiSentCount || 0,
+    sentCount: countPendingUserMessages(character.id),
     onCompose: () => scrollToBottom(true),
     onConfigure: () => {
       window.location.hash = '#/settings/api';
@@ -621,7 +649,10 @@ export function renderChat({ characterId, refresh }) {
       if (isReplying(character.id)) return false;
       if (revealPending.length) flushReveal();
       const started = startReply(character.id);
-      if (started) clearMultiSentCount(character.id);
+      if (started) {
+        clearMultiSentCount(character.id);
+        composer.setSentCount(0);
+      }
       return started;
     },
     onModeChange: (mode) => {
@@ -706,12 +737,14 @@ export function renderChat({ characterId, refresh }) {
     }
     if (event.type === 'cancelled') {
       removePendingRow();
+      setTyping(false);
       composer.setStreaming(false);
       composer.setReceiving(false);
       return;
     }
     if (event.type === 'error') {
       removePendingRow();
+      setTyping(false);
       composer.setStreaming(false);
       composer.setReceiving(false);
       composer.focus();
@@ -760,6 +793,7 @@ export function renderChat({ characterId, refresh }) {
         if (!deleteMessage(character.id, message.id)) return;
         deletedIds.add(message.id);
         row.remove();
+        composer.setSentCount(recountMultiSentCount(character.id));
         const remaining = thread.querySelectorAll(
           '.message-row[data-message-id]',
         ).length;

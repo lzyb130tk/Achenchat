@@ -45,6 +45,7 @@ const VIEW_TITLES = {
   composer: '底栏样式',
   speed: '打字速度',
   animation: '消息动效',
+  loading: '加载反馈',
   bubble: '气泡样式',
   background: '聊天背景',
   avatar: '头像',
@@ -206,6 +207,10 @@ function composerLabel(current) {
   return current.composerStyle === 'raised' ? '加高 · 快捷按钮' : '默认';
 }
 
+function loadingLabel(current) {
+  return current.loadingStyle === 'header' ? '顶栏「正在输入」' : '消息动画';
+}
+
 export function createChatSettingsPage({ character, style }) {
   let current = { ...style };
   let tab = 'general';
@@ -327,6 +332,12 @@ export function createChatSettingsPage({ character, style }) {
               <span class="chat-settings__row-value">${animationLabel(current)}</span>
               <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
             </button>
+            <button class="chat-settings__row" type="button" data-open-view="loading">
+              <span class="chat-settings__row-icon">${icon('chat-teardrop-dots')}</span>
+              <span class="chat-settings__row-label">加载反馈</span>
+              <span class="chat-settings__row-value">${loadingLabel(current)}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
           </div>
         </section>
         <section class="chat-settings__group">
@@ -402,6 +413,20 @@ export function createChatSettingsPage({ character, style }) {
         <div class="composer-preview composer-preview--${current.composerStyle === 'raised' ? 'raised' : 'default'}" aria-hidden="true">
           <span class="composer-preview__quick"><i></i><i></i></span>
           <span class="composer-preview__line"><i class="composer-preview__dot"></i><i class="composer-preview__text"></i><i class="composer-preview__send"></i></span>
+        </div>`;
+
+      const loadingMarkup = () => `<p class="settings-note">等回复时的样子。消息动画就是现在这颗跳动的气泡；顶栏提示会把气泡收起来，只在他名字下面换成一行绿色的「正在输入」，一直显示到消息真正出现。</p>
+        <div class="choice-list">
+          <button class="choice-card${current.loadingStyle === 'header' ? '' : ' is-selected'}" type="button" data-set-loading="bubble">
+            <span class="choice-card__icon">${icon('chat-teardrop-dots')}</span>
+            <span class="choice-card__copy"><strong>消息动画</strong><small>对话里先出现一颗跳动的气泡，回复到了再消失</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+          <button class="choice-card${current.loadingStyle === 'header' ? ' is-selected' : ''}" type="button" data-set-loading="header">
+            <span class="choice-card__icon">${icon('hourglass')}</span>
+            <span class="choice-card__copy"><strong>顶栏「正在输入」</strong><small>状态栏换成绿色动态提示，对话里不占位</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
         </div>`;
 
       const speedMarkup = () => `<div class="settings-figure">
@@ -613,6 +638,7 @@ export function createChatSettingsPage({ character, style }) {
         if (view === 'composer') return composerMarkup();
         if (view === 'speed') return speedMarkup();
         if (view === 'animation') return animationMarkup();
+        if (view === 'loading') return loadingMarkup();
         if (view === 'bubble') return bubbleMarkup();
         if (view === 'background') return backgroundMarkupView();
         if (view === 'avatar') return avatarMarkup();
@@ -977,6 +1003,16 @@ export function createChatSettingsPage({ character, style }) {
           content.querySelectorAll('[data-set-composer]').forEach((button) => {
             button.addEventListener('click', () => {
               notify({ composerStyle: button.dataset.setComposer });
+              paint();
+            });
+          });
+          return;
+        }
+
+        if (view === 'loading') {
+          content.querySelectorAll('[data-set-loading]').forEach((button) => {
+            button.addEventListener('click', () => {
+              notify({ loadingStyle: button.dataset.setLoading });
               paint();
             });
           });
