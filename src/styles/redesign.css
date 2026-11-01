@@ -1753,26 +1753,27 @@ html[data-theme="dark"] :is(.screen--messages, .screen--contacts, .screen--disco
 }
 
 .screen--contacts .tag-strip {
-  gap: 6px;
-  margin: 0 -18px;
-  padding: 2px 18px 12px;
-  border-bottom: 1px solid var(--color-line);
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 2px 20px 12px;
+  border-bottom: 0;
 }
 
-.screen--contacts .tag-chip {
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--color-line);
-  background: transparent;
-  box-shadow: none;
+html[data-glass] .screen--contacts .tag-chip {
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: 0 10px 22px -20px rgba(33, 26, 20, 0.5);
   color: var(--color-ink-secondary);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
-.screen--contacts .tag-chip.is-selected {
-  border-color: var(--color-action);
-  background: var(--color-action);
-  color: var(--color-action-ink);
+html[data-glass] .screen--contacts .tag-chip.is-selected {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+  box-shadow: 0 12px 24px -16px color-mix(in srgb, var(--color-accent) 60%, transparent);
 }
 
 .screen--contacts .tag-chip--manage,
@@ -3757,8 +3758,8 @@ html[data-glass="on"] .contact-search__header,
 html[data-glass="on"] .sticker-new__header,
 html[data-glass="on"] .bottom-nav,
 html[data-glass="on"] .chat-composer {
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  /* background: var(--glass-bg); */
+  /* -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4); */
   backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
 }
 
@@ -3873,4 +3874,1569 @@ html[data-glass="off"] .glass-demo__bar {
 .screen--chat-settings .chat-settings__list {
   border: 0;
   box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   22. Liquid glass chrome — floating dock, glass chat header and composer
+   -------------------------------------------------------------------------- */
+
+/* Inline UI glyphs sit on the text baseline by default; block them so every
+   glass button centres its icon exactly. */
+
+.ui-icon {
+  display: block;
+}
+
+/* The dock leaves the screen edge, so the page scrolls behind it. */
+
+.nav-dock {
+  position: absolute;
+  z-index: var(--z-nav);
+  right: 0;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+:is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) {
+  position: relative;
+}
+
+:is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .page-scroll {
+  padding-bottom: calc(94px + env(safe-area-inset-bottom));
+}
+
+html[data-glass] .nav-dock .bottom-nav {
+  width: 100%;
+  max-width: 420px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding: 5px;
+  border: 0;
+  border-radius: 30px;
+  background: var(--glass-fill-strong);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    var(--glass-shadow-dock);
+  pointer-events: auto;
+}
+
+html[data-glass="on"] .nav-dock .bottom-nav {
+  background: color-mix(in srgb, var(--color-surface) 58%, transparent);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(1.8);
+  backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(1.8);
+}
+
+html[data-glass="off"] .nav-dock .bottom-nav {
+  background: var(--color-nav);
+}
+
+.nav-dock .bottom-nav__item {
+  position: relative;
+  pointer-events: auto;
+  min-height: 52px;
+  gap: 3px;
+  padding: 6px 2px 5px;
+  border-radius: 25px;
+  color: var(--color-ink-tertiary);
+  transition:
+    color 220ms var(--ease-standard),
+    background-color 240ms var(--ease-standard),
+    transform 160ms var(--ease-standard);
+}
+
+.nav-dock .bottom-nav__item.is-active {
+  background: var(--nav-pill);
+  color: var(--color-ink);
+}
+
+.nav-dock .bottom-nav__item:active {
+  transform: scale(0.955);
+}
+
+.nav-dock .bottom-nav__icon {
+  position: relative;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: 0;
+}
+
+.nav-dock .bottom-nav__icon .ui-icon {
+  display: block;
+  width: 23px;
+  height: 23px;
+  transition: transform 220ms var(--ease-out);
+}
+
+.nav-dock .bottom-nav__item.is-active .bottom-nav__icon .ui-icon {
+  stroke-width: 2;
+  transform: translateY(-0.5px);
+}
+
+html[data-glass] .nav-dock .bottom-nav__item.is-active .bottom-nav__icon {
+  background: none;
+  color: inherit;
+}
+
+.nav-dock .bottom-nav__label {
+  font-size: 10px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+
+.nav-dock .bottom-nav__dot {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border: 0;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--glass-fill-strong);
+}
+
+/* Chat canvas: a low-frequency aura instead of a flat paper wash. */
+
+.screen--chat {
+  --chat-canvas: #f7f4ef;
+  --chat-veil: #f6f6f5;
+}
+
+html[data-theme="dark"] .screen--chat {
+  --chat-canvas: #14120f;
+  --chat-veil: #1b1712;
+}
+
+.screen--chat[data-chat-background="default"] .chat-scroll {
+  background-color: var(--chat-canvas);
+  background-image:
+    radial-gradient(76% 44% at 50% -6%, rgba(198, 152, 128, 0.2), transparent 72%),
+    radial-gradient(64% 40% at 102% 104%, rgba(169, 74, 50, 0.12), transparent 70%),
+    radial-gradient(54% 34% at -4% 86%, rgba(203, 186, 166, 0.2), transparent 72%);
+}
+
+html[data-theme="dark"] .screen--chat[data-chat-background="default"] .chat-scroll {
+  background-color: var(--chat-canvas);
+  background-image:
+    radial-gradient(76% 44% at 50% -6%, rgba(224, 138, 112, 0.16), transparent 72%),
+    radial-gradient(64% 40% at 102% 104%, rgba(169, 74, 50, 0.14), transparent 70%);
+}
+
+/* Header fades into the canvas instead of sitting on a hard border. A white
+   veil keeps the aura from tinting the top bar orange. */
+
+html[data-glass] .screen--chat .chat-header {
+  gap: 8px;
+  border: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chat-veil) 92%, transparent) 0%,
+    color-mix(in srgb, var(--chat-veil) 72%, transparent) 52%,
+    color-mix(in srgb, var(--chat-veil) 34%, transparent) 82%,
+    transparent 100%
+  );
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass] .screen--chat :is(.chat-header__back, .chat-header__action) {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--glass-fill);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    0 10px 22px -16px rgba(33, 26, 20, 0.55);
+}
+
+html[data-glass="on"] .screen--chat :is(.chat-header__back, .chat-header__action) {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) / 2 + 6px)) saturate(1.6);
+  backdrop-filter: blur(calc(var(--glass-blur) / 2 + 6px)) saturate(1.6);
+}
+
+html[data-glass] .screen--chat :is(.chat-header__back, .chat-header__action):active {
+  transform: scale(0.94);
+}
+
+html[data-glass] .screen--chat .chat-header__name {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .screen--chat .chat-header__status {
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+/* Bubbles: white on aura, near-black for the user, no borders. */
+
+html[data-glass] .screen--chat .message-bubble {
+  padding: 9px 13px;
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+html[data-glass] .screen--chat .message-bubble--assistant {
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgba(33, 26, 20, 0.06);
+}
+
+html[data-glass] .screen--chat:not([data-chat-background="night"]) .message-bubble--user {
+  background: var(--color-action);
+  color: var(--color-action-ink);
+  box-shadow: 0 6px 16px -12px rgba(33, 26, 20, 0.6);
+}
+
+html[data-glass] .screen--chat .chat-day span {
+  background: transparent;
+  color: color-mix(in srgb, var(--color-ink) 42%, transparent);
+  font-size: 10.5px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+}
+
+/* Composer: one floating glass card, send key pinned bottom-right. */
+
+html[data-glass] .screen--chat .chat-composer {
+  padding: 6px 12px calc(10px + env(safe-area-inset-bottom));
+  border: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass] .screen--chat .chat-composer__field {
+  display: flex;
+  min-height: 56px;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 8px 8px 8px 10px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--glass-fill-strong);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    var(--glass-shadow-card);
+}
+
+html[data-glass="on"] .screen--chat .chat-composer__field {
+  background: color-mix(in srgb, var(--color-surface) 66%, transparent);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(1.7);
+  backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(1.7);
+}
+
+html[data-glass="off"] .screen--chat .chat-composer__field {
+  background: var(--color-surface);
+}
+
+html[data-glass] .screen--chat .chat-composer__input {
+  min-height: 26px;
+  padding: 9px 2px;
+  border: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+html[data-glass] .screen--chat .chat-composer__extra {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--color-ink-secondary);
+}
+
+html[data-glass] .screen--chat .chat-composer__extra .ui-icon {
+  display: block;
+  width: 21px;
+  height: 21px;
+}
+
+html[data-glass] .screen--chat .chat-composer__send {
+  width: 55px;
+  height: 40px;
+  background: var(--color-action);
+  color: var(--color-action-ink);
+  box-shadow: 0 10px 20px -14px rgba(33, 26, 20, 0.65);
+}
+
+html[data-glass] .screen--chat .chat-composer__send .ui-icon {
+  display: block;
+}
+
+html[data-glass] .screen--chat .chat-composer__send:disabled {
+  background: color-mix(in srgb, var(--color-ink) 10%, transparent);
+  color: color-mix(in srgb, var(--color-ink) 32%, transparent);
+  box-shadow: none;
+}
+
+html[data-glass] .screen--chat .chat-composer__send.is-receive {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  box-shadow: 0 10px 20px -14px color-mix(in srgb, var(--color-accent) 70%, transparent);
+}
+
+html[data-glass] .screen--chat .chat-composer__send.is-stopping {
+  background: var(--color-action);
+  color: var(--color-action-ink);
+  opacity: 1;
+}
+
+html[data-glass] .screen--chat .chat-composer__quote {
+  border-radius: 18px;
+  background: var(--glass-fill);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+
+/* --------------------------------------------------------------------------
+   23. Raised composer — taller card, quick actions on top
+   -------------------------------------------------------------------------- */
+
+html[data-glass] .screen--chat .chat-composer--raised .chat-composer__field {
+  display: grid;
+  min-height: 94px;
+  grid-template-areas:
+    "quick quick quick"
+    "extra input send";
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  row-gap: 4px;
+  padding: 9px 8px 9px 10px;
+  border-radius: 30px;
+}
+
+html[data-glass] .screen--chat .chat-composer__quick {
+  display: flex;
+  grid-area: quick;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 3px;
+}
+
+html[data-glass] .screen--chat .chat-composer__quick[hidden] {
+  display: none;
+}
+
+html[data-glass] .screen--chat .chat-composer__quick-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  color: var(--color-ink-secondary);
+  font-size: 11.5px;
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  transition:
+    background-color 160ms var(--ease-standard),
+    color 160ms var(--ease-standard),
+    transform 160ms var(--ease-standard);
+}
+
+html[data-glass] .screen--chat .chat-composer__quick-button .ui-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--color-accent-strong);
+}
+
+html[data-glass] .screen--chat .chat-composer__quick-button:not(:disabled):active {
+  transform: scale(0.95);
+  background: color-mix(in srgb, var(--color-ink) 11%, transparent);
+}
+
+html[data-glass] .screen--chat .chat-composer__quick-button:disabled {
+  opacity: 0.4;
+}
+
+html[data-glass] .screen--chat .chat-composer--raised .chat-composer__extra {
+  grid-area: extra;
+  align-self: end;
+}
+
+html[data-glass] .screen--chat .chat-composer--raised .chat-composer__input {
+  grid-area: input;
+  align-self: end;
+}
+
+html[data-glass] .screen--chat .chat-composer--raised .chat-composer__send {
+  grid-area: send;
+  align-self: end;
+}
+
+.chat-composer__extra-icon {
+  display: grid;
+  place-items: center;
+}
+
+.chat-composer__extra.is-spinning .ui-icon {
+  animation: composer-icon-spin 480ms var(--ease-standard);
+}
+
+@keyframes composer-icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+/* Preview sketch shown inside 聊天设置 → 底栏样式 */
+
+.composer-preview {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 11px 12px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+
+.composer-preview__quick {
+  display: none;
+  gap: 6px;
+}
+
+.composer-preview--raised .composer-preview__quick {
+  display: flex;
+}
+
+.composer-preview__quick i {
+  width: 48px;
+  height: 16px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-ink) 10%, transparent);
+}
+
+.composer-preview__line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.composer-preview__dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-ink) 10%, transparent);
+}
+
+.composer-preview__text {
+  flex: 1;
+  height: 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+}
+
+.composer-preview__send {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-action);
+}
+
+/* --------------------------------------------------------------------------
+   24. Other tab screens — same glass grammar as the chat page
+   -------------------------------------------------------------------------- */
+
+/* Tab screens keep the app's own background — only chrome and cards change. */
+
+:is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .app-header {
+  min-height: calc(var(--statusbar-height) + 64px);
+  align-items: center;
+  padding-top: calc(var(--statusbar-height) + 6px);
+  padding-bottom: 10px;
+  border: 0;
+  border-bottom: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+:is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .app-header__title {
+  font-size: 30px;
+  font-weight: var(--weight-semibold, 650);
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+}
+
+:is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .app-header__subtitle {
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+}
+
+:is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .app-header__side .icon-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--glass-fill);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    0 10px 22px -16px rgba(33, 26, 20, 0.45);
+}
+
+html[data-theme="dark"] :is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .app-header__side .icon-button {
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+
+/* --------------------------------------------------------------------------
+   25. Messages home — floating cards on a warm aura
+   -------------------------------------------------------------------------- */
+
+html[data-glass] .screen--messages {
+  --messages-canvas: #fdf8f4;
+  --messages-card: #ffffff;
+  --messages-card-shadow:
+ 0 2px 6px rgba(33, 26, 20, 0.04), 
+    /* 2. 底部极淡的厚度阴影 */
+    0 8px 16px -6px rgba(33, 26, 20, 0.08),
+    /* 3. 灵魂所在：内高光（模拟玻璃顶部和边缘的反光） */
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.2);
+  background-color: var(--messages-canvas);
+  background-image:
+    radial-gradient(78% 44% at 52% 60%, rgba(232, 168, 143, 0.2), transparent 64%),
+    radial-gradient(96% 50% at 50% 108%, rgba(219, 165, 145, 0.16), transparent 72%),
+    radial-gradient(72% 26% at 50% -4%, rgba(255, 255, 255, 0.95), transparent 100%);
+}
+
+html[data-theme="dark"] .screen--messages {
+  --messages-canvas: #16120f;
+  --messages-card: #221c17;
+  --messages-card-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 18px 34px -26px rgba(0, 0, 0, 0.7);
+  background-color: var(--messages-canvas);
+  background-image:
+    radial-gradient(78% 44% at 52% 60%, rgba(190, 120, 96, 0.16), transparent 64%),
+    radial-gradient(96% 50% at 50% 108%, rgba(190, 120, 96, 0.12), transparent 72%);
+}
+
+html[data-glass] .screen--messages .page-content--messages {
+  padding: 2px 20px 20px;
+}
+
+html[data-glass] .screen--messages .messages-search {
+  height: 54px;
+  gap: 12px;
+  padding: 0 18px;
+  border-radius: 27px;
+  background: var(--messages-card);
+  color: var(--color-ink);
+  box-shadow: var(--messages-card-shadow);
+}
+
+html[data-glass] .screen--messages .messages-search .ph {
+  font-size: 1.15rem;
+}
+
+html[data-glass] .screen--messages .messages-search input {
+  font-size: 15px;
+}
+
+html[data-glass] .screen--messages .messages-section-title {
+  margin: 20px 0 10px;
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--messages .conversation-list--main {
+  display: grid;
+  gap: 10px;
+}
+
+html[data-glass] .screen--messages .conversation-item {
+  min-height: 0;
+  gap: 13px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--messages-card);
+  box-shadow: var(--messages-card-shadow);
+  transition:
+    transform 180ms var(--ease-standard),
+    box-shadow 180ms var(--ease-standard);
+}
+
+html[data-glass] .screen--messages .conversation-item:active {
+  transform: scale(0.985);
+}
+
+html[data-glass] .screen--messages .conversation-item .avatar {
+  --avatar-size: 52px;
+}
+
+html[data-glass] .screen--messages .conversation-item__top {
+  margin-bottom: 3px;
+}
+
+html[data-glass] .screen--messages .conversation-item__name {
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .screen--messages .conversation-item__preview {
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+html[data-glass] .screen--messages .conversation-item__time {
+  font-size: 11px;
+}
+
+html[data-glass] .screen--messages .messages-privacy {
+  margin: 22px 0 0;
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+}
+
+html[data-glass] .screen--messages .messages-search-empty {
+  color: var(--color-ink-tertiary);
+}
+
+/* --------------------------------------------------------------------------
+   26. Contacts & Me — card lists that match the messages home
+   -------------------------------------------------------------------------- */
+
+html[data-glass] :is(.screen--contacts, .screen--me) {
+  --card-surface: #ffffff;
+  --card-shadow:
+     0 2px 6px rgba(33, 26, 20, 0.04), 
+    /* 2. 底部极淡的厚度阴影 */
+    0 8px 16px -6px rgba(33, 26, 20, 0.08),
+    /* 3. 灵魂所在：内高光（模拟玻璃顶部和边缘的反光） */
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.2);
+  --card-line: rgba(33, 26, 20, 0.07);
+}
+
+html[data-theme="dark"] :is(.screen--contacts, .screen--me) {
+  --card-surface: #221c17;
+  --card-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 18px 34px -26px rgba(0, 0, 0, 0.65);
+  --card-line: rgba(255, 255, 255, 0.08);
+}
+
+html[data-glass] .screen--contacts .page-content--contacts,
+html[data-glass] .screen--me .page-content--me {
+  padding: 4px 20px 20px;
+}
+
+/* Contacts: two shortcut rows inside a single card */
+
+html[data-glass] .screen--contacts .contacts-shortcuts {
+  padding: 2px 0;
+  margin: 14px 0 4px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+}
+
+html[data-glass] .screen--contacts .contacts-shortcut {
+  position: relative;
+  min-height: 58px;
+  gap: 13px;
+  padding: 0 15px;
+  border-bottom: 0;
+  color: var(--color-ink);
+  font-size: 15.5px;
+  font-weight: 500;
+}
+
+html[data-glass] .screen--contacts .contacts-shortcut + .contacts-shortcut::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 15px;
+  left: 60px;
+  height: 1px;
+  background: var(--card-line);
+}
+
+html[data-glass] .screen--contacts .contacts-shortcut__icon {
+  width: 36px;
+  height: 36px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-size: 1.1rem;
+}
+
+html[data-glass] .screen--contacts .contacts-shortcut > .ph {
+  color: var(--color-ink-tertiary);
+  font-size: 0.85rem;
+}
+
+/* Contacts: one card per tag group */
+
+html[data-glass] .screen--contacts .contact-group .section-heading {
+  margin: 24px 0 9px;
+}
+
+html[data-glass] .screen--contacts .contact-group .section-heading h2 {
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--contacts .contact-list {
+  display: grid;
+  gap: 0;
+  padding: 2px 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+}
+
+html[data-glass] .screen--contacts .contact-item {
+  position: relative;
+  min-height: 70px;
+  gap: 13px;
+  margin: 0;
+  padding: 11px 15px;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 0;
+}
+
+html[data-glass] .screen--contacts .contact-item + .contact-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 15px;
+  left: 76px;
+  height: 1px;
+  background: var(--card-line);
+}
+
+html[data-glass] .screen--contacts .contact-item .avatar {
+  --avatar-size: 48px;
+}
+
+html[data-glass] .screen--contacts .contact-item__main {
+  gap: 4px;
+}
+
+html[data-glass] .screen--contacts .contact-item__name {
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .screen--contacts .contact-item__meta {
+  font-size: 13px;
+}
+
+html[data-glass] .screen--contacts .contact-item__chevron {
+  color: var(--color-ink-tertiary);
+  font-size: 0.8rem;
+}
+
+html[data-glass] .screen--contacts .contacts-footer-note {
+  margin-top: 34px;
+}
+
+/* Me: profile card + two card groups */
+
+html[data-glass] .screen--me .profile-card {
+  min-height: 0;
+  gap: 14px;
+  padding: 16px;
+  margin: 12px 0 4px;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 22px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+  text-align: left;
+}
+
+html[data-glass] .screen--me .profile-card__avatar .avatar {
+  --avatar-size: 64px;
+}
+
+html[data-glass] .screen--me .profile-card h2 {
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+
+html[data-glass] .screen--me .profile-card__copy > p {
+  font-size: 13px;
+}
+
+html[data-glass] .screen--me .profile-card__edit {
+  gap: 4px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--card-surface);
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+  box-shadow:
+    inset 0 0 0 1px var(--card-line),
+    0 8px 18px -14px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--me .profile-card__edit .ph {
+  font-size: 0.85rem;
+}
+
+html[data-glass] .screen--me .mask-pill {
+  margin-top: 9px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+html[data-glass] .screen--me .settings-group {
+  margin-bottom: 22px;
+}
+
+html[data-glass] .screen--me .settings-group__label {
+  margin: 0 4px 8px;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--me .settings-group__card {
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+}
+
+html[data-glass] .screen--me .settings-row {
+  min-height: 58px;
+  gap: 14px;
+  padding: 10px 16px;
+}
+
+html[data-glass] .screen--me .settings-row__icon {
+  width: 22px;
+  font-size: 1.2rem;
+}
+
+html[data-glass] .screen--me .settings-row__label {
+  font-size: 15.5px;
+  font-weight: 500;
+}
+
+html[data-glass] .screen--me .settings-row__value {
+  font-size: 13px;
+}
+
+html[data-glass] .screen--me .settings-row:not(:last-child)::after {
+  right: 16px;
+  left: 53px;
+  background: var(--card-line);
+}
+
+/* --------------------------------------------------------------------------
+   27. Creation flows & sheets
+   New character / new mask / mask list follow the same card language as the
+   home screens; every bottom sheet gets one shared, quieter chrome.
+   -------------------------------------------------------------------------- */
+
+html[data-glass] :is(.screen--character-new, .screen--mask-new, .screen--masks) {
+  --card-surface: #ffffff;
+  --card-line: rgba(33, 26, 20, 0.07);
+  --card-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+}
+
+html[data-theme="dark"] :is(.screen--character-new, .screen--mask-new, .screen--masks) {
+  --card-surface: #221c17;
+  --card-line: rgba(255, 255, 255, 0.08);
+  --card-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 18px 34px -26px rgba(0, 0, 0, 0.65);
+}
+
+/* --- headers --- */
+
+html[data-glass] :is(.creation-header, .screen--mask-new .app-header, .screen--masks .app-header) {
+  min-height: calc(var(--statusbar-height) + 56px);
+  gap: 6px;
+  padding-top: calc(var(--statusbar-height) + 4px);
+  padding-bottom: 8px;
+  border: 0;
+  background: transparent;
+}
+
+html[data-glass] :is(.creation-header h1, .screen--mask-new .app-header__title, .screen--masks .app-header__title) {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+html[data-glass] :is(.creation-header > button:last-child, .mask-new__header-save) {
+  padding: 6px 2px;
+  color: var(--color-accent-strong);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+html[data-glass] .mask-new__header-save:disabled {
+  color: var(--color-ink-tertiary);
+  opacity: 0.6;
+}
+
+html[data-glass] :is(.screen--mask-new .app-header__side .icon-button, .screen--masks .app-header__side .icon-button, .creation-header .icon-button) {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--glass-fill);
+  color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+
+/* --- form fields become individual cards --- */
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field {
+  position: relative;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 15px 13px;
+  border-radius: 18px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--duration-fast, 160ms) var(--ease-standard);
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field:focus-within {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent-strong) 40%, transparent),
+    var(--card-shadow);
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field + .field {
+  margin-top: 10px;
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field__label {
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field__control {
+  min-height: 0;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field__input {
+  padding: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field__input::placeholder {
+  color: var(--color-ink-tertiary);
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field__control--select {
+  padding-right: 18px;
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) :is(.field__textarea, textarea) {
+  min-height: 104px;
+  padding-bottom: 18px;
+  line-height: 1.62;
+  resize: none;
+}
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) :is(.creation-persona, .mask-new__persona) .field__control {
+  min-height: 126px;
+}
+
+html[data-glass] :is(.creation-count, .mask-new__count) {
+  position: absolute;
+  right: 15px;
+  bottom: 11px;
+  margin: 0;
+  padding: 0;
+  color: var(--color-ink-tertiary);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  text-align: right;
+  pointer-events: none;
+}
+
+/* --- avatar picker --- */
+
+html[data-glass] .screen--character-new .avatar-field {
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 20px;
+}
+
+html[data-glass] .screen--character-new .avatar-field__preview .avatar {
+  --avatar-size: 104px;
+  font-size: 38px;
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--color-surface) 80%, transparent),
+    0 22px 40px -24px rgba(33, 26, 20, 0.55);
+}
+
+html[data-glass] :is(.screen--character-new .avatar-field__actions, .mask-new__avatar-field .avatar-field__actions) {
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+html[data-glass] :is(.screen--character-new .avatar-field__actions, .mask-new__avatar-field .avatar-field__actions) .small-button {
+  min-height: 34px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--glass-fill-strong);
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+  box-shadow: inset 0 0 0 1px var(--card-line);
+}
+
+html[data-glass] .screen--character-new .creation-subtitle,
+html[data-glass] .mask-new__intro {
+  margin: 2px 0 18px;
+  color: var(--color-ink-tertiary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* --- sticky footers --- */
+
+html[data-glass] :is(.creation-footer, .mask-new__footer) {
+  padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, var(--color-bg) 46%);
+}
+
+html[data-glass] :is(.creation-footer, .mask-new__footer) .button {
+  min-height: 54px;
+  border-radius: 18px;
+  background: var(--color-action);
+  color: var(--color-action-ink);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 16px 30px -18px rgba(33, 26, 20, 0.6);
+}
+
+/* --- new mask: hero + form --- */
+
+html[data-glass] .screen--mask-new .page-content--mask-new {
+  padding: 2px 18px 26px;
+}
+
+html[data-glass] .screen--mask-new .mask-new__hero {
+  padding: 16px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+}
+
+html[data-glass] .screen--mask-new .mask-new__hero-row {
+  gap: 15px;
+}
+
+html[data-glass] .screen--mask-new :is(.mask-new__hero-row .avatar-field__preview .avatar, .mask-avatar-placeholder) {
+  --avatar-size: 78px;
+  width: 78px;
+  height: 78px;
+}
+
+html[data-glass] .screen--mask-new .mask-new__hero-copy strong {
+  font-size: 17.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .screen--mask-new .mask-new__hero-copy small {
+  color: var(--color-ink-tertiary);
+  font-size: 12.5px;
+}
+
+html[data-glass] .screen--mask-new .mask-new__avatar-field .avatar-field__actions {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
+html[data-glass] .screen--mask-new .mask-new__form {
+  gap: 10px;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-glass] .screen--mask-new .mask-new__note {
+  gap: 6px;
+  padding: 2px 4px 0;
+  background: transparent;
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+}
+
+/* --- mask list --- */
+
+html[data-glass] .screen--masks .page-content--masks {
+  padding: 2px 18px 30px;
+}
+
+html[data-glass] .screen--masks .masks-intro {
+  gap: 13px;
+  padding: 16px;
+  border: 0;
+  border-radius: 22px;
+  background:
+    linear-gradient(148deg, color-mix(in srgb, var(--color-accent) 11%, var(--card-surface)) 0%, var(--card-surface) 58%);
+  box-shadow: var(--card-shadow);
+}
+
+html[data-glass] .screen--masks .masks-intro__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent-strong);
+  font-size: 1.45rem;
+}
+
+html[data-glass] .screen--masks .masks-intro h2 {
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .screen--masks .masks-intro p {
+  margin-top: 3px;
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+html[data-glass] .screen--masks .masks-intro__note {
+  margin-top: 8px;
+  padding: 4px 9px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+  color: var(--color-ink-tertiary);
+  font-size: 10.5px;
+}
+
+html[data-glass] .screen--masks .masks-section-title {
+  margin: 22px 4px 10px;
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--masks .mask-list {
+  display: grid;
+  gap: 10px;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-glass] .screen--masks .mask-row {
+  min-height: 0;
+  margin: 0;
+  padding: 13px 12px 13px 14px;
+  border-radius: 20px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+  transition: transform var(--duration-fast, 160ms) var(--ease-standard);
+}
+
+html[data-glass] .screen--masks .mask-row:active {
+  transform: scale(0.988);
+}
+
+html[data-glass] .screen--masks .mask-row + .mask-row::before {
+  content: none;
+}
+
+html[data-glass] .screen--masks .mask-row.is-active {
+  background: var(--card-surface);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 52%, transparent),
+    var(--card-shadow);
+}
+
+html[data-glass] .screen--masks .mask-row__main {
+  gap: 13px;
+  padding: 0;
+}
+
+html[data-glass] .screen--masks .mask-row__main .avatar {
+  --avatar-size: 52px;
+}
+
+html[data-glass] .screen--masks .mask-row__copy {
+  gap: 3px;
+}
+
+html[data-glass] .screen--masks .mask-row__name {
+  gap: 7px;
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .screen--masks .mask-row__badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent-strong);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+html[data-glass] .screen--masks .mask-row__meta {
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+html[data-glass] .screen--masks .mask-row__usage {
+  gap: 5px;
+  color: var(--color-ink-tertiary);
+  font-size: 10.5px;
+}
+
+html[data-glass] .screen--masks .mask-row > .icon-button {
+  width: 32px;
+  height: 32px;
+  color: var(--color-ink-tertiary);
+  font-size: 0.98rem;
+}
+
+html[data-glass] .screen--masks .mask-row__chevron {
+  color: var(--color-ink-tertiary);
+  font-size: 0.9rem;
+}
+
+html[data-glass] .screen--masks .masks-create {
+  gap: 13px;
+  margin-top: 10px;
+  padding: 13px 15px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+}
+
+html[data-glass] .screen--masks .masks-create__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  color: var(--color-accent-strong);
+  font-size: 1.15rem;
+}
+
+html[data-glass] .screen--masks .masks-create strong {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+html[data-glass] .screen--masks .masks-create small {
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+}
+
+html[data-glass] .screen--masks .masks-create > .ph {
+  color: var(--color-ink-tertiary);
+}
+
+html[data-glass] .screen--masks .masks-footnote {
+  margin-top: 18px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* --- bottom sheets --- */
+
+html[data-glass] .sheet-backdrop {
+  background: color-mix(in srgb, var(--color-ink) 30%, transparent);
+}
+
+html[data-theme="dark"] .sheet-backdrop {
+  background: rgba(0, 0, 0, 0.52);
+}
+
+html[data-glass] .sheet {
+  max-height: 92%;
+  border: 0;
+  border-radius: 30px 30px 0 0;
+  background: var(--color-surface);
+  box-shadow:
+    0 -12px 60px -26px rgba(33, 26, 20, 0.55),
+    inset 0 0 0 1px var(--glass-edge);
+}
+
+html[data-glass="on"] .sheet {
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(1.8);
+}
+
+html[data-theme="dark"] .sheet {
+  box-shadow:
+    0 -12px 60px -26px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+html[data-glass] .sheet__grip {
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 0;
+  background: color-mix(in srgb, var(--color-ink) 13%, transparent);
+}
+
+html[data-glass] .sheet__header {
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px 4px;
+}
+
+html[data-glass] .sheet__heading {
+  padding-top: 0;
+}
+
+html[data-glass] .sheet__heading h2 {
+  font-size: 17.5px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .sheet__heading p {
+  margin-top: 4px;
+  color: var(--color-ink-tertiary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+html[data-glass] .sheet__close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  color: var(--color-ink-secondary);
+  font-size: 0.8rem;
+}
+
+html[data-glass] .sheet__body {
+  padding: 8px 18px calc(18px + env(safe-area-inset-bottom));
+}
+
+html[data-glass] .sheet__actions {
+  display: grid;
+  gap: 10px;
+  padding: 0 18px calc(16px + env(safe-area-inset-bottom));
+}
+
+html[data-glass] .sheet__actions .button {
+  min-height: 52px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* option rows inside sheets */
+
+html[data-glass] .option-list {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+html[data-glass] .option-row {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-glass] .option-row + .option-row {
+  border-top: 0;
+  box-shadow: inset 0 1px 0 rgba(33, 26, 20, 0.07);
+}
+
+html[data-theme="dark"] .option-row + .option-row {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html[data-glass] .option-row.is-selected {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  box-shadow: inset 0 1px 0 rgba(33, 26, 20, 0.07);
+}
+
+html[data-glass] .option-row__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  color: var(--color-ink-secondary);
+  font-size: 1.05rem;
+}
+
+html[data-glass] .option-row.is-selected .option-row__icon {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent-strong);
+}
+
+html[data-glass] .option-row__label {
+  font-size: 15.5px;
+  font-weight: 500;
+}
+
+html[data-glass] .option-row__meta {
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+}
+
+html[data-glass] .option-row__check {
+  color: var(--color-accent-strong);
+  font-size: 1.1rem;
+}
+
+/* the card itself carries the focus ring now */
+
+html[data-glass] :is(.creation-content, .page-content--mask-new) .field__control:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* toasts share the same quiet, dark glass */
+
+html[data-glass] .toast {
+  gap: 8px;
+  padding: 11px 16px;
+  background: color-mix(in srgb, var(--color-ink) 90%, transparent);
+  color: var(--color-bg);
+  font-size: 13px;
+  box-shadow:
+    0 16px 32px -18px rgba(33, 26, 20, 0.62),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+html[data-glass] .toast__icon {
+  color: var(--color-bg);
+  opacity: 0.75;
+}
+
+html[data-glass] .toast--danger .toast__icon {
+  color: #ffd9cf;
+  opacity: 1;
+}
+
+/* the composer action sheet is a floating card, not a bottom sheet —
+   keep its own geometry while borrowing the glass */
+
+html[data-glass] .sheet.chat-action-sheet {
+  max-height: none;
+  border-radius: 26px;
+  background: var(--glass-fill-strong);
+  box-shadow:
+    0 24px 55px -24px rgba(33, 26, 20, 0.5),
+    inset 0 0 0 1px var(--glass-edge);
+}
+
+html[data-glass="on"] .sheet.chat-action-sheet {
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(1.8);
+}
+
+html[data-glass] .sheet.chat-action-sheet .sheet__header {
+  padding: 8px 12px 10px;
+}
+
+html[data-glass] .sheet.chat-action-sheet .sheet__heading h2 {
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+html[data-glass] .sheet.chat-action-sheet .sheet__body {
+  padding: 0;
+}
+
+/* long-press message menu */
+
+html[data-glass] .message-menu {
+  width: 180px;
+  padding: 6px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--glass-fill-strong);
+  box-shadow:
+    0 24px 48px -20px rgba(33, 26, 20, 0.5),
+    inset 0 0 0 1px var(--glass-edge);
+  backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(1.8);
+}
+
+html[data-glass] .message-menu__item {
+  min-height: 44px;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  font-size: 13.5px;
+}
+
+html[data-glass] .message-menu__item:active {
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+
+html[data-glass] .message-menu__item .ph {
+  color: var(--color-ink-secondary);
+  font-size: 1.05rem;
+}
+
+/* the destructive picker chip stays quiet until it matters */
+
+html[data-glass] :is(.screen--character-new, .screen--mask-new) .avatar-field__actions .small-button--muted {
+  background: transparent;
+  color: var(--color-ink-tertiary);
+  box-shadow: inset 0 0 0 1px var(--card-line);
 }

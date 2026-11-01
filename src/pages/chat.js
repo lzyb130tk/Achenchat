@@ -6,7 +6,7 @@ import {
   openStickerPicker,
 } from '../components/composer-actions.js';
 import { bindLongPress } from '../components/conversation-actions.js';
-import { icon } from '../components/icons.js';
+import { icon, uiIcon } from '../components/icons.js';
 import { dismissMessageBanner } from '../components/message-banner.js';
 import {
   closeMessageMenu,
@@ -61,13 +61,9 @@ function sparkBadgeMarkup(style, streak) {
   </span>`;
 }
 
-const HEADER_BACK_GLYPH = `<svg class="chat-header__glyph" viewBox="0 0 1024 1024" aria-hidden="true">
-  <path fill="currentColor" d="M778.624 49.056L743.104 13.456 280.944 476.4v-0.016L245.376 512v0.016l35.568 35.632 462.16 462.896 35.52-35.616-462.128-462.912z"/>
-</svg>`;
-
 function chatHeader(character, status, style, streak) {
   return `<header class="chat-header">
-    <a class="icon-button chat-header__back" href="#/messages" aria-label="返回">${HEADER_BACK_GLYPH}</a>
+    <a class="icon-button chat-header__back" href="#/messages" aria-label="返回">${uiIcon('chevron-left', { size: 21, strokeWidth: 1.9 })}</a>
     <button class="chat-header__identity" type="button" data-open-profile>
       ${characterAvatar(character, 'sm')}
       <span class="chat-header__copy">
@@ -81,7 +77,7 @@ function chatHeader(character, status, style, streak) {
         </span>
       </span>
     </button>
-    <button class="icon-button chat-header__action" type="button" aria-label="更多会话操作" data-open-chat-menu>${icon('dots-three')}</button>
+    <button class="icon-button chat-header__action" type="button" aria-label="更多会话操作" data-open-chat-menu>${uiIcon('more', { size: 20 })}</button>
   </header>`;
 }
 
@@ -594,6 +590,7 @@ export function renderChat({ characterId, refresh }) {
     characterName: character.name,
     hasConfig: hasApiConfig(),
     sendMode: chatStyle.sendMode,
+    composerStyle: chatStyle.composerStyle,
     sentCount: conversation.multiSentCount || 0,
     onCompose: () => scrollToBottom(true),
     onConfigure: () => {
@@ -603,6 +600,10 @@ export function renderChat({ characterId, refresh }) {
       stopReply(character.id);
     },
     onRedPacket: sendPacket,
+    onSticker: () => {
+      openStickerPicker({ onPick: sendSticker });
+    },
+    onRetry: retryReply,
     onMore: () => {
       openComposerActions({
         onRedPacket: sendPacket,

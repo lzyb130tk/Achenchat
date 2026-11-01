@@ -42,6 +42,7 @@ const BACKGROUND_PREVIEWS = {
 
 const VIEW_TITLES = {
   send: '发送方式',
+  composer: '底栏样式',
   speed: '打字速度',
   animation: '消息动效',
   bubble: '气泡样式',
@@ -201,6 +202,10 @@ function sparkLabel(style) {
   );
 }
 
+function composerLabel(current) {
+  return current.composerStyle === 'raised' ? '加高 · 快捷按钮' : '默认';
+}
+
 export function createChatSettingsPage({ character, style }) {
   let current = { ...style };
   let tab = 'general';
@@ -345,6 +350,12 @@ export function createChatSettingsPage({ character, style }) {
               <span class="chat-settings__row-value">${current.avatarSize}px · ${current.avatarRadius}%</span>
               <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
             </button>
+            <button class="chat-settings__row" type="button" data-open-view="composer">
+              <span class="chat-settings__row-icon">${icon('textbox')}</span>
+              <span class="chat-settings__row-label">底栏样式</span>
+              <span class="chat-settings__row-value">${composerLabel(current)}</span>
+              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+            </button>
             <div class="chat-settings__row">
               <span class="chat-settings__row-icon">${icon('broadcast')}</span>
               <span class="chat-settings__row-label">显示状态</span>
@@ -373,6 +384,24 @@ export function createChatSettingsPage({ character, style }) {
             <span class="choice-card__copy"><strong>多条</strong><small>先连续发送，再双击发送键接收回复</small></span>
             <span class="choice-card__check">${icon('check')}</span>
           </button>
+        </div>`;
+
+      const composerMarkup = () => `<p class="settings-note">默认是单行输入，红包、表情和重试收在左边的「+」里。加高样式把输入卡拉高，红包和重试直接摆在卡面上，左下角的按钮则换成表情包。</p>
+        <div class="choice-list">
+          <button class="choice-card${current.composerStyle === 'raised' ? '' : ' is-selected'}" type="button" data-set-composer="default">
+            <span class="choice-card__icon">${icon('textbox')}</span>
+            <span class="choice-card__copy"><strong>默认</strong><small>单行输入，左下角「+」展开更多</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+          <button class="choice-card${current.composerStyle === 'raised' ? ' is-selected' : ''}" type="button" data-set-composer="raised">
+            <span class="choice-card__icon">${icon('rows-plus-top')}</span>
+            <span class="choice-card__copy"><strong>加高 · 快捷按钮</strong><small>输入卡更高，红包与重试直接显示，左侧换成表情包</small></span>
+            <span class="choice-card__check">${icon('check')}</span>
+          </button>
+        </div>
+        <div class="composer-preview composer-preview--${current.composerStyle === 'raised' ? 'raised' : 'default'}" aria-hidden="true">
+          <span class="composer-preview__quick"><i></i><i></i></span>
+          <span class="composer-preview__line"><i class="composer-preview__dot"></i><i class="composer-preview__text"></i><i class="composer-preview__send"></i></span>
         </div>`;
 
       const speedMarkup = () => `<div class="settings-figure">
@@ -581,6 +610,7 @@ export function createChatSettingsPage({ character, style }) {
 
       const subviewMarkup = () => {
         if (view === 'send') return sendMarkup();
+        if (view === 'composer') return composerMarkup();
         if (view === 'speed') return speedMarkup();
         if (view === 'animation') return animationMarkup();
         if (view === 'bubble') return bubbleMarkup();
@@ -937,6 +967,16 @@ export function createChatSettingsPage({ character, style }) {
           content.querySelectorAll('[data-set-mode]').forEach((button) => {
             button.addEventListener('click', () => {
               notify({ sendMode: button.dataset.setMode });
+              paint();
+            });
+          });
+          return;
+        }
+
+        if (view === 'composer') {
+          content.querySelectorAll('[data-set-composer]').forEach((button) => {
+            button.addEventListener('click', () => {
+              notify({ composerStyle: button.dataset.setComposer });
               paint();
             });
           });

@@ -1,15 +1,19 @@
 import { openChoiceSheet } from './choice-sheet.js';
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 
 export function createChatComposer({
   characterName,
   hasConfig,
   sendMode = 'single',
   sentCount = 0,
+  composerStyle = 'default',
   onSend,
   onStop,
   onConfigure,
   onMore,
+  onSticker,
+  onRetry,
+  onRedPacket,
   onReceive,
   onModeChange,
   onCompose,
@@ -23,17 +27,27 @@ export function createChatComposer({
       <span class="chat-composer__hint-action">去配置</span>
     </button>`}
     <div class="chat-composer__quote" data-quote hidden>
-      <span class="chat-composer__quote-icon">${icon('arrow-elbow-down-right')}</span>
+      <span class="chat-composer__quote-icon">${uiIcon('corner-down-right', { size: 17 })}</span>
       <span class="chat-composer__quote-copy">
         <strong data-quote-name></strong>
         <small data-quote-text></small>
       </span>
-      <button class="chat-composer__quote-close" type="button" aria-label="取消引用" data-quote-clear>${icon('x')}</button>
+      <button class="chat-composer__quote-close" type="button" aria-label="取消引用" data-quote-clear>${uiIcon('x', { size: 16 })}</button>
     </div>
     <div class="chat-composer__bar">
       <div class="chat-composer__field">
+        <div class="chat-composer__quick" data-quick hidden>
+          <button class="chat-composer__quick-button" type="button" data-quick-redpacket aria-label="发红包">
+            ${uiIcon('red-packet', { size: 17 })}
+            <span>红包</span>
+          </button>
+          <button class="chat-composer__quick-button" type="button" data-quick-retry aria-label="重新生成上一条回复">
+            ${uiIcon('retry', { size: 17 })}
+            <span>重试</span>
+          </button>
+        </div>
         <button class="chat-composer__extra" type="button" aria-label="更多功能" data-composer-more>
-          ${icon('plus')}
+          <span class="chat-composer__extra-icon" data-composer-extra-icon>${uiIcon('plus', { size: 22 })}</span>
         </button>
         <textarea
           class="chat-composer__input"
@@ -44,7 +58,7 @@ export function createChatComposer({
           enterkeyhint="send"
         ></textarea>
         <button class="chat-composer__send" type="button" aria-label="发送，双击接收回复" data-send disabled>
-          <span class="chat-composer__send-icon" data-send-icon>${icon('paper-plane-tilt')}</span>
+          <span class="chat-composer__send-icon" data-send-icon>${uiIcon('send', { size: 19, strokeWidth: 1.8 })}</span>
           <span class="chat-composer__send-badge" data-send-badge hidden></span>
         </button>
       </div>
@@ -55,6 +69,10 @@ export function createChatComposer({
   const sendIcon = element.querySelector('[data-send-icon]');
   const sendBadge = element.querySelector('[data-send-badge]');
   const moreButton = element.querySelector('[data-composer-more]');
+  const extraIcon = element.querySelector('[data-composer-extra-icon]');
+  const quickRow = element.querySelector('[data-quick]');
+  const quickRedPacket = element.querySelector('[data-quick-redpacket]');
+  const quickRetry = element.querySelector('[data-quick-retry]');
   const quoteBar = element.querySelector('[data-quote]');
   const quoteName = element.querySelector('[data-quote-name]');
   const quoteText = element.querySelector('[data-quote-text]');
@@ -62,6 +80,7 @@ export function createChatComposer({
   let mode = sendMode === 'multi' ? 'multi' : 'single';
   let streaming = false;
   let receiving = false;
+  let raised = false;
   let pendingCount = Math.max(0, Number(sentCount) || 0);
   let quote = null;
   let sendGuardUntil = 0;
@@ -86,11 +105,11 @@ export function createChatComposer({
     sendButton.classList.toggle('is-stopping', streaming);
 
     if (streaming) {
-      sendIcon.innerHTML = icon('stop', 'fill');
+      sendIcon.innerHTML = uiIcon('stop', { size: 18 });
       sendButton.disabled = false;
       sendButton.setAttribute('aria-label', '停止生成');
     } else {
-      sendIcon.innerHTML = icon(ready ? 'arrow-down' : 'paper-plane-tilt');
+      sendIcon.innerHTML = uiIcon(ready ? 'arrow-down' : 'send', { size: 19, strokeWidth: 1.8 });
       sendButton.disabled = ready ? false : !input.value.trim();
       sendButton.setAttribute(
         'aria-label',
@@ -108,6 +127,8 @@ export function createChatComposer({
 
     input.disabled = streaming;
     moreButton.disabled = streaming;
+    quickRedPacket.disabled = streaming;
+    quickRetry.disabled = streaming;
   };
 
   const setSentCount = (value) => {
@@ -118,6 +139,16 @@ export function createChatComposer({
   const setMode = (value) => {
     mode = value === 'multi' ? 'multi' : 'single';
     syncSend();
+  };
+
+  const setComposerStyle = (value) => {
+    raised = value === 'raised';
+    element.classList.toggle('chat-composer--raised', raised);
+    quickRow.hidden = !raised;
+    extraIcon.innerHTML = uiIcon(raised ? 'sticker' : 'plus', {
+      size: raised ? 21 : 22,
+    });
+    moreButton.setAttribute('aria-label', raised ? '表情包' : '更多功能');
   };
 
   const setQuote = (value) => {
@@ -257,6 +288,10 @@ export function createChatComposer({
   element.querySelector('[data-configure]')?.addEventListener('click', onConfigure);
   moreButton.addEventListener('click', () => {
     if (streaming) return;
+    if (raised) {
+      onSticker?.();
+      return;
+    }
     moreButton.classList.remove('is-spinning');
     void moreButton.offsetWidth;
     moreButton.classList.add('is-spinning');
@@ -264,6 +299,16 @@ export function createChatComposer({
   });
   moreButton.addEventListener('animationend', () => {
     moreButton.classList.remove('is-spinning');
+  });
+
+  quickRedPacket.addEventListener('click', () => {
+    if (streaming) return;
+    onRedPacket?.();
+  });
+
+  quickRetry.addEventListener('click', () => {
+    if (streaming) return;
+    onRetry?.();
   });
 
   const setStreaming = (value) => {
@@ -278,12 +323,14 @@ export function createChatComposer({
 
   syncSend();
   setMode(mode);
+  setComposerStyle(composerStyle);
 
   return {
     element,
     setStreaming,
     setReceiving,
     setMode,
+    setComposerStyle,
     setSentCount,
     setValue(value) {
       input.value = value;
