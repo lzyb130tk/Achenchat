@@ -61,8 +61,8 @@ function sparkBadgeMarkup(style, streak) {
   </span>`;
 }
 
-const HEADER_BACK_GLYPH = `<svg class="chat-header__glyph" viewBox="0 0 1024 1024" fill="none" stroke="currentColor" stroke-width="76" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="M702 80 L300 547 L779 947"/>
+const HEADER_BACK_GLYPH = `<svg class="chat-header__glyph" viewBox="0 0 1024 1024" aria-hidden="true">
+  <path fill="currentColor" d="M778.624 49.056L743.104 13.456 280.944 476.4v-0.016L245.376 512v0.016l35.568 35.632 462.16 462.896 35.52-35.616-462.128-462.912z"/>
 </svg>`;
 
 function chatHeader(character, status, style, streak) {

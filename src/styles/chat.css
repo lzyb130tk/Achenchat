@@ -23,8 +23,9 @@
 
 .chat-header__glyph {
   display: block;
-  width: 1em;
-  height: 1em;
+  width: 0.7em;
+  height: 0.7em;
+  fill: currentColor;
 }
 
 .screen--chat.is-hiding-status .chat-header__status {
@@ -405,7 +406,7 @@
 }
 
 .chat-composer {
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  padding: 8px 10px calc(14px + env(safe-area-inset-bottom));
   background: var(--color-bg);
 }
 
@@ -764,6 +765,7 @@
 
 .inline-buttons {
   display: flex;
+  justify-content: flex-end;
   gap: 7px;
   margin-top: var(--space-3);
 }

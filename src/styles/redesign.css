@@ -1525,13 +1525,13 @@ html[data-theme="dark"] :is(.screen--messages, .screen--contacts, .screen--disco
 }
 
 :is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .bottom-nav {
-  padding: 4px 10px calc(4px + env(safe-area-inset-bottom));
+  padding: 6px 10px calc(20px + env(safe-area-inset-bottom));
   border-color: var(--color-line);
   background: var(--color-nav);
 }
 
 .bottom-nav__item {
-  min-height: 46px;
+  min-height: 54px;
   gap: 1px;
 }
 

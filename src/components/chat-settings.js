@@ -236,6 +236,10 @@ export function createChatSettingsPage({ character, style }) {
       const tabs = screen.querySelector('[data-chat-settings-tabs]');
       const body = screen.querySelector('.chat-settings-page__scroll');
 
+      const previewStyle = document.createElement('style');
+      previewStyle.dataset.settingsPreview = '';
+      screen.prepend(previewStyle);
+
       const setCurrent = (next) => {
         current = next;
       };
@@ -430,8 +434,6 @@ export function createChatSettingsPage({ character, style }) {
           <span class="range-row__top"><span>消息间隔</span><output data-gap-output>${current.messageGap}px</output></span>
           <input class="range" type="range" min="0" max="16" step="1" value="${current.messageGap}" data-message-gap>
         </label>
-        <p class="settings-note">同一位连续消息之间的间距，越大越疏朗。</p>
-        <p class="settings-note">同时替换你和${character.name}的气泡。类名：<span class="code-hint">.message-bubble--assistant</span> / <span class="code-hint">.message-bubble--user</span></p>
         <div class="bubble-settings-preview">
           <div class="bubble-preview-line">
             <div class="message-bubble message-bubble--assistant">在呢，慢慢说。</div>
@@ -445,6 +447,7 @@ export function createChatSettingsPage({ character, style }) {
           <span class="field__control field__control--area">
             <textarea class="field__input field__textarea field__textarea--code" rows="8" spellcheck="false" data-bubble-css>${escapeHTML(current.bubbleCss)}</textarea>
           </span>
+          <span class="field__hint">同时应用到你和对方的气泡。可用 <span class="code-hint">.message-bubble--assistant</span> / <span class="code-hint">.message-bubble--user</span>。</span>
         </label>
         <div class="inline-buttons">
           <button class="small-button small-button--solid" type="button" data-apply-bubble>应用</button>
@@ -611,6 +614,14 @@ export function createChatSettingsPage({ character, style }) {
         }
         paintTabs();
         content.innerHTML = view === 'root' ? rootMarkup() : subviewMarkup();
+        previewStyle.textContent =
+          view === 'bubble'
+            ? current.bubbleCss || DEFAULT_BUBBLE_CSS
+            : view === 'packet'
+              ? getPacketCss(current)
+              : view === 'animation'
+                ? getAnimationCss(current)
+                : '';
         bind();
       };
 
