@@ -269,6 +269,7 @@ export const DEFAULT_CHAT_STYLE = {
   avatarSize: 28,
   avatarRadius: 50,
   showUserAvatar: false,
+  showStatus: true,
   sparkEnabled: false,
   sparkIcon: 'flame',
   sparkSvg: '',

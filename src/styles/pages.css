@@ -11,7 +11,7 @@
   --messages-ink: #211f1c;
   --messages-muted: #8a8782;
   --messages-line: #e9e5df;
-  --messages-accent: #c86f55;
+  --messages-accent: var(--color-accent);
   background: var(--messages-bg);
   color: var(--messages-ink);
 }
@@ -538,7 +538,7 @@ html[data-theme="dark"] .screen--messages {
   --refresh-ink: #211f1c;
   --refresh-muted: #8a8782;
   --refresh-line: #e9e5df;
-  --refresh-accent: #c86f55;
+  --refresh-accent: var(--color-accent);
   background: var(--refresh-bg);
   color: var(--refresh-ink);
 }
@@ -549,7 +549,7 @@ html[data-theme="dark"] .screen--messages {
   --refresh-ink: #211f1c;
   --refresh-muted: #8a8782;
   /* --refresh-line: #e9e5df; */
-  --refresh-accent: #c86f55;
+  --refresh-accent: var(--color-accent);
   background: var(--refresh-bg);
   color: var(--refresh-ink);
 }
@@ -1095,7 +1095,7 @@ html[data-theme="dark"] .screen--me .mask-pill {
 }
 
 .moment-like.is-liked {
-  color: var(--color-accent);
+  color: var(--color-accent-strong);
 }
 
 .page-content--shake {

@@ -7,8 +7,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4efe8",
-  "theme_color": "#f4efe8",
+  "background_color": "#f4f1ec",
+  "theme_color": "#f4f1ec",
   "icons": [
     {
       "src": "src/assets/achat-mark.svg",

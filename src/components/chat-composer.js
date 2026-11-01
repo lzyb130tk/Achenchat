@@ -1,9 +1,7 @@
 import { openChoiceSheet } from './choice-sheet.js';
-import { characterAvatar } from './avatar.js';
 import { icon } from './icons.js';
 
 export function createChatComposer({
-  character,
   characterName,
   hasConfig,
   sendMode = 'single',
@@ -24,11 +22,6 @@ export function createChatComposer({
       <span>尚未连接 AI</span>
       <span class="chat-composer__hint-action">去配置</span>
     </button>`}
-    <div class="chat-composer__pending" data-multi-banner hidden>
-      ${characterAvatar(character, 'sm')}
-      <span class="chat-composer__pending-copy"><strong data-sent-count>已发送 0 条</strong><small>多条消息模式</small></span>
-      <button class="chat-composer__receive" type="button" data-receive aria-label="接收回复">${icon('arrow-down')}<span>接收回复</span></button>
-    </div>
     <div class="chat-composer__quote" data-quote hidden>
       <span class="chat-composer__quote-icon">${icon('arrow-elbow-down-right')}</span>
       <span class="chat-composer__quote-copy">
@@ -50,18 +43,18 @@ export function createChatComposer({
           aria-label="消息内容"
           enterkeyhint="send"
         ></textarea>
-        <button class="chat-composer__send" type="button" aria-label="发送，长按切换发送方式" data-send disabled>
-          ${icon('paper-plane-tilt')}
+        <button class="chat-composer__send" type="button" aria-label="发送，双击接收回复" data-send disabled>
+          <span class="chat-composer__send-icon" data-send-icon>${icon('paper-plane-tilt')}</span>
+          <span class="chat-composer__send-badge" data-send-badge hidden></span>
         </button>
       </div>
     </div>`;
 
   const input = element.querySelector('.chat-composer__input');
   const sendButton = element.querySelector('[data-send]');
+  const sendIcon = element.querySelector('[data-send-icon]');
+  const sendBadge = element.querySelector('[data-send-badge]');
   const moreButton = element.querySelector('[data-composer-more]');
-  const receiveButton = element.querySelector('[data-receive]');
-  const pendingBanner = element.querySelector('[data-multi-banner]');
-  const sentCountLabel = element.querySelector('[data-sent-count]');
   const quoteBar = element.querySelector('[data-quote]');
   const quoteName = element.querySelector('[data-quote-name]');
   const quoteText = element.querySelector('[data-quote-text]');
@@ -70,36 +63,61 @@ export function createChatComposer({
   let streaming = false;
   let receiving = false;
   let pendingCount = Math.max(0, Number(sentCount) || 0);
-  let dismissed = false;
   let quote = null;
+  let sendGuardUntil = 0;
 
   const resize = () => {
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
   };
 
-  const updateSendState = () => {
-    if (streaming) return;
-    sendButton.disabled = !input.value.trim();
-  };
+  // In multi mode the send key doubles as the "receive" key once there is
+  // something waiting: the field is empty and the queued count is above zero.
+  const receiveReady = () =>
+    mode === 'multi' &&
+    pendingCount > 0 &&
+    !streaming &&
+    !receiving &&
+    !input.value.trim();
 
-  const syncReceive = () => {
-    const visible = mode === 'multi' && !dismissed && !receiving && !streaming
-      && (pendingCount > 0 || Boolean(input.value.trim()));
-    pendingBanner.hidden = !visible;
-    sentCountLabel.textContent = `已发送 ${pendingCount} 条`;
-    receiveButton.disabled = pendingCount === 0;
+  const syncSend = () => {
+    const ready = receiveReady();
+    sendButton.classList.toggle('is-receive', ready);
+    sendButton.classList.toggle('is-stopping', streaming);
+
+    if (streaming) {
+      sendIcon.innerHTML = icon('stop', 'fill');
+      sendButton.disabled = false;
+      sendButton.setAttribute('aria-label', '停止生成');
+    } else {
+      sendIcon.innerHTML = icon(ready ? 'arrow-down' : 'paper-plane-tilt');
+      sendButton.disabled = ready ? false : !input.value.trim();
+      sendButton.setAttribute(
+        'aria-label',
+        ready
+          ? `接收回复，已发送 ${pendingCount} 条，双击发送键也可接收`
+          : mode === 'multi'
+            ? '发送，双击接收回复，长按切换发送方式'
+            : '发送，长按切换发送方式',
+      );
+    }
+
+    const showBadge = mode === 'multi' && pendingCount > 0 && !streaming && !receiving;
+    sendBadge.hidden = !showBadge;
+    sendBadge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
+
+    input.disabled = streaming;
+    moreButton.disabled = streaming;
   };
 
   const setSentCount = (value) => {
     pendingCount = Math.max(0, Math.min(999, Number(value) || 0));
-    if (pendingCount) dismissed = false;
-    syncReceive();
+    syncSend();
   };
 
   const setMode = (value) => {
     mode = value === 'multi' ? 'multi' : 'single';
-    syncReceive();
+    syncSend();
   };
 
   const setQuote = (value) => {
@@ -127,7 +145,7 @@ export function createChatComposer({
         {
           value: 'multi',
           label: '多条',
-          meta: '先发送，再点「接收」请求回复',
+          meta: '连续发送，双击发送键接收回复',
           icon: 'stack',
         },
       ],
@@ -138,22 +156,32 @@ export function createChatComposer({
     });
   };
 
+  const receive = () => {
+    if (!receiveReady()) return false;
+    const accepted = onReceive?.();
+    if (accepted === false) return false;
+    receiving = true;
+    pendingCount = 0;
+    syncSend();
+    return true;
+  };
+
   const send = () => {
     const text = input.value.trim();
     if (!text || streaming) return;
     const accepted = onSend(text, quote);
     if (accepted === false) return;
+    // A double click should not turn "send draft" into "send + receive".
+    sendGuardUntil = performance.now() + 360;
     input.value = '';
     resize();
-    updateSendState();
     clearQuote();
+    syncSend();
   };
 
   input.addEventListener('input', () => {
     resize();
-    updateSendState();
-    if (input.value.trim()) dismissed = false;
-    syncReceive();
+    syncSend();
     onCompose?.();
   });
 
@@ -209,47 +237,46 @@ export function createChatComposer({
       onStop?.();
       return;
     }
+    if (performance.now() < sendGuardUntil) return;
+    if (receiveReady()) {
+      receive();
+      return;
+    }
     send();
   });
 
-  receiveButton.addEventListener('click', () => {
-    if (streaming || receiving || pendingCount === 0) return;
-    const accepted = onReceive?.();
-    if (accepted !== false) {
-      receiving = true;
-      pendingCount = 0;
-      dismissed = true;
-      syncReceive();
-    }
+  // Double-clicking the send key receives the queued replies in multi mode.
+  sendButton.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    if (streaming || performance.now() < sendGuardUntil) return;
+    receive();
   });
 
   quoteBar.querySelector('[data-quote-clear]').addEventListener('click', clearQuote);
 
   element.querySelector('[data-configure]')?.addEventListener('click', onConfigure);
   moreButton.addEventListener('click', () => {
-    if (!streaming) onMore?.();
+    if (streaming) return;
+    moreButton.classList.remove('is-spinning');
+    void moreButton.offsetWidth;
+    moreButton.classList.add('is-spinning');
+    onMore?.();
+  });
+  moreButton.addEventListener('animationend', () => {
+    moreButton.classList.remove('is-spinning');
   });
 
   const setStreaming = (value) => {
     streaming = value;
-    input.disabled = value;
-    moreButton.disabled = value;
-    sendButton.classList.toggle('is-stopping', value);
-    sendButton.setAttribute(
-      'aria-label',
-      value ? '停止生成' : '发送，长按切换发送方式',
-    );
-    sendButton.innerHTML = value ? icon('stop', 'fill') : icon('paper-plane-tilt');
-    sendButton.disabled = value ? false : !input.value.trim();
-    syncReceive();
+    syncSend();
   };
 
   const setReceiving = (value) => {
     receiving = Boolean(value);
-    syncReceive();
+    syncSend();
   };
 
-  syncReceive();
+  syncSend();
   setMode(mode);
 
   return {
@@ -261,9 +288,7 @@ export function createChatComposer({
     setValue(value) {
       input.value = value;
       resize();
-      updateSendState();
-      if (input.value.trim()) dismissed = false;
-      syncReceive();
+      syncSend();
     },
     setQuote,
     clearQuote,

@@ -38,47 +38,53 @@
   --space-9: 48px;
   --space-10: 64px;
 
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
-  --radius-xl: 28px;
-  --radius-2xl: 34px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-2xl: 26px;
   --radius-full: 999px;
 
-  --header-height: 56px;
-  --nav-height: 64px;
+  --header-height: 54px;
+  --nav-height: 60px;
+  --statusbar-height: calc(40px + env(safe-area-inset-top));
 
-  --color-bg: #f4efe8;
-  --color-surface: #fffcf8;
-  --color-surface-muted: #eee7de;
-  --color-surface-soft: #f8f3ec;
-  --color-ink: #241e19;
-  --color-ink-secondary: #6e645b;
-  --color-ink-tertiary: #9a8f84;
-  --color-line: rgba(55, 42, 32, 0.09);
-  --color-line-strong: rgba(55, 42, 32, 0.14);
-  --color-accent: #b9543e;
-  --color-accent-strong: #9d3f2d;
-  --color-accent-soft: #f3ddd5;
+  /* One warm neutral ramp: paper background, true-white cards, near-black ink,
+     a single deep-brick accent. */
+  --color-bg: #f4f1ec;
+  --color-surface: #ffffff;
+  --color-surface-muted: #e9e3db;
+  --color-surface-soft: #f0ebe4;
+  --color-ink: #1d1915;
+  --color-ink-secondary: #665f58;
+  --color-ink-tertiary: #8d8479;
+  --color-line: #e7e1d9;
+  --color-line-strong: #d8d0c6;
+  --color-accent: #a94a32;
+  --color-accent-strong: #8b3a25;
+  --color-accent-soft: #f5e3dc;
   --color-accent-contrast: #fff8f4;
-  --color-positive: #55745b;
-  --color-danger: #ae4435;
-  --color-danger-soft: #f6e1dc;
+  --color-positive: #4f7357;
+  --color-danger: #a33b2c;
+  --color-danger-soft: #f6e2dd;
   --color-danger-contrast: #fff8f4;
-  --color-action: #2b241e;
-  --color-action-ink: #fcf5ec;
-  --color-backdrop: #e5dcd1;
-  --color-nav: #f7f2ec;
-  --color-overlay: rgba(27, 21, 17, 0.38);
-  --color-hero: #2b221c;
-  --color-hero-soft: #403027;
+  --color-action: #201c17;
+  --color-action-ink: #fbf6ef;
+  --color-backdrop: #e6dfd5;
+  --color-nav: #fbf8f4;
+  --color-overlay: rgba(24, 19, 15, 0.42);
+  --color-hero: #241e19;
+  --color-hero-soft: #3a2d25;
   --color-hero-ink: #fcf3e8;
   --color-hero-muted: rgba(252, 243, 232, 0.66);
 
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
+  --shadow-sm: 0 1px 2px rgba(33, 26, 20, 0.05);
+  --shadow-md: 0 8px 22px -10px rgba(33, 26, 20, 0.18);
+  --shadow-lg: 0 24px 56px -20px rgba(33, 26, 20, 0.3);
+
+  --glass-blur: 18px;
+  --glass-bg: color-mix(in srgb, var(--color-surface) 68%, transparent);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -94,36 +100,36 @@
 html[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-bg: #171411;
-  --color-surface: #211c18;
-  --color-surface-muted: #2b2520;
-  --color-surface-soft: #1d1916;
-  --color-ink: #f3ece3;
-  --color-ink-secondary: #b2a69a;
-  --color-ink-tertiary: #82776c;
-  --color-line: rgba(255, 244, 232, 0.08);
-  --color-line-strong: rgba(255, 244, 232, 0.14);
-  --color-accent: #e3836b;
-  --color-accent-strong: #f0a08a;
-  --color-accent-soft: rgba(227, 131, 107, 0.15);
-  --color-accent-contrast: #25140f;
-  --color-positive: #88a68c;
-  --color-danger: #f08c78;
-  --color-danger-soft: rgba(240, 140, 120, 0.14);
-  --color-danger-contrast: #25140f;
-  --color-action: #ede2d6;
-  --color-action-ink: #241c16;
-  --color-backdrop: #0e0c0a;
-  --color-nav: #171411;
-  --color-overlay: rgba(0, 0, 0, 0.58);
-  --color-hero: #2d241e;
-  --color-hero-soft: #49362b;
+  --color-bg: #141210;
+  --color-surface: #1d1a17;
+  --color-surface-muted: #2a2521;
+  --color-surface-soft: #221e1a;
+  --color-ink: #f2ece4;
+  --color-ink-secondary: #b4aa9e;
+  --color-ink-tertiary: #857b70;
+  --color-line: #2e2924;
+  --color-line-strong: #3c342d;
+  --color-accent: #e08a70;
+  --color-accent-strong: #eda38b;
+  --color-accent-soft: rgba(224, 138, 112, 0.16);
+  --color-accent-contrast: #241310;
+  --color-positive: #8aa78e;
+  --color-danger: #ef8b77;
+  --color-danger-soft: rgba(239, 139, 119, 0.14);
+  --color-danger-contrast: #241310;
+  --color-action: #ece1d4;
+  --color-action-ink: #1d1812;
+  --color-backdrop: #0c0a09;
+  --color-nav: #161310;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-hero: #2b241e;
+  --color-hero-soft: #45352a;
   --color-hero-ink: #fbf2e7;
   --color-hero-muted: rgba(251, 242, 231, 0.66);
 
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 22px -10px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 24px 56px -20px rgba(0, 0, 0, 0.7);
 }
 
 html[data-font-size="sm"] {

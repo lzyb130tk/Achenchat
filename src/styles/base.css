@@ -111,15 +111,17 @@ h3 {
 }
 
 .status-bar {
-  position: relative;
+  position: absolute;
   z-index: 150;
+  top: 0;
+  right: 0;
+  left: 0;
   display: flex;
-  flex: 0 0 auto;
-  height: calc(40px + env(safe-area-inset-top));
+  height: var(--statusbar-height);
   align-items: center;
   justify-content: space-between;
   padding: calc(10px + env(safe-area-inset-top)) 22px 0;
-  background: var(--color-bg);
+  background: transparent;
   color: var(--color-ink);
   font-size: 0.875rem;
   font-weight: var(--weight-semibold);
@@ -128,42 +130,6 @@ h3 {
   line-height: 1;
   user-select: none;
   transition: background-color var(--duration-fast) var(--ease-standard);
-}
-
-html[data-route^="/chat/"] .status-bar {
-  background: var(--color-surface-soft);
-}
-
-html[data-route="/messages"] .status-bar {
-  background: #f7f5f2;
-}
-
-html[data-theme="dark"][data-route="/messages"] .status-bar {
-  background: var(--color-bg);
-}
-
-html:is([data-route="/contacts"], [data-route="/discover"], [data-route="/me"], [data-route="/settings"]) .status-bar {
-  background: #f7f5f2;
-}
-
-html[data-theme="dark"]:is([data-route="/contacts"], [data-route="/discover"], [data-route="/me"], [data-route="/settings"]) .status-bar {
-  background: var(--color-bg);
-}
-
-html[data-route^="/chat/"][data-route$="/settings"] .status-bar {
-  background: #f7f5f2;
-}
-
-html[data-theme="dark"][data-route^="/chat/"][data-route$="/settings"] .status-bar {
-  background: var(--color-bg);
-}
-
-html:is([data-route="/characters/new"], [data-route="/contacts/search"], [data-route="/contacts/tags"], [data-route="/shop"], [data-route="/shop/orders"], [data-route="/wallet"], [data-route="/stickers"], [data-route="/stickers/new"], [data-route="/stickers/new/links"], [data-route="/settings/api"], [data-route="/masks"], [data-route="/masks/new"]) .status-bar {
-  background: #f7f5f2;
-}
-
-html[data-theme="dark"]:is([data-route="/characters/new"], [data-route="/contacts/search"], [data-route="/contacts/tags"], [data-route="/shop"], [data-route="/shop/orders"], [data-route="/wallet"], [data-route="/stickers"], [data-route="/stickers/new"], [data-route="/stickers/new/links"], [data-route="/settings/api"], [data-route="/masks"], [data-route="/masks/new"]) .status-bar {
-  background: var(--color-bg);
 }
 
 .status-bar__time {

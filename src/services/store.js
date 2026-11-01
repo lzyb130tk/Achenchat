@@ -9,6 +9,12 @@ import {
 import { createSeedConversations, DEFAULT_PROFILE } from '../data/seed.js';
 import { generateShopIncome, getShopType, localDayKey, nextNoon } from '../data/shop.js';
 import { dbGet, dbSet } from './db.js';
+import {
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_PRIMARY_COLOR,
+  THEME_PRESETS,
+  normalizeHexColor,
+} from './preferences.js';
 import { sanitizeSvgIcon } from './utils.js';
 
 const DB_KEY = 'state';
@@ -25,6 +31,11 @@ const DEFAULT_API = {
 const DEFAULT_APPEARANCE = {
   colorMode: 'system',
   fontSize: 'md',
+  themePreset: 'default',
+  primaryColor: DEFAULT_PRIMARY_COLOR,
+  accentColor: DEFAULT_ACCENT_COLOR,
+  glassEnabled: true,
+  glassBlur: 18,
 };
 
 const DEFAULT_TAGS = [
@@ -113,6 +124,7 @@ function createChatStyle(raw = {}) {
     avatarSize: Math.min(48, Math.max(20, Math.round(finite(raw.avatarSize, 28)))),
     avatarRadius: Math.min(50, Math.max(0, Math.round(finite(raw.avatarRadius, 50)))),
     showUserAvatar: Boolean(raw.showUserAvatar),
+    showStatus: raw.showStatus !== false,
     sparkEnabled: Boolean(raw.sparkEnabled),
     sparkIcon,
     sparkSvg: sanitizeSvgIcon(raw.sparkSvg),
@@ -541,6 +553,16 @@ function normalizeState(candidate) {
     }
   }
 
+  const rawAppearance = candidate?.settings?.appearance;
+  const primaryColor =
+    normalizeHexColor(rawAppearance?.primaryColor) || DEFAULT_APPEARANCE.primaryColor;
+  const accentColor =
+    normalizeHexColor(rawAppearance?.accentColor) || DEFAULT_APPEARANCE.accentColor;
+  const presetIds = THEME_PRESETS.map((preset) => preset.id);
+  const themePreset = presetIds.includes(rawAppearance?.themePreset)
+    ? rawAppearance.themePreset
+    : 'default';
+
   return {
     version: 2,
     settings: {
@@ -553,17 +575,26 @@ function normalizeState(candidate) {
       },
       appearance: {
         ...DEFAULT_APPEARANCE,
-        ...(candidate?.settings?.appearance && typeof candidate.settings.appearance === 'object'
-          ? candidate.settings.appearance
-          : {}),
-        colorMode: ['system', 'light', 'dark'].includes(
-          candidate?.settings?.appearance?.colorMode,
-        )
-          ? candidate.settings.appearance.colorMode
+        ...(rawAppearance && typeof rawAppearance === 'object' ? rawAppearance : {}),
+        colorMode: ['system', 'light', 'dark'].includes(rawAppearance?.colorMode)
+          ? rawAppearance.colorMode
           : DEFAULT_APPEARANCE.colorMode,
-        fontSize: ['sm', 'md', 'lg'].includes(candidate?.settings?.appearance?.fontSize)
-          ? candidate.settings.appearance.fontSize
+        fontSize: ['sm', 'md', 'lg'].includes(rawAppearance?.fontSize)
+          ? rawAppearance.fontSize
           : DEFAULT_APPEARANCE.fontSize,
+        themePreset,
+        primaryColor,
+        accentColor,
+        glassEnabled: rawAppearance?.glassEnabled !== false,
+        glassBlur: Math.min(
+          30,
+          Math.max(
+            0,
+            Math.round(
+              finite(rawAppearance?.glassBlur, DEFAULT_APPEARANCE.glassBlur),
+            ),
+          ),
+        ),
       },
     },
     masks: masks.length ? masks : [createDefaultMask(fallback.masks[0])],

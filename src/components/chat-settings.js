@@ -34,7 +34,7 @@ import { icon } from './icons.js';
 import { toast } from './toast.js';
 
 const BACKGROUND_PREVIEWS = {
-  default: '#f4efe8',
+  default: '#f4f1ec',
   warm: 'linear-gradient(150deg, #f7e6cd, #efd0ad)',
   night: 'linear-gradient(150deg, #33302d, #1d1b19)',
   dawn: 'linear-gradient(150deg, #e8eeeb, #cfdcd7)',
@@ -60,11 +60,12 @@ export function applyChatStyle(screen, style) {
   if (style.bubbleCss) screen.dataset.customBubble = '';
   else delete screen.dataset.customBubble;
   screen.classList.toggle('is-hiding-user-avatar', !style.showUserAvatar);
+  screen.classList.toggle('is-hiding-status', style.showStatus === false);
 
   const scroller = screen.querySelector('.chat-scroll');
   if (scroller) {
     if (style.backgroundImage) {
-      scroller.style.backgroundImage = `linear-gradient(rgba(244, 239, 232, 0.2), rgba(244, 239, 232, 0.2)), url(${JSON.stringify(style.backgroundImage)})`;
+      scroller.style.backgroundImage = `linear-gradient(rgba(244, 241, 236, 0.2), rgba(244, 241, 236, 0.2)), url(${JSON.stringify(style.backgroundImage)})`;
       scroller.dataset.hasImage = 'true';
     } else {
       scroller.style.backgroundImage = '';
@@ -212,8 +213,8 @@ export function createChatSettingsPage({ character, style }) {
   screen.className = 'screen screen--chat-settings';
   screen.innerHTML = `
     <header class="chat-settings-page__header">
-      <a class="icon-button" href="#/chat/${character.id}" aria-label="返回聊天">${icon('arrow-left')}</a>
-      <h1>聊天设置</h1>
+      <a class="icon-button" href="#/chat/${character.id}" aria-label="返回聊天" data-settings-back>${icon('arrow-left')}</a>
+      <h1 data-settings-title>聊天设置</h1>
       <span aria-hidden="true"></span>
     </header>
     <main class="page-scroll chat-settings-page__scroll">
@@ -340,6 +341,14 @@ export function createChatSettingsPage({ character, style }) {
               <span class="chat-settings__row-value">${current.avatarSize}px · ${current.avatarRadius}%</span>
               <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
             </button>
+            <div class="chat-settings__row">
+              <span class="chat-settings__row-icon">${icon('broadcast')}</span>
+              <span class="chat-settings__row-label">显示状态</span>
+              <label class="switch">
+                <input type="checkbox" data-show-status${current.showStatus !== false ? ' checked' : ''} aria-label="在聊天顶部显示状态">
+                <span class="switch__track"></span>
+              </label>
+            </div>
           </div>
         </section>
         <button class="chat-settings-page__reset" type="button" data-reset-chat-settings>
@@ -348,7 +357,7 @@ export function createChatSettingsPage({ character, style }) {
         </button>`;
       };
 
-      const sendMarkup = () => `<p class="settings-note">长按输入框右侧的发送按钮，也可以随时切换。</p>
+      const sendMarkup = () => `<p class="settings-note">长按发送键切换发送方式；多条模式下，双击发送键接收回复。</p>
         <div class="choice-list">
           <button class="choice-card${current.sendMode === 'single' ? ' is-selected' : ''}" type="button" data-set-mode="single">
             <span class="choice-card__icon">${icon('paper-plane-tilt')}</span>
@@ -357,7 +366,7 @@ export function createChatSettingsPage({ character, style }) {
           </button>
           <button class="choice-card${current.sendMode === 'multi' ? ' is-selected' : ''}" type="button" data-set-mode="multi">
             <span class="choice-card__icon">${icon('stack')}</span>
-            <span class="choice-card__copy"><strong>多条</strong><small>先把话说完，再点输入框左侧的「接收」</small></span>
+            <span class="choice-card__copy"><strong>多条</strong><small>先连续发送，再双击发送键接收回复</small></span>
             <span class="choice-card__check">${icon('check')}</span>
           </button>
         </div>`;
@@ -591,14 +600,17 @@ export function createChatSettingsPage({ character, style }) {
 
       const paint = () => {
         screen.classList.toggle('is-subview', view !== 'root');
+        const titleNode = screen.querySelector('[data-settings-title]');
+        const backNode = screen.querySelector('[data-settings-back]');
+        if (titleNode) titleNode.textContent = view === 'root' ? '聊天设置' : VIEW_TITLES[view] || '聊天设置';
+        if (backNode) {
+          backNode.setAttribute(
+            'aria-label',
+            view === 'root' ? '返回聊天' : '返回聊天设置',
+          );
+        }
         paintTabs();
-        content.innerHTML =
-          view === 'root'
-            ? rootMarkup()
-            : `<div class="settings-subnav">
-                <button class="settings-subnav__back" type="button" data-settings-back>${icon('arrow-left')}返回</button>
-                <h3>${VIEW_TITLES[view] || '聊天设置'}</h3>
-              </div>${subviewMarkup()}`;
+        content.innerHTML = view === 'root' ? rootMarkup() : subviewMarkup();
         bind();
       };
 
@@ -892,13 +904,6 @@ export function createChatSettingsPage({ character, style }) {
       };
 
       const bind = () => {
-        content.querySelector('[data-settings-back]')?.addEventListener('click', () => {
-          view = 'root';
-          presetFormOpen = false;
-          paint();
-          body.scrollTop = 0;
-        });
-
         if (view === 'root') {
           content.querySelectorAll('[data-open-view]').forEach((button) => {
             button.addEventListener('click', () => openView(button.dataset.openView));
@@ -910,6 +915,9 @@ export function createChatSettingsPage({ character, style }) {
             notify({ ...DEFAULT_CHAT_STYLE });
             paint();
             toast('已恢复默认设置');
+          });
+          content.querySelector('[data-show-status]')?.addEventListener('change', (event) => {
+            notify({ showStatus: event.target.checked });
           });
           return;
         }
@@ -983,6 +991,15 @@ export function createChatSettingsPage({ character, style }) {
           paint();
           body.scrollTop = 0;
         });
+      });
+
+      screen.querySelector('[data-settings-back]').addEventListener('click', (event) => {
+        if (view === 'root') return;
+        event.preventDefault();
+        view = 'root';
+        presetFormOpen = false;
+        paint();
+        body.scrollTop = 0;
       });
 
       paint();

@@ -8,7 +8,6 @@ import { openSheet } from '../components/sheet.js';
 import { getShopType } from '../data/shop.js';
 import {
   getActiveMask,
-  getMasks,
   getProfile,
   getShop,
   getStickerPacks,
@@ -23,7 +22,6 @@ export function renderMe({ refresh }) {
   const shopType = shop ? getShopType(shop.typeId) : null;
   const stickerPacks = getStickerPacks();
   const enabledPacks = stickerPacks.filter((pack) => pack.enabled).length;
-  const maskCount = getMasks().length;
   const stickerValue = stickerPacks.length
     ? `${enabledPacks}/${stickerPacks.length} 包开启`
     : '未添加';
@@ -46,7 +44,7 @@ export function renderMe({ refresh }) {
             ${profile.signature ? `<p>${escapeHTML(profile.signature)}</p>` : ''}
             <a class="mask-pill" href="#/masks">
               ${icon('mask-happy')}
-              <span>切换面具 · ${maskCount} 个</span>
+              <span>切换面具</span>
               ${icon('caret-right')}
             </a>
           </div>

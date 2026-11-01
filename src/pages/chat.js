@@ -61,9 +61,13 @@ function sparkBadgeMarkup(style, streak) {
   </span>`;
 }
 
+const HEADER_BACK_GLYPH = `<svg class="chat-header__glyph" viewBox="0 0 1024 1024" fill="none" stroke="currentColor" stroke-width="76" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M702 80 L300 547 L779 947"/>
+</svg>`;
+
 function chatHeader(character, status, style, streak) {
   return `<header class="chat-header">
-    <a class="icon-button chat-header__back" href="#/messages" aria-label="返回">${icon('arrow-left')}</a>
+    <a class="icon-button chat-header__back" href="#/messages" aria-label="返回">${HEADER_BACK_GLYPH}</a>
     <button class="chat-header__identity" type="button" data-open-profile>
       ${characterAvatar(character, 'sm')}
       <span class="chat-header__copy">
@@ -221,6 +225,7 @@ export function renderChat({ characterId, refresh }) {
   const conversation = getConversation(character.id);
   const profile = getProfile();
   const initialStyle = getChatStyle(character.id);
+  const root = document.documentElement;
   const initialStatus = conversation.status?.text || '';
   const initialStreak = chatStreakDays(conversation.messages);
 
@@ -624,6 +629,7 @@ export function renderChat({ characterId, refresh }) {
         clearMultiSentCount(character.id);
         composer.setSentCount(0);
       }
+      toast(mode === 'multi' ? '多条模式 · 双击发送键接收回复' : '单条模式 · 发送后自动回复');
     },
     onSend: (text, quote) => {
       const isMulti = chatStyle.sendMode === 'multi';
@@ -641,7 +647,30 @@ export function renderChat({ characterId, refresh }) {
     },
   });
 
-  screen.querySelector('[data-composer-slot]').appendChild(composer.element);
+  const composerSlot = screen.querySelector('[data-composer-slot]');
+  composerSlot.appendChild(composer.element);
+  const headerNode = screen.querySelector('.chat-header');
+
+  let chromeObserver = null;
+  const syncChatChrome = () => {
+    const composerHeight = Math.ceil(composerSlot.getBoundingClientRect().height);
+    if (composerHeight > 0) {
+      root.style.setProperty('--chat-composer-space', `${composerHeight}px`);
+    }
+    const headerHeight = Math.ceil(headerNode.getBoundingClientRect().height);
+    if (headerHeight > 0) {
+      root.style.setProperty('--chat-header-space', `${headerHeight}px`);
+    }
+  };
+  if (typeof ResizeObserver === 'function') {
+    chromeObserver = new ResizeObserver(() => {
+      syncChatChrome();
+      if (stickToBottom) scrollToBottom(true);
+    });
+    chromeObserver.observe(composerSlot);
+    chromeObserver.observe(headerNode);
+  }
+  requestAnimationFrame(syncChatChrome);
 
   const handleReplyEvent = (event) => {
     if (event.type === 'start') {
@@ -825,6 +854,9 @@ export function renderChat({ characterId, refresh }) {
       disposed = true;
       clearRevealTimer();
       revealPending = [];
+      chromeObserver?.disconnect();
+      root.style.removeProperty('--chat-composer-space');
+      root.style.removeProperty('--chat-header-space');
       if (taglineTimer) window.clearTimeout(taglineTimer);
       closeMessageMenu();
       unsubscribe();
