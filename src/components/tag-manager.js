@@ -5,7 +5,7 @@ import {
   getTags,
 } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
-import { icon } from './icons.js';
+import { icon, uiIcon } from './icons.js';
 import { openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
@@ -42,7 +42,7 @@ export function openTagManager({ onDismiss } = {}) {
                     <strong>${escapeHTML(tag.name)}</strong>
                     <small>${count} 位伙伴</small>
                   </span>
-                  <button class="icon-button icon-button--small" type="button" aria-label="删除${escapeHTML(tag.name)}" data-delete-tag="${tag.id}">${icon('trash-simple')}</button>
+                  <button class="icon-button icon-button--small" type="button" aria-label="删除${escapeHTML(tag.name)}" data-delete-tag="${tag.id}">${uiIcon('trash', { size: 15 })}</button>
                 </div>`;
               })
               .join('')

@@ -19,6 +19,7 @@ import {
   getBubblePresets,
   getChatMemory,
   getConversation,
+  getFavoriteCount,
   getStickerPacks,
   updateBubblePreset,
   updateChatStyle,
@@ -30,7 +31,7 @@ import {
   sanitizeSvgIcon,
 } from '../services/utils.js';
 import { characterAvatar } from './avatar.js';
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 import { toast } from './toast.js';
 
 const BACKGROUND_PREVIEWS = {
@@ -105,7 +106,7 @@ function backgroundMarkup(style) {
         </button>`,
       ).join('')}
       <button class="background-swatch background-swatch--custom${style.backgroundImage ? ' is-selected' : ''}" type="button" data-background-upload>
-        <span class="background-swatch__color" data-background-preview${style.backgroundImage ? ` style="background-image:url(&quot;${escapeHTML(style.backgroundImage)}&quot;)"` : ''}>${style.backgroundImage ? '' : icon('image')}</span>
+        <span class="background-swatch__color" data-background-preview${style.backgroundImage ? ` style="background-image:url(&quot;${escapeHTML(style.backgroundImage)}&quot;)"` : ''}>${style.backgroundImage ? '' : uiIcon('image', { size: 18 })}</span>
         <span class="background-swatch__name">我的图片</span>
       </button>
     </div>
@@ -119,10 +120,10 @@ function presetListMarkup(style) {
       (preset) => `<div class="preset-row${style.presetId === preset.id ? ' is-active' : ''}" data-preset-row="${preset.id}">
         <button class="preset-row__apply" type="button" data-apply-preset="${preset.id}">
           <span class="preset-row__name">${escapeHTML(preset.name)}</span>
-          ${style.presetId === preset.id ? `<span class="preset-row__current">${icon('check')}</span>` : ''}
+          ${style.presetId === preset.id ? `<span class="preset-row__current">${uiIcon('check', { size: 12 })}</span>` : ''}
         </button>
-        <button class="preset-row__action" type="button" aria-label="编辑预设" data-edit-preset="${preset.id}">${icon('pencil-simple')}</button>
-        <button class="preset-row__action" type="button" aria-label="删除预设" data-delete-preset="${preset.id}">${icon('trash-simple')}</button>
+        <button class="preset-row__action" type="button" aria-label="编辑预设" data-edit-preset="${preset.id}">${uiIcon('pencil', { size: 15 })}</button>
+        <button class="preset-row__action" type="button" aria-label="删除预设" data-delete-preset="${preset.id}">${uiIcon('trash', { size: 15 })}</button>
       </div>`,
     )
     .join('');
@@ -132,7 +133,7 @@ function stickerListMarkup() {
   const packs = getStickerPacks();
   if (!packs.length) {
     return `<div class="settings-empty">
-      <span class="settings-empty__icon">${icon('sticker')}</span>
+      <span class="settings-empty__icon">${uiIcon('sticker', { size: 28 })}</span>
       <p>还没有表情包。导入图片并起名后，AI 会按名字理解它们。</p>
       <button class="button button--secondary settings-empty__button" type="button" data-open-stickers>去添加表情包</button>
     </div>`;
@@ -223,7 +224,7 @@ export function createChatSettingsPage({ character, style }) {
   screen.className = 'screen screen--chat-settings';
   screen.innerHTML = `
     <header class="chat-settings-page__header">
-      <a class="icon-button" href="#/chat/${character.id}" aria-label="返回聊天" data-settings-back>${icon('arrow-left')}</a>
+      <a class="icon-button" href="#/chat/${character.id}" aria-label="返回聊天" data-settings-back>${uiIcon('chevron-left', { size: 20, strokeWidth: 1.9 })}</a>
       <h1 data-settings-title>聊天设置</h1>
       <span aria-hidden="true"></span>
     </header>
@@ -279,22 +280,28 @@ export function createChatSettingsPage({ character, style }) {
             <h3 class="chat-settings__group-label">互动</h3>
             <div class="chat-settings__list">
               <button class="chat-settings__row" type="button" data-open-view="stickers">
-                <span class="chat-settings__row-icon">${icon('sticker')}</span>
+                <span class="chat-settings__row-icon">${uiIcon('sticker', { size: 18 })}</span>
                 <span class="chat-settings__row-label">表情包</span>
                 <span class="chat-settings__row-value">${enabled}/${packs.length} 组</span>
-                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </button>
               <button class="chat-settings__row" type="button" data-open-view="spark">
-                <span class="chat-settings__row-icon">${icon('flame')}</span>
+                <span class="chat-settings__row-icon">${uiIcon('flame', { size: 18 })}</span>
                 <span class="chat-settings__row-label">连续火花</span>
                 <span class="chat-settings__row-value">${sparkLabel(current)}</span>
-                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </button>
               <button class="chat-settings__row" type="button" data-open-view="packet">
-                <span class="chat-settings__row-icon">${icon('envelope-simple')}</span>
+                <span class="chat-settings__row-icon">${uiIcon('red-packet', { size: 18 })}</span>
                 <span class="chat-settings__row-label">红包样式</span>
                 <span class="chat-settings__row-value">${packetLabel(current)}</span>
-                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
+              </button>
+              <button class="chat-settings__row" type="button" data-open-favorites>
+                <span class="chat-settings__row-icon">${uiIcon('bookmark', { size: 18 })}</span>
+                <span class="chat-settings__row-label">收藏</span>
+                <span class="chat-settings__row-value">${getFavoriteCount()} 条</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </button>
             </div>
           </section>
@@ -302,10 +309,10 @@ export function createChatSettingsPage({ character, style }) {
             <h3 class="chat-settings__group-label">记忆</h3>
             <div class="chat-settings__list">
               <button class="chat-settings__row" type="button" data-memory>
-                <span class="chat-settings__row-icon">${icon('brain')}</span>
+                <span class="chat-settings__row-icon">${uiIcon('archive', { size: 18 })}</span>
                 <span class="chat-settings__row-label">聊天记忆</span>
                 <span class="chat-settings__row-value">${memory.items.length} 条</span>
-                <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </button>
             </div>
           </section>`;
@@ -315,28 +322,28 @@ export function createChatSettingsPage({ character, style }) {
           <h3 class="chat-settings__group-label">发送</h3>
           <div class="chat-settings__list">
             <button class="chat-settings__row" type="button" data-open-view="send">
-              <span class="chat-settings__row-icon">${icon('paper-plane-tilt')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('send', { size: 18 })}</span>
               <span class="chat-settings__row-label">发送方式</span>
               <span class="chat-settings__row-value">${current.sendMode === 'multi' ? '多条' : '单条'}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <button class="chat-settings__row" type="button" data-open-view="speed">
-              <span class="chat-settings__row-icon">${icon('keyboard')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('keyboard', { size: 18 })}</span>
               <span class="chat-settings__row-label">打字速度</span>
               <span class="chat-settings__row-value">${speedLabel(current.typingSpeed)}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <button class="chat-settings__row" type="button" data-open-view="animation">
-              <span class="chat-settings__row-icon">${icon('sparkle')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('sparkle', { size: 18 })}</span>
               <span class="chat-settings__row-label">消息动效</span>
               <span class="chat-settings__row-value">${animationLabel(current)}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <button class="chat-settings__row" type="button" data-open-view="loading">
-              <span class="chat-settings__row-icon">${icon('chat-teardrop-dots')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('hourglass', { size: 18 })}</span>
               <span class="chat-settings__row-label">加载反馈</span>
               <span class="chat-settings__row-value">${loadingLabel(current)}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
           </div>
         </section>
@@ -344,31 +351,31 @@ export function createChatSettingsPage({ character, style }) {
           <h3 class="chat-settings__group-label">外观</h3>
           <div class="chat-settings__list">
             <button class="chat-settings__row" type="button" data-open-view="bubble">
-              <span class="chat-settings__row-icon">${icon('chat-circle-text')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('chat', { size: 18 })}</span>
               <span class="chat-settings__row-label">气泡样式</span>
               <span class="chat-settings__row-value">${bubbleLabel(current)}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <button class="chat-settings__row" type="button" data-open-view="background">
-              <span class="chat-settings__row-icon">${icon('image')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('image', { size: 18 })}</span>
               <span class="chat-settings__row-label">聊天背景</span>
               <span class="chat-settings__row-value">${backgroundLabel(current)}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <button class="chat-settings__row" type="button" data-open-view="avatar">
-              <span class="chat-settings__row-icon">${icon('user-circle')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('user', { size: 18 })}</span>
               <span class="chat-settings__row-label">头像</span>
               <span class="chat-settings__row-value">${current.avatarSize}px · ${current.avatarRadius}%</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <button class="chat-settings__row" type="button" data-open-view="composer">
-              <span class="chat-settings__row-icon">${icon('textbox')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('textbox', { size: 18 })}</span>
               <span class="chat-settings__row-label">底栏样式</span>
               <span class="chat-settings__row-value">${composerLabel(current)}</span>
-              <span class="chat-settings__row-chevron">${icon('caret-right')}</span>
+              <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </button>
             <div class="chat-settings__row">
-              <span class="chat-settings__row-icon">${icon('broadcast')}</span>
+              <span class="chat-settings__row-icon">${uiIcon('broadcast', { size: 18 })}</span>
               <span class="chat-settings__row-label">显示状态</span>
               <label class="switch">
                 <input type="checkbox" data-show-status${current.showStatus !== false ? ' checked' : ''} aria-label="在聊天顶部显示状态">
@@ -378,36 +385,36 @@ export function createChatSettingsPage({ character, style }) {
           </div>
         </section>
         <button class="chat-settings-page__reset" type="button" data-reset-chat-settings>
-          <span>${icon('arrow-counter-clockwise')}恢复默认设置</span>
-          ${icon('caret-right')}
+          <span>${uiIcon('retry', { size: 17 })}恢复默认设置</span>
+          ${uiIcon('chevron-right', { size: 15 })}
         </button>`;
       };
 
       const sendMarkup = () => `<p class="settings-note">长按发送键切换发送方式；多条模式下，双击发送键接收回复。</p>
         <div class="choice-list">
           <button class="choice-card${current.sendMode === 'single' ? ' is-selected' : ''}" type="button" data-set-mode="single">
-            <span class="choice-card__icon">${icon('paper-plane-tilt')}</span>
+            <span class="choice-card__icon">${uiIcon('send', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>单条</strong><small>发送后立刻请求回复</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
           <button class="choice-card${current.sendMode === 'multi' ? ' is-selected' : ''}" type="button" data-set-mode="multi">
-            <span class="choice-card__icon">${icon('stack')}</span>
+            <span class="choice-card__icon">${uiIcon('stack', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>多条</strong><small>先连续发送，再双击发送键接收回复</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
         </div>`;
 
       const composerMarkup = () => `<p class="settings-note">默认是单行输入，红包、表情和重试收在左边的「+」里。加高样式把输入卡拉高，红包和重试直接摆在卡面上，左下角的按钮则换成表情包。</p>
         <div class="choice-list">
           <button class="choice-card${current.composerStyle === 'raised' ? '' : ' is-selected'}" type="button" data-set-composer="default">
-            <span class="choice-card__icon">${icon('textbox')}</span>
+            <span class="choice-card__icon">${uiIcon('textbox', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>默认</strong><small>单行输入，左下角「+」展开更多</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
           <button class="choice-card${current.composerStyle === 'raised' ? ' is-selected' : ''}" type="button" data-set-composer="raised">
-            <span class="choice-card__icon">${icon('rows-plus-top')}</span>
+            <span class="choice-card__icon">${uiIcon('stack', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>加高 · 快捷按钮</strong><small>输入卡更高，红包与重试直接显示，左侧换成表情包</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
         </div>
         <div class="composer-preview composer-preview--${current.composerStyle === 'raised' ? 'raised' : 'default'}" aria-hidden="true">
@@ -418,14 +425,14 @@ export function createChatSettingsPage({ character, style }) {
       const loadingMarkup = () => `<p class="settings-note">等回复时的样子。消息动画就是现在这颗跳动的气泡；顶栏提示会把气泡收起来，只在他名字下面换成一行绿色的「正在输入」，一直显示到消息真正出现。</p>
         <div class="choice-list">
           <button class="choice-card${current.loadingStyle === 'header' ? '' : ' is-selected'}" type="button" data-set-loading="bubble">
-            <span class="choice-card__icon">${icon('chat-teardrop-dots')}</span>
+            <span class="choice-card__icon">${uiIcon('chat', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>消息动画</strong><small>对话里先出现一颗跳动的气泡，回复到了再消失</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
           <button class="choice-card${current.loadingStyle === 'header' ? ' is-selected' : ''}" type="button" data-set-loading="header">
-            <span class="choice-card__icon">${icon('hourglass')}</span>
+            <span class="choice-card__icon">${uiIcon('hourglass', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>顶栏「正在输入」</strong><small>状态栏换成绿色动态提示，对话里不占位</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
         </div>`;
 
@@ -453,7 +460,7 @@ export function createChatSettingsPage({ character, style }) {
               (preset) => `<div class="preset-row${!custom && current.animationId === preset.id ? ' is-active' : ''}">
                 <button class="preset-row__apply" type="button" data-animation-preset="${preset.id}">
                   <span class="preset-row__name">${preset.name}</span>
-                  ${!custom && current.animationId === preset.id ? `<span class="preset-row__current">${icon('check')}</span>` : ''}
+                  ${!custom && current.animationId === preset.id ? `<span class="preset-row__current">${uiIcon('check', { size: 12 })}</span>` : ''}
                 </button>
               </div>`,
             ).join('')}
@@ -468,20 +475,20 @@ export function createChatSettingsPage({ character, style }) {
             <button class="small-button small-button--solid" type="button" data-apply-animation>应用</button>
             <button class="small-button" type="button" data-reset-animation>恢复默认</button>
           </div>
-          <button class="text-button text-button--small" type="button" data-copy-animation>${icon('copy')}复制默认代码</button>`;
+          <button class="text-button text-button--small" type="button" data-copy-animation>${uiIcon('copy', { size: 15 })}复制默认代码</button>`;
       };
 
       const bubbleMarkup = () => `<div class="subsection-head"><h4>消息形式</h4></div>
         <div class="choice-list">
           <button class="choice-card${current.messageGroup !== 'each' ? ' is-selected' : ''}" type="button" data-message-group="group">
-            <span class="choice-card__icon">${icon('stack')}</span>
+            <span class="choice-card__icon">${uiIcon('stack', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>连续气泡</strong><small>一个头像带几条消息，气泡连在一起</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
           <button class="choice-card${current.messageGroup === 'each' ? ' is-selected' : ''}" type="button" data-message-group="each">
-            <span class="choice-card__icon">${icon('chats-circle')}</span>
+            <span class="choice-card__icon">${uiIcon('chat', { size: 18 })}</span>
             <span class="choice-card__copy"><strong>逐条气泡</strong><small>每条消息单独一个气泡和一个头像</small></span>
-            <span class="choice-card__check">${icon('check')}</span>
+            <span class="choice-card__check">${uiIcon('check', { size: 12 })}</span>
           </button>
         </div>
         <label class="range-row">
@@ -507,7 +514,7 @@ export function createChatSettingsPage({ character, style }) {
           <button class="small-button small-button--solid" type="button" data-apply-bubble>应用</button>
           <button class="small-button" type="button" data-reset-bubble>恢复默认</button>
         </div>
-        <button class="text-button text-button--small" type="button" data-copy-bubble>${icon('copy')}复制默认 CSS</button>
+        <button class="text-button text-button--small" type="button" data-copy-bubble>${uiIcon('copy', { size: 15 })}复制默认 CSS</button>
         <div class="subsection-head">
           <h4>预设</h4>
           <button class="text-button" type="button" data-add-preset>新增</button>
@@ -557,7 +564,7 @@ export function createChatSettingsPage({ character, style }) {
         const custom = Boolean(current.packetCss);
         return `<div class="packet-settings-preview">
             <div class="red-packet-card is-preview">
-              <span class="red-packet-card__icon">${icon('envelope-simple', 'fill')}</span>
+              <span class="red-packet-card__icon">${uiIcon('red-packet', { size: 18 })}</span>
               <span class="red-packet-card__copy"><strong>生日快乐！</strong><small>领取红包</small></span>
               <span class="red-packet-card__amount">¥5.20</span>
             </div>
@@ -568,7 +575,7 @@ export function createChatSettingsPage({ character, style }) {
               (preset) => `<div class="preset-row${!custom && current.packetPresetId === preset.id ? ' is-active' : ''}">
                 <button class="preset-row__apply" type="button" data-packet-preset="${preset.id}">
                   <span class="preset-row__name">${preset.name}</span>
-                  ${!custom && current.packetPresetId === preset.id ? `<span class="preset-row__current">${icon('check')}</span>` : ''}
+                  ${!custom && current.packetPresetId === preset.id ? `<span class="preset-row__current">${uiIcon('check', { size: 12 })}</span>` : ''}
                 </button>
               </div>`,
             ).join('')}
@@ -583,7 +590,7 @@ export function createChatSettingsPage({ character, style }) {
             <button class="small-button small-button--solid" type="button" data-apply-packet>应用</button>
             <button class="small-button" type="button" data-reset-packet>恢复默认</button>
           </div>
-          <button class="text-button text-button--small" type="button" data-copy-packet>${icon('copy')}复制默认代码</button>`;
+          <button class="text-button text-button--small" type="button" data-copy-packet>${uiIcon('copy', { size: 15 })}复制默认代码</button>`;
       };
 
       const stickersMarkup = () => `<div data-sticker-list>${stickerListMarkup()}</div>`;
@@ -615,7 +622,7 @@ export function createChatSettingsPage({ character, style }) {
               (preset) => `<button class="spark-icon${current.sparkIcon === preset.id ? ' is-selected' : ''}" type="button" data-spark-icon="${preset.id}" aria-pressed="${current.sparkIcon === preset.id}" aria-label="${preset.name}" title="${preset.name}">${preset.svg}</button>`,
             ).join('')}
             <button class="spark-icon spark-icon--custom${custom ? ' is-selected' : ''}" type="button" data-spark-icon="custom" aria-pressed="${custom}" aria-label="自定义 SVG">
-              ${icon('code')}<span>SVG</span>
+              ${uiIcon('file', { size: 15 })}<span>SVG</span>
             </button>
           </div>
           <div class="spark-custom" data-spark-custom${custom ? '' : ' hidden'}>
@@ -974,6 +981,9 @@ export function createChatSettingsPage({ character, style }) {
         if (view === 'root') {
           content.querySelectorAll('[data-open-view]').forEach((button) => {
             button.addEventListener('click', () => openView(button.dataset.openView));
+          });
+          content.querySelector('[data-open-favorites]')?.addEventListener('click', () => {
+            window.location.hash = `#/favorites?from=${character.id}`;
           });
           content.querySelector('[data-memory]')?.addEventListener('click', () => {
             window.location.hash = `#/memory/${character.id}`;

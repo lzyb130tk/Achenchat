@@ -1,4 +1,4 @@
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 
 let activeMenu = null;
 
@@ -18,7 +18,7 @@ export function closeMessageMenu() {
   closeMenu();
 }
 
-export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onRaw }) {
+export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onRaw, onSelect }) {
   closeMenu();
   const layer = document.createElement('div');
   layer.className = 'message-menu-layer';
@@ -26,19 +26,22 @@ export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onR
     <button class="message-menu__scrim" type="button" data-menu-close aria-label="关闭菜单"></button>
     <div class="message-menu" role="menu" aria-label="消息操作">
       <button class="message-menu__item" type="button" role="menuitem" data-menu-action="copy">
-        ${icon('copy')}<span>复制</span>
+        ${uiIcon('copy', { size: 17 })}<span>复制</span>
       </button>
       <button class="message-menu__item" type="button" role="menuitem" data-menu-action="quote">
-        ${icon('arrow-elbow-down-right')}<span>引用</span>
+        ${uiIcon('corner-down-right', { size: 17 })}<span>引用</span>
       </button>
       ${onEdit ? `<button class="message-menu__item" type="button" role="menuitem" data-menu-action="edit">
-        ${icon('pencil-simple')}<span>修改</span>
+        ${uiIcon('pencil', { size: 17 })}<span>修改</span>
       </button>` : ''}
       ${onRaw ? `<button class="message-menu__item" type="button" role="menuitem" data-menu-action="raw">
-        ${icon('file-text')}<span>查看原始输出</span>
+        ${uiIcon('file', { size: 17 })}<span>查看原始输出</span>
+      </button>` : ''}
+      ${onSelect ? `<button class="message-menu__item" type="button" role="menuitem" data-menu-action="select">
+        ${uiIcon('check-square', { size: 17 })}<span>多选</span>
       </button>` : ''}
       <button class="message-menu__item message-menu__item--danger" type="button" role="menuitem" data-menu-action="delete">
-        ${icon('trash-simple')}<span>删除</span>
+        ${uiIcon('trash', { size: 17 })}<span>删除</span>
       </button>
     </div>`;
   document.body.appendChild(layer);
@@ -119,6 +122,7 @@ export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onR
       else if (action === 'quote') onQuote?.();
       else if (action === 'edit') onEdit?.();
       else if (action === 'raw') onRaw?.();
+      else if (action === 'select') onSelect?.();
       else if (action === 'delete') onDelete?.();
     });
   });

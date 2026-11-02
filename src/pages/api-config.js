@@ -1,5 +1,5 @@
 import { appHeader } from '../components/app-header.js';
-import { icon } from '../components/icons.js';
+import { icon, uiIcon } from '../components/icons.js';
 import { openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import { fetchModels, testApiConnection } from '../services/api.js';
@@ -63,7 +63,7 @@ export function renderApiConfig() {
             <div class="field">
               <span class="field__label-row">
                 <span class="field__label">模型</span>
-                <button class="text-button text-button--small" type="button" data-refresh-models>${icon('arrows-clockwise')}<span>获取模型列表</span></button>
+                <button class="text-button text-button--small" type="button" data-refresh-models>${uiIcon('retry', { size: 14 })}<span>获取模型列表</span></button>
               </span>
               <span class="field__control field__control--select"><span class="api-field-icon">${icon('cube')}</span>
                 <select class="field__input field__select" name="model" aria-label="模型" data-model-select></select>

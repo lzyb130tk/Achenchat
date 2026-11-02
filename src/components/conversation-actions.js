@@ -4,7 +4,7 @@ import {
   updateCharacter,
 } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
@@ -85,15 +85,15 @@ export function openConversationActions({ character, conversation, refresh }) {
     description: '对话操作',
     content: `<div class="action-list">
       <button class="action-row" type="button" data-pin>
-        <span class="action-row__icon">${icon('push-pin')}</span>
+        <span class="action-row__icon">${uiIcon('pin', { size: 20 })}</span>
         <span class="action-row__copy"><strong>${pinned ? '取消置顶' : '置顶对话'}</strong><small>${pinned ? '回到时间顺序' : '把这段对话留在最上面'}</small></span>
       </button>
       <button class="action-row" type="button" data-mute>
-        <span class="action-row__icon">${icon(muted ? 'bell' : 'bell-slash')}</span>
+        <span class="action-row__icon">${uiIcon(muted ? 'bell' : 'bell-off', { size: 20 })}</span>
         <span class="action-row__copy"><strong>${muted ? '关闭免打扰' : '开启免打扰'}</strong><small>在别处时不再弹出消息横幅</small></span>
       </button>
       <button class="action-row action-row--danger" type="button" data-delete>
-        <span class="action-row__icon">${icon('trash-simple')}</span>
+        <span class="action-row__icon">${uiIcon('trash', { size: 20 })}</span>
         <span class="action-row__copy"><strong>删除对话</strong><small>只删除消息，伙伴还在联系人里</small></span>
       </button>
     </div>`,

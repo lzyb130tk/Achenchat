@@ -7,6 +7,7 @@
 html {
   height: 100%;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -14,6 +15,8 @@ body {
   min-width: 320px;
   min-height: 100%;
   margin: 0;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   background: var(--color-backdrop);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -45,9 +48,30 @@ label,
 
 button,
 input,
-textarea {
+textarea,
+select {
   color: inherit;
   font: inherit;
+}
+
+/* 安卓给原生控件（按钮、下拉、输入框）带了自己的内边距、最小高度和圆角，
+   真机和桌面 DevTools 的观感就是这么拉开差距的。统一抹平，交给项目自己的样式。 */
+button,
+select,
+textarea,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 图标类控件保持自身尺寸：系统字号被放大时也不会压缩间距或换行。 */
+.icon-button,
+.field__action,
+.chat-composer__send,
+.chat-composer__extra,
+.ui-icon,
+.ph {
+  flex: 0 0 auto;
 }
 
 button {

@@ -1,7 +1,7 @@
 
 import { getEnabledStickerEntries } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
-import { icon } from './icons.js';
+import { icon, uiIcon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 
 export function openComposerActions({ onRedPacket, onSticker, onRetry }) {
@@ -10,15 +10,15 @@ export function openComposerActions({ onRedPacket, onSticker, onRetry }) {
     className: 'chat-action-sheet',
     content: `<div class="composer-action-grid">
       <button class="composer-action" type="button" data-composer-redpacket>
-        <span class="composer-action__icon">${icon('envelope-simple')}</span>
+        <span class="composer-action__icon">${uiIcon('red-packet', { size: 22 })}</span>
         <span>红包</span>
       </button>
       <button class="composer-action" type="button" data-composer-sticker>
-        <span class="composer-action__icon">${icon('sticker')}</span>
+        <span class="composer-action__icon">${uiIcon('sticker', { size: 22 })}</span>
         <span>表情</span>
       </button>
       <button class="composer-action" type="button" data-composer-retry>
-        <span class="composer-action__icon">${icon('arrow-clockwise')}</span>
+        <span class="composer-action__icon">${uiIcon('retry', { size: 22 })}</span>
         <span>重试</span>
       </button>
     </div>`,

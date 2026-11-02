@@ -1,16 +1,16 @@
 import { readImageFile } from '../services/image.js';
 import { escapeHTML } from '../services/utils.js';
 import { avatar } from './avatar.js';
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 import { toast } from './toast.js';
 
 export function avatarField({ mark, name, tone = 'ink' }) {
   return `<div class="avatar-field" data-avatar-field>
     <div class="avatar-field__preview" data-avatar-preview></div>
     <div class="avatar-field__actions">
-      <button class="small-button" type="button" data-avatar-upload>${icon('camera-plus')}<span>上传</span></button>
-      <button class="small-button" type="button" data-avatar-url-toggle>${icon('link-simple')}<span>链接</span></button>
-      <button class="small-button small-button--muted" type="button" data-avatar-clear hidden>${icon('trash-simple')}<span>移除</span></button>
+      <button class="small-button" type="button" data-avatar-upload>${uiIcon('camera', { size: 15 })}<span>上传</span></button>
+      <button class="small-button" type="button" data-avatar-url-toggle>${uiIcon('link', { size: 15 })}<span>链接</span></button>
+      <button class="small-button small-button--muted" type="button" data-avatar-clear hidden>${uiIcon('trash', { size: 15 })}<span>移除</span></button>
     </div>
     <input type="file" accept="image/*" data-avatar-file hidden>
     <label class="field avatar-field__url" data-avatar-url-wrap hidden>

@@ -1,7 +1,7 @@
 import { appHeader } from '../components/app-header.js';
 import { profileAvatar } from '../components/avatar.js';
 import { bottomNav } from '../components/bottom-nav.js';
-import { icon, iconButton } from '../components/icons.js';
+import { icon, iconButton, uiIcon } from '../components/icons.js';
 import { openMaskEditor } from '../components/mask-editor.js';
 import { settingsGroup, settingsRow } from '../components/settings-row.js';
 import { openSheet } from '../components/sheet.js';
@@ -49,7 +49,7 @@ export function renderMe({ refresh }) {
             </a>
           </div>
           <button class="profile-card__edit" type="button" data-edit-profile>
-            ${icon('pencil-simple')}<span>编辑资料</span>
+            ${uiIcon('pencil', { size: 14 })}<span>编辑资料</span>
           </button>
         </section>
         ${settingsGroup({

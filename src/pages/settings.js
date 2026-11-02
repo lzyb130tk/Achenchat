@@ -1,6 +1,6 @@
 import { appHeader } from '../components/app-header.js';
 import { openChoiceSheet } from '../components/choice-sheet.js';
-import { icon } from '../components/icons.js';
+import { icon, uiIcon } from '../components/icons.js';
 import { settingsGroup, settingsRow } from '../components/settings-row.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
@@ -69,14 +69,14 @@ function openBackupSheet(refresh) {
     description: '备份包含对话、面具、钱包与偏好，不包含 API 密钥。',
     content: `<div class="action-list">
       <button class="action-row" type="button" data-export-backup>
-        <span class="action-row__icon">${icon('download-simple')}</span>
+        <span class="action-row__icon">${uiIcon('download', { size: 20 })}</span>
         <span class="action-row__copy"><strong>导出备份</strong><small>保存为 JSON 文件</small></span>
-        <span class="action-row__arrow">${icon('caret-right')}</span>
+        <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
       <button class="action-row" type="button" data-import-backup>
-        <span class="action-row__icon">${icon('upload-simple')}</span>
+        <span class="action-row__icon">${uiIcon('upload', { size: 20 })}</span>
         <span class="action-row__copy"><strong>导入备份</strong><small>用备份替换当前数据</small></span>
-        <span class="action-row__arrow">${icon('caret-right')}</span>
+        <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
     </div>
     <input type="file" accept="application/json,.json" data-backup-file hidden>`,

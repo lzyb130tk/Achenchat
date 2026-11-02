@@ -9,7 +9,7 @@ import { renderContactSearch } from './pages/contact-search.js';
 import { renderDiscover } from './pages/discover.js';
 import { renderMasks } from './pages/masks.js';
 import { renderMe } from './pages/me.js';
-import { renderMemory } from './pages/memory.js';
+import { renderMemory, renderFavorites } from './pages/memory.js';
 import { renderMessages } from './pages/messages.js';
 import { renderMoments } from './pages/moments.js';
 import { renderSettings } from './pages/settings.js';
@@ -58,6 +58,12 @@ const ROUTES = [
     pattern: /^\/memory\/([^/]+)\/?$/,
     title: '聊天记忆',
     render: ({ match }) => renderMemory({ characterId: match[1] }),
+  },
+  {
+    pattern: /^\/favorites(?:\?from=([^/]+))?\/?$/,
+    title: '收藏',
+    render: ({ match }) =>
+      renderFavorites({ characterId: match?.[1] ? decodeURIComponent(match[1]) : '' }),
   },
 ];
 

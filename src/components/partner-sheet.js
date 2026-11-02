@@ -6,7 +6,7 @@ import {
 import { escapeHTML } from '../services/utils.js';
 import { characterAvatar } from './avatar.js';
 import { openCharacterEditor } from './character-editor.js';
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
@@ -21,12 +21,12 @@ export function openPartnerSheet({ character, onChanged, onMuteChange, compact =
     </div>
     <div class="action-list action-list--compact">
       <button class="action-row" type="button" data-edit-character>
-        <span class="action-row__icon">${icon('pencil-simple')}</span>
+        <span class="action-row__icon">${uiIcon('pencil', { size: 20 })}</span>
         <span class="action-row__copy"><strong>修改资料</strong><small>头像、名字与人设</small></span>
-        <span class="action-row__arrow">${icon('caret-right')}</span>
+        <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
       <label class="action-row partner-mute-row">
-        <span class="action-row__icon" data-mute-icon>${icon(character.muted ? 'bell-slash' : 'bell')}</span>
+        <span class="action-row__icon" data-mute-icon>${uiIcon(character.muted ? 'bell-off' : 'bell', { size: 20 })}</span>
         <span class="action-row__copy"><strong>免打扰</strong><small>在别处时，不再弹出消息横幅</small></span>
         <span class="switch">
           <input type="checkbox" data-toggle-mute${character.muted ? ' checked' : ''} aria-label="免打扰">
@@ -34,7 +34,7 @@ export function openPartnerSheet({ character, onChanged, onMuteChange, compact =
         </span>
       </label>
       <button class="action-row action-row--danger" type="button" data-clear-chat>
-        <span class="action-row__icon">${icon('trash-simple')}</span>
+        <span class="action-row__icon">${uiIcon('trash', { size: 20 })}</span>
         <span class="action-row__copy"><strong>清空这段对话</strong></span>
       </button>
     </div>`,
@@ -49,8 +49,9 @@ export function openPartnerSheet({ character, onChanged, onMuteChange, compact =
       sheet.querySelector('[data-toggle-mute]').addEventListener('change', (event) => {
         const next = event.currentTarget.checked;
         updateCharacter(character.id, { muted: next });
-        sheet.querySelector('[data-mute-icon]').innerHTML = icon(
-          next ? 'bell-slash' : 'bell',
+        sheet.querySelector('[data-mute-icon]').innerHTML = uiIcon(
+          next ? 'bell-off' : 'bell',
+          { size: 20 },
         );
         onMuteChange?.(next);
         toast(next ? '已开启免打扰' : '已关闭免打扰');

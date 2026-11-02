@@ -1,6 +1,6 @@
 import { appHeader } from '../components/app-header.js';
 import { setupAvatarField } from '../components/avatar-field.js';
-import { icon } from '../components/icons.js';
+import { uiIcon } from '../components/icons.js';
 import { toast } from '../components/toast.js';
 import { addMask } from '../services/store.js';
 
@@ -22,9 +22,9 @@ export function renderMaskNew() {
               <span class="mask-new__hero-copy"><strong data-hero-name>新的身份</strong><small data-hero-signature>一句话介绍自己</small></span>
             </div>
             <div class="avatar-field__actions">
-              <button class="small-button" type="button" data-avatar-upload>${icon('camera-plus')}<span>上传头像</span></button>
-              <button class="small-button" type="button" data-avatar-url-toggle>${icon('link-simple')}<span>使用链接</span></button>
-              <button class="small-button small-button--muted" type="button" data-avatar-clear hidden>${icon('trash-simple')}<span>移除</span></button>
+              <button class="small-button" type="button" data-avatar-upload>${uiIcon('camera', { size: 15 })}<span>上传头像</span></button>
+              <button class="small-button" type="button" data-avatar-url-toggle>${uiIcon('link', { size: 15 })}<span>使用链接</span></button>
+              <button class="small-button small-button--muted" type="button" data-avatar-clear hidden>${uiIcon('trash', { size: 15 })}<span>移除</span></button>
             </div>
             <input type="file" accept="image/*" data-avatar-file hidden>
             <label class="field avatar-field__url" data-avatar-url-wrap hidden>
@@ -37,7 +37,7 @@ export function renderMaskNew() {
           <label class="field"><span class="field__label">名字</span><span class="field__control"><input class="field__input" name="maskName" maxlength="16" autocomplete="off" placeholder="这个面具叫什么"></span></label>
           <label class="field"><span class="field__label">签名</span><span class="field__control"><input class="field__input" name="maskSignature" maxlength="30" autocomplete="off" placeholder="一句话介绍自己"></span></label>
           <label class="field mask-new__persona"><span class="field__label">人设</span><span class="field__control field__control--area"><textarea class="field__input field__textarea" name="maskPersona" rows="6" placeholder="你希望 AI 把你当作怎样的人？可以写性格、身份和相处方式。"></textarea></span><span class="mask-new__count" data-persona-count>0 字</span></label>
-          <p class="mask-new__note">${icon('info')}人设会影响之后使用这个面具的回复</p>
+          <p class="mask-new__note">${uiIcon('info', { size: 14 })}人设会影响之后使用这个面具的回复</p>
         </section>
       </div>
     </main>

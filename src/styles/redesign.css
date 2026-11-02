@@ -3880,11 +3880,12 @@ html[data-glass="off"] .glass-demo__bar {
    22. Liquid glass chrome — floating dock, glass chat header and composer
    -------------------------------------------------------------------------- */
 
-/* Inline UI glyphs sit on the text baseline by default; block them so every
-   glass button centres its icon exactly. */
+/* Inline UI glyphs sit on the text baseline by default. inline-block keeps
+   them usable inside a line of text, while flex/grid parents blockify them. */
 
 .ui-icon {
-  display: block;
+  display: inline-block;
+  vertical-align: -0.15em;
 }
 
 /* The dock leaves the screen edge, so the page scrolls behind it. */
@@ -5519,3 +5520,1051 @@ html[data-theme="dark"] .chat-header__typing {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   29. Message selection & favorites
+   ------------------------------------------------------------------------ */
+
+.chat-select-bar {
+  display: none;
+}
+
+.chat-header.is-selecting :is(.chat-header__back, .chat-header__identity, .chat-header__action) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-header.is-selecting .chat-select-bar {
+  position: absolute;
+  right: 14px;
+  bottom: 6px;
+  left: 14px;
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-select-bar__btn {
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  transition:
+    opacity 160ms var(--ease-standard),
+    background-color 160ms var(--ease-standard);
+}
+
+.chat-select-bar__btn:disabled {
+  opacity: 0.35;
+}
+
+.chat-select-bar__btn--danger {
+  color: var(--color-danger);
+}
+
+.chat-select-bar__btn--primary {
+  padding: 8px 16px;
+  background: var(--color-action);
+  color: var(--color-action-ink);
+  box-shadow: 0 10px 20px -14px rgba(33, 26, 20, 0.6);
+}
+
+.chat-select-bar__btn--primary:disabled {
+  background: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  box-shadow: none;
+}
+
+.chat-select-bar__count {
+  padding-left: 2px;
+  color: var(--color-ink-secondary);
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+}
+
+.chat-select-bar__spacer {
+  flex: 1;
+}
+
+/* 选中态：气泡套一圈主题色，角上一枚勾；未选中的压暗 */
+
+.screen--chat.is-selecting .message-row {
+  cursor: pointer;
+}
+
+.screen--chat.is-selecting .message-bubble {
+  position: relative;
+  transition:
+    box-shadow 180ms var(--ease-standard),
+    opacity 180ms var(--ease-standard);
+}
+
+.screen--chat.is-selecting .message-row:not(.is-picked) .message-bubble {
+  opacity: 0.45;
+}
+
+.screen--chat.is-selecting .message-row.is-picked .message-bubble {
+  box-shadow:
+    0 0 0 2px var(--color-accent),
+    0 14px 26px -20px rgba(33, 26, 20, 0.55);
+}
+
+.screen--chat.is-selecting .message-row.is-picked .message-bubble::after {
+  content: "✓";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--color-bg);
+}
+
+.screen--chat.is-selecting .chat-composer {
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+  transition:
+    opacity 200ms var(--ease-standard),
+    transform 260ms var(--ease-standard);
+}
+
+/* ---------- 收藏列表 ---------- */
+
+.screen--favorites .app-header {
+  border: 0;
+  background: transparent;
+}
+
+.screen--favorites .app-header__title {
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.screen--favorites .app-header__side .icon-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--glass-fill);
+  color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+
+.screen--favorites .page-content--favorites {
+  padding: 2px 18px 28px;
+}
+
+.favorites-search {
+  display: flex;
+  height: 46px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  border-radius: 23px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 12px 26px -22px rgba(33, 26, 20, 0.5);
+}
+
+.favorites-search .ph {
+  color: var(--color-ink-tertiary);
+  font-size: 1rem;
+}
+
+.favorites-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 14.5px;
+}
+
+.favorites-search__clear {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-ink-tertiary);
+  font-size: 0.8rem;
+}
+
+.favorites-sort .ph {
+  transition: transform 200ms var(--ease-standard);
+}
+
+.favorites-sort.is-asc .ph {
+  transform: rotate(180deg);
+}
+
+.favorites-list {
+  display: grid;
+  gap: 10px;
+}
+
+.favorite-card {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 15px 15px;
+  border-radius: 20px;
+  background: var(--color-surface);
+  text-align: left;
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+  transition: transform 160ms var(--ease-standard);
+}
+
+.favorite-card:active {
+  transform: scale(0.988);
+}
+
+.favorite-card__top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.favorite-card__title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-card__time {
+  flex: 0 0 auto;
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.favorite-card__meta {
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+}
+
+.favorite-card__preview {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.favorites-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.favorites-empty__icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 20px;
+  background: var(--color-surface);
+  color: var(--color-ink-tertiary);
+  font-size: 1.5rem;
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+}
+
+.favorites-empty h2 {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.favorites-empty p {
+  color: var(--color-ink-tertiary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* ---------- 收藏详情 ---------- */
+
+.favorite-thread {
+  display: flex;
+  max-height: 58vh;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  scrollbar-width: none;
+}
+
+.favorite-thread::-webkit-scrollbar {
+  display: none;
+}
+
+.favorite-message {
+  display: flex;
+}
+
+.favorite-message--user {
+  justify-content: flex-end;
+}
+
+.favorite-message .message-bubble {
+  max-width: 84%;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.favorite-message__sticker {
+  display: block;
+  width: 120px;
+  height: 120px;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.favorite-message__packet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+}
+
+/* ---------------------------------------------------------------------------
+   30. Action rows — 一张分组卡 + 发丝分隔线，图标不再坐白底方块
+   ------------------------------------------------------------------------ */
+
+.action-list {
+  display: block;
+  overflow: hidden;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+.action-list--compact {
+  margin-top: 12px;
+}
+
+.action-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  transition: background-color 160ms var(--ease-standard);
+}
+
+.action-row + .action-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 14px;
+  left: 48px;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+}
+
+.action-row:active {
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+.action-row__icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--color-ink-secondary);
+  font-size: 0;
+}
+
+.action-row__icon .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.action-row__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-row__copy strong {
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.01em;
+}
+
+.action-row__copy small {
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.action-row__arrow {
+  display: grid;
+  width: 18px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--color-ink-tertiary);
+  opacity: 0.7;
+}
+
+.action-row__arrow .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.action-row--danger .action-row__icon,
+.action-row--danger .action-row__copy strong {
+  color: var(--color-danger);
+}
+
+html[data-theme="dark"] .action-list {
+  background: color-mix(in srgb, #ffffff 6%, transparent);
+}
+
+html[data-theme="dark"] .action-row + .action-row::before {
+  background: color-mix(in srgb, #ffffff 9%, transparent);
+}
+
+/* 聊天设置里的选项卡：同样是“图标 + 两行字”，不再套白底方块 */
+
+html[data-glass] .choice-card {
+  gap: 13px;
+  padding: 14px 15px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 14px 28px -24px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .choice-card.is-selected {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 55%, transparent),
+    0 14px 28px -24px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .choice-card__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  background: none;
+  color: var(--color-ink-secondary);
+  font-size: 1.15rem;
+}
+
+html[data-glass] .choice-card.is-selected .choice-card__icon {
+  color: var(--color-accent-strong);
+}
+
+html[data-glass] .choice-card__copy strong {
+  font-size: 15px;
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.01em;
+}
+
+html[data-glass] .choice-card__copy small {
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+html[data-glass] .choice-card__check {
+  width: 18px;
+  height: 18px;
+  font-size: 0.62rem;
+}
+
+html[data-theme="dark"] .choice-card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 14px 28px -24px rgba(0, 0, 0, 0.65);
+}
+
+/* 会话「更多」里那组动作：同样的安静语气 */
+
+html[data-glass] .composer-action {
+  min-height: 78px;
+  gap: 7px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: var(--weight-medium);
+}
+
+html[data-glass] .composer-action:active {
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+}
+
+html[data-glass] .composer-action__icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: var(--color-ink-secondary);
+  font-size: 0;
+}
+
+html[data-glass] .composer-action__icon .ui-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* 设置页沿用「我」页那套分组卡片 */
+
+html[data-glass] .screen--settings .settings-group__label {
+  margin: 0 4px 8px;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--settings .settings-group__card {
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--settings .settings-row {
+  min-height: 56px;
+  gap: 14px;
+  padding: 10px 16px;
+}
+
+html[data-glass] .screen--settings .settings-row__icon {
+  width: 22px;
+  font-size: 1.15rem;
+}
+
+html[data-glass] .screen--settings .settings-row__label {
+  font-size: 15.5px;
+  font-weight: var(--weight-medium);
+}
+
+html[data-glass] .screen--settings .settings-row__value {
+  font-size: 13px;
+}
+
+html[data-glass] .screen--settings .settings-row:not(:last-child)::after {
+  right: 16px;
+  left: 53px;
+  background: rgba(33, 26, 20, 0.07);
+}
+
+html[data-theme="dark"] .screen--settings .settings-group__card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 18px 34px -26px rgba(0, 0, 0, 0.65);
+}
+
+html[data-theme="dark"] .screen--settings .settings-row:not(:last-child)::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 长按菜单里的图标也换成同一套描边字 */
+
+html[data-glass] .message-menu__item .ui-icon {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  color: var(--color-ink-secondary);
+}
+
+html[data-glass] .message-menu__item--danger .ui-icon {
+  color: var(--color-danger);
+}
+
+/* ---------------------------------------------------------------------------
+   31. 聊天设置页与子页：统一的卡片、节奏与控制件
+   ------------------------------------------------------------------------ */
+
+html[data-glass] .chat-settings-page__content {
+  padding: 6px 18px calc(30px + env(safe-area-inset-bottom));
+}
+
+html[data-glass] .chat-settings-page__profile {
+  gap: 13px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .chat-settings-page__profile .avatar {
+  --avatar-size: 46px;
+}
+
+html[data-glass] .chat-settings-page__profile strong {
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html[data-glass] .chat-settings-page__profile small {
+  font-size: 11.5px;
+}
+
+/* 分段控件做成一颗白色滑块 */
+
+html[data-glass] .screen--chat-settings .chat-settings__tabs {
+  margin-bottom: 20px;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__tabs .segmented__item {
+  min-height: 38px;
+  border-radius: var(--radius-full);
+  color: var(--color-ink-secondary);
+  font-size: 13.5px;
+  font-weight: var(--weight-medium);
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__tabs .segmented__item.is-selected {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 6px 14px -10px rgba(33, 26, 20, 0.5);
+}
+
+/* 分组与行 */
+
+html[data-glass] .screen--chat-settings .chat-settings__group {
+  margin-bottom: 20px;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__group-label {
+  margin: 0 4px 8px;
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__list {
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row {
+  position: relative;
+  min-height: 56px;
+  gap: 13px;
+  padding: 10px 15px;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row + .chat-settings__row {
+  border-top: 0;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row + .chat-settings__row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 15px;
+  left: 52px;
+  height: 1px;
+  background: rgba(33, 26, 20, 0.07);
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row-icon {
+  width: 20px;
+  color: var(--color-ink-secondary);
+  font-size: 1.1rem;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row-label {
+  font-size: 15px;
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.01em;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row-value {
+  max-width: 140px;
+  color: var(--color-ink-tertiary);
+  font-size: 12.5px;
+}
+
+html[data-glass] .screen--chat-settings .chat-settings__row-chevron {
+  color: var(--color-ink-tertiary);
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+html[data-glass] .chat-settings-page__reset {
+  min-height: 54px;
+  margin-top: 6px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--color-surface);
+  color: var(--color-accent-strong);
+  font-size: 14.5px;
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 18px 34px -26px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .chat-settings-page__reset span {
+  gap: 8px;
+}
+
+/* 子页排版：先给段落、小标题、控件统一节奏 */
+
+html[data-glass] .screen--chat-settings .settings-note {
+  margin: 0 2px 16px;
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+html[data-glass] .screen--chat-settings .subsection-head {
+  margin: 24px 2px 10px;
+}
+
+html[data-glass] .screen--chat-settings .subsection-head h4 {
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+html[data-glass] .screen--chat-settings .settings-figure {
+  padding: 2px 2px 14px;
+}
+
+html[data-glass] .screen--chat-settings .settings-figure strong {
+  font-size: 2.2rem;
+}
+
+/* 子页里的输入框：整块白卡，输入区是浅色井 */
+
+html[data-glass] .screen--chat-settings .field {
+  gap: 7px;
+  margin: 0 0 12px;
+  padding: 12px 14px 14px;
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 14px 28px -24px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--chat-settings .field__label {
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+html[data-glass] .screen--chat-settings .field__control {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+html[data-glass] .screen--chat-settings .field__control--area {
+  padding: 10px 12px;
+  align-items: flex-start;
+}
+
+html[data-glass] .screen--chat-settings .field__input {
+  font-size: 14.5px;
+}
+
+html[data-glass] .screen--chat-settings .field__textarea--code {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+html[data-glass] .screen--chat-settings .field:focus-within {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 42%, transparent),
+    0 14px 28px -24px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--chat-settings .field__control:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* 滑块行、开关行都当卡片处理 */
+
+html[data-glass] .screen--chat-settings .range-row,
+html[data-glass] .screen--chat-settings .switch-row {
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 14px 15px 16px;
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 14px 28px -24px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--chat-settings .range-row__top {
+  font-size: 14px;
+}
+
+html[data-glass] .screen--chat-settings .range-row__top output {
+  font-size: 12px;
+}
+
+/* 预览块 */
+
+html[data-glass] .screen--chat-settings :is(.bubble-settings-preview, .animation-demo, .packet-settings-preview) {
+  margin-bottom: 14px;
+  padding: 18px 14px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+/* 预设列表：一行一张小卡 */
+
+html[data-glass] .screen--chat-settings .preset-list {
+  gap: 8px;
+}
+
+html[data-glass] .screen--chat-settings .preset-row {
+  padding: 0;
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(33, 26, 20, 0.04),
+    0 10px 22px -20px rgba(33, 26, 20, 0.5);
+}
+
+html[data-glass] .screen--chat-settings .preset-row.is-active {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 52%, transparent);
+}
+
+html[data-glass] .screen--chat-settings .preset-row__apply {
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+html[data-glass] .screen--chat-settings .preset-row__current {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent-strong);
+}
+
+html[data-glass] .screen--chat-settings .preset-row__action {
+  color: var(--color-ink-tertiary);
+}
+
+html[data-glass] .screen--chat-settings .preset-form {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+/* 底部两个动作按钮：等宽、并排 */
+
+html[data-glass] .screen--chat-settings .inline-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+html[data-glass] .screen--chat-settings .inline-buttons .small-button {
+  min-height: 46px;
+  border-radius: 15px;
+  font-size: 14.5px;
+}
+
+html[data-glass] .screen--chat-settings .text-button {
+  margin-top: 14px;
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+}
+
+html[data-glass] .screen--chat-settings .text-button .ph,
+html[data-glass] .screen--chat-settings .text-button .ui-icon {
+  font-size: 0.95rem;
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- 弹层里的输入框与按钮 ---------- */
+
+html[data-glass] .sheet__body .field {
+  gap: 7px;
+}
+
+html[data-glass] .sheet__body .field__label {
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+html[data-glass] .sheet__body .field__control {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+html[data-glass] .sheet__body .field__control--area {
+  padding: 12px 14px;
+  align-items: flex-start;
+}
+
+html[data-glass] .sheet__body .field__control:focus-within {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+html[data-glass] .sheet__body .field__input {
+  font-size: 15px;
+}
+
+html[data-glass] .small-button {
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-ink-secondary);
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  box-shadow: inset 0 0 0 1px rgba(33, 26, 20, 0.1);
+}
+
+html[data-glass] .small-button--solid {
+  background: var(--color-action);
+  color: var(--color-action-ink);
+  box-shadow: 0 10px 20px -14px rgba(33, 26, 20, 0.6);
+}
+
+html[data-glass] .small-button--muted {
+  background: transparent;
+  color: var(--color-ink-tertiary);
+  box-shadow: inset 0 0 0 1px rgba(33, 26, 20, 0.07);
+}
+
+html[data-glass] .small-button .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+html[data-glass] .text-button {
+  gap: 6px;
+  color: var(--color-accent-strong);
+  font-size: 12.5px;
+}
+
+html[data-glass] .text-button .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+html[data-theme="dark"] .screen--chat-settings .chat-settings__row + .chat-settings__row::before {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .screen--chat-settings .field,
+html[data-theme="dark"] .screen--chat-settings .range-row,
+html[data-theme="dark"] .screen--chat-settings .switch-row,
+html[data-theme="dark"] .screen--chat-settings .preset-row,
+html[data-theme="dark"] .chat-settings-page__profile,
+html[data-theme="dark"] .chat-settings-page__reset {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 18px 34px -26px rgba(0, 0, 0, 0.65);
+}
+
+html[data-theme="dark"] .small-button {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* 窄屏兜底：正常情况下手机上视口已经锁到 430（浏览器整体等比缩放），
+   下面这些规则只在锁不住的环境里生效（忽略动态 viewport 的内嵌浏览器、
+   横屏、431–639 的窄窗口），把留白收一点，别让元素被挤到换行变形。 */
+@media (max-width: 400px) {
+  .page-content,
+  .screen--me .page-content--me,
+  .screen--messages .page-content--messages {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .settings-row {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .screen--me .profile-card {
+    gap: 10px;
+  }
+
+  .screen--me .mask-pill {
+    padding-inline: 9px;
+  }
+}
+

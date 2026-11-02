@@ -21,6 +21,7 @@ import { getSparkSvg } from '../data/chat-options.js';
 import { copyText } from '../services/clipboard.js';
 import { messageAsText, messageLength } from '../services/message-format.js';
 import {
+  addFavorite,
   addMessage,
   claimRedPacket,
   clearMultiSentCount,
@@ -84,6 +85,13 @@ function chatHeader(character, status, style, streak) {
       </span>
     </button>
     <button class="icon-button chat-header__action" type="button" aria-label="更多会话操作" data-open-chat-menu>${uiIcon('more', { size: 20 })}</button>
+    <div class="chat-select-bar" data-select-bar>
+      <button class="chat-select-bar__btn" type="button" data-select-cancel>取消</button>
+      <span class="chat-select-bar__count" data-select-count>选择消息</span>
+      <span class="chat-select-bar__spacer"></span>
+      <button class="chat-select-bar__btn chat-select-bar__btn--danger" type="button" data-select-delete disabled>删除</button>
+      <button class="chat-select-bar__btn chat-select-bar__btn--primary" type="button" data-select-favorite disabled>收藏</button>
+    </div>
   </header>`;
 }
 
@@ -419,6 +427,154 @@ export function renderChat({ characterId, refresh }) {
       });
   };
 
+  /* ------------------------------------------------------------------ *
+   * 多选：从长按菜单进入，顶栏换成 取消 / 删除 / 收藏
+   * ------------------------------------------------------------------ */
+
+  let selecting = false;
+  const picked = new Set();
+  const headerNode = screen.querySelector('.chat-header');
+  const selectBar = screen.querySelector('[data-select-bar]');
+  const selectCount = screen.querySelector('[data-select-count]');
+  const selectDelete = screen.querySelector('[data-select-delete]');
+  const selectFavorite = screen.querySelector('[data-select-favorite]');
+
+  const messageRows = () =>
+    [...thread.querySelectorAll('.message-row[data-message-id]')];
+
+  const syncSelectBar = () => {
+    if (selectCount) {
+      selectCount.textContent = picked.size
+        ? `已选择 ${picked.size} 条`
+        : '选择消息';
+    }
+    if (selectDelete) selectDelete.disabled = !picked.size;
+    if (selectFavorite) selectFavorite.disabled = !picked.size;
+  };
+
+  const togglePicked = (row) => {
+    if (!row) return;
+    const id = row.dataset.messageId;
+    if (!id) return;
+    if (picked.has(id)) {
+      picked.delete(id);
+      row.classList.remove('is-picked');
+    } else {
+      picked.add(id);
+      row.classList.add('is-picked');
+    }
+    syncSelectBar();
+  };
+
+  const enterSelectMode = (seedRow) => {
+    if (selecting) return;
+    selecting = true;
+    screen.classList.add('is-selecting');
+    headerNode?.classList.add('is-selecting');
+    if (seedRow) togglePicked(seedRow);
+    syncSelectBar();
+    navigator.vibrate?.(10);
+  };
+
+  const exitSelectMode = () => {
+    if (!selecting) return;
+    selecting = false;
+    picked.clear();
+    screen.classList.remove('is-selecting');
+    headerNode?.classList.remove('is-selecting');
+    messageRows().forEach((row) => row.classList.remove('is-picked'));
+    syncSelectBar();
+  };
+
+  const pickedMessages = () =>
+    [...picked]
+      .map((id) =>
+        (getConversation(character.id)?.messages || []).find((item) => item.id === id),
+      )
+      .filter(Boolean)
+      .sort((a, b) => a.createdAt - b.createdAt);
+
+  const deletePicked = () => {
+    const ids = [...picked];
+    if (!ids.length) return;
+    ids.forEach((id) => {
+      if (deleteMessage(character.id, id)) deletedIds.add(id);
+    });
+    messageRows().forEach((row) => {
+      if (picked.has(row.dataset.messageId)) row.remove();
+    });
+    const remaining = thread.querySelectorAll('.message-row[data-message-id]').length;
+    const latest = getConversation(character.id)?.messages.at(-1);
+    previousTimestamp = latest?.createdAt || null;
+    previousRole = latest?.role || null;
+    if (!remaining && !pendingRow) {
+      thread.innerHTML = emptyState(character);
+      previousTimestamp = null;
+      previousRole = null;
+    } else {
+      syncRowAppearance();
+    }
+    composer.setSentCount(recountMultiSentCount(character.id));
+    exitSelectMode();
+    toast(ids.length > 1 ? `已删除 ${ids.length} 条消息` : '消息已删除');
+  };
+
+  const promptFavorite = () => {
+    const items = pickedMessages();
+    if (!items.length) return;
+    const first = items.find((item) => messageAsText(item).trim());
+    const suggested = first
+      ? messageAsText(first).replace(/\s+/g, ' ').trim().slice(0, 18)
+      : '';
+    openSheet({
+      title: '收藏这段对话',
+      description: `已选 ${items.length} 条消息，起个名字方便以后找。`,
+      content: `<label class="field">
+        <span class="field__label">标题</span>
+        <span class="field__control">
+          <input class="field__input" data-favorite-title maxlength="40" autocomplete="off" placeholder="例如：关于秋天的开场白" value="${escapeHTML(suggested)}">
+        </span>
+      </label>`,
+      actions: `<div class="button-row">
+        <button class="button button--secondary" type="button" data-favorite-cancel>取消</button>
+        <button class="button button--primary" type="button" data-favorite-save>收藏</button>
+      </div>`,
+      onMount: (sheet) => {
+        const input = sheet.querySelector('[data-favorite-title]');
+        const save = () => {
+          const favorite = addFavorite({
+            title: input.value.trim() || suggested || '未命名收藏',
+            characterId: character.id,
+            characterName: character.name,
+            messages: items,
+          });
+          if (!favorite) {
+            toast('收藏失败，请重试', { tone: 'danger' });
+            return;
+          }
+          closeActiveSheet();
+          exitSelectMode();
+          toast('已收藏');
+        };
+        sheet.querySelector('[data-favorite-cancel]').addEventListener('click', () => {
+          closeActiveSheet();
+        });
+        sheet.querySelector('[data-favorite-save]').addEventListener('click', save);
+        input.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' || event.isComposing) return;
+          event.preventDefault();
+          save();
+        });
+        window.setTimeout(() => input.focus({ preventScroll: true }), 120);
+      },
+    });
+  };
+
+  selectBar?.querySelector('[data-select-cancel]')?.addEventListener('click', exitSelectMode);
+  selectDelete?.addEventListener('click', deletePicked);
+  selectFavorite?.addEventListener('click', promptFavorite);
+  syncSelectBar();
+
   const revealGap = (message) => {
     const length = Math.max(1, messageLength(message));
     return Math.max(
@@ -681,7 +837,6 @@ export function renderChat({ characterId, refresh }) {
 
   const composerSlot = screen.querySelector('[data-composer-slot]');
   composerSlot.appendChild(composer.element);
-  const headerNode = screen.querySelector('.chat-header');
 
   let chromeObserver = null;
   const syncChatChrome = () => {
@@ -761,12 +916,14 @@ export function renderChat({ characterId, refresh }) {
   }
 
   bindLongPress(thread, '.message-row[data-message-id]', (row) => {
+    if (selecting) return;
     const message = getConversation(character.id)?.messages.find(
       (item) => item.id === row.dataset.messageId,
     );
     if (!message) return;
     openMessageMenu({
       anchor: row,
+      onSelect: () => enterSelectMode(row),
       onCopy: async () => {
         const copied = await copyText(messageAsText(message));
         toast(copied ? '已复制' : '复制失败', {
@@ -813,6 +970,15 @@ export function renderChat({ characterId, refresh }) {
   });
 
   thread.addEventListener('click', (event) => {
+    if (selecting) {
+      const row = event.target.closest('.message-row[data-message-id]');
+      if (row) {
+        event.preventDefault();
+        event.stopPropagation();
+        togglePicked(row);
+      }
+      return;
+    }
     const card = event.target.closest('[data-claim-packet]');
     if (!card || card.disabled) return;
     const messageId = card.dataset.claimPacket;
@@ -849,11 +1015,11 @@ export function renderChat({ characterId, refresh }) {
       className: 'chat-action-sheet chat-action-sheet--menu',
       content: `<div class="composer-action-grid">
         <button class="composer-action" type="button" data-chat-profile>
-          <span class="composer-action__icon">${icon('user-circle')}</span>
+          <span class="composer-action__icon">${uiIcon('user', { size: 22 })}</span>
           <span>对话资料</span>
         </button>
         <button class="composer-action" type="button" data-chat-settings>
-          <span class="composer-action__icon">${icon('gear-six')}</span>
+          <span class="composer-action__icon">${uiIcon('settings', { size: 22 })}</span>
           <span>聊天设置</span>
         </button>
       </div>`,

@@ -245,6 +245,7 @@ function createDefaultState({ seeded = true, emptyWallet = false } = {}) {
     stickerPacks: [],
     bubblePresets: DEFAULT_BUBBLE_PRESETS.map((preset) => ({ ...preset })),
     likedMoments: [],
+    favorites: [],
   };
 }
 
@@ -478,6 +479,30 @@ function normalizeBubblePresets(raw) {
     .filter(Boolean);
 }
 
+function normalizeFavorite(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  // Favourites keep their own snapshot of the messages, so deleting the
+  // original chat never empties a collection.
+  const messages = Array.isArray(raw.messages)
+    ? raw.messages.map(normalizeMessage).filter(Boolean).slice(-120)
+    : [];
+  if (!messages.length) return null;
+  const title = text(raw.title).trim().slice(0, 40);
+  return {
+    id: text(raw.id, makeId('favorite')),
+    title: title || '未命名收藏',
+    characterId: text(raw.characterId),
+    characterName: text(raw.characterName).trim().slice(0, 40),
+    messages,
+    createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now(),
+  };
+}
+
+function normalizeFavorites(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeFavorite).filter(Boolean).slice(-300);
+}
+
 function normalizeShop(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const type = getShopType(raw.typeId);
@@ -613,6 +638,7 @@ function normalizeState(candidate) {
     likedMoments: Array.isArray(candidate?.likedMoments)
       ? candidate.likedMoments.filter((id) => typeof id === 'string')
       : [],
+    favorites: normalizeFavorites(candidate?.favorites),
   };
 }
 
@@ -1300,6 +1326,38 @@ export function deleteBubblePreset(id) {
   const index = state.bubblePresets.findIndex((item) => item.id === id);
   if (index < 0) return false;
   state.bubblePresets.splice(index, 1);
+  persist();
+  return true;
+}
+
+export function getFavorites() {
+  return state.favorites;
+}
+
+export function getFavoriteCount() {
+  return state.favorites.length;
+}
+
+export function addFavorite({ title, characterId, characterName, messages }) {
+  const favorite = normalizeFavorite({
+    id: makeId('favorite'),
+    title,
+    characterId,
+    characterName,
+    messages: Array.isArray(messages) ? messages : [],
+    createdAt: Date.now(),
+  });
+  if (!favorite) return null;
+  state.favorites.unshift(favorite);
+  if (state.favorites.length > 300) state.favorites.length = 300;
+  persist();
+  return favorite;
+}
+
+export function deleteFavorite(id) {
+  const index = state.favorites.findIndex((item) => item.id === id);
+  if (index < 0) return false;
+  state.favorites.splice(index, 1);
   persist();
   return true;
 }

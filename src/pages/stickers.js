@@ -1,5 +1,5 @@
 import { appHeader } from '../components/app-header.js';
-import { icon, iconButton } from '../components/icons.js';
+import { icon, iconButton, uiIcon } from '../components/icons.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import {
@@ -53,7 +53,7 @@ function openStickerNames({ packName, items, pack = null, onSaved }) {
           )
           .join('')}
       </div>
-      ${pack ? `<button class="text-button text-button--danger" type="button" data-delete-pack>${icon('trash-simple')}删除这组表情</button>` : ''}
+      ${pack ? `<button class="text-button text-button--danger" type="button" data-delete-pack>${uiIcon('trash', { size: 15 })}删除这组表情</button>` : ''}
     </div>`,
     actions: `<button class="button button--primary" type="button" data-save-pack>${pack ? '保存' : '添加表情包'}</button>`,
     onMount: (sheet) => {
@@ -210,7 +210,7 @@ function packCard(pack) {
         .join('')}
       ${pack.items.length > 5 ? `<span class="sticker-thumb sticker-thumb--more">+${pack.items.length - 5}</span>` : ''}
     </div>
-    <button class="text-button" type="button" data-edit-pack="${pack.id}">${icon('pencil-simple')}编辑</button>
+    <button class="text-button" type="button" data-edit-pack="${pack.id}">${uiIcon('pencil', { size: 15 })}编辑</button>
   </article>`;
 }
 
@@ -240,7 +240,7 @@ export function renderStickers({ refresh }) {
                   <img class="stickers-empty__art" src="src/assets/sticker-empty.png" alt="两张可爱的猫咪表情卡片">
                   <h2>还没有表情包</h2>
                   <p>添加几张常用图片，让对话更有表情。</p>
-                  <button class="button button--primary stickers-empty__create" type="button" data-empty-add>${icon('plus')}创建表情包</button>
+                  <button class="button button--primary stickers-empty__create" type="button" data-empty-add>${uiIcon('plus', { size: 16 })}创建表情包</button>
                   <button class="stickers-empty__link" type="button" data-link-import>从链接导入</button>
                 </div>
                 <p class="stickers-empty__tip">${icon('sparkle')}<span>为表情包起一个清楚的名字，<br>AI 会更准确地使用它。</span></p>

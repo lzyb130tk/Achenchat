@@ -1,13 +1,15 @@
 import { appHeader } from '../components/app-header.js';
-import { icon, iconButton } from '../components/icons.js';
+import { iconButton, uiIcon } from '../components/icons.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import {
   addMemoryCategory,
   addMemoryEntry,
+  deleteFavorite,
   deleteMemoryEntry,
   getCharacter,
   getChatMemory,
+  getFavorites,
   updateMemoryEntry,
   updateMemorySettings,
 } from '../services/store.js';
@@ -264,19 +266,19 @@ export function renderMemory({ characterId }) {
       <div class="settings-group">
         <div class="settings-group__card">
           <button class="settings-row" type="button" data-memory-context>
-            <span class="settings-row__icon">${icon('chat-circle-text')}</span>
+            <span class="settings-row__icon">${uiIcon('chat', { size: 18 })}</span>
             <span class="settings-row__label">带入上下文</span>
             <span class="settings-row__trailing">
               <span class="settings-row__value">最近 ${memory.contextCount} 条</span>
-              <span class="settings-row__chevron">${icon('caret-right')}</span>
+              <span class="settings-row__chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </span>
           </button>
           <button class="settings-row" type="button" data-memory-summary>
-            <span class="settings-row__icon">${icon('clock-counter-clockwise')}</span>
+            <span class="settings-row__icon">${uiIcon('hourglass', { size: 18 })}</span>
             <span class="settings-row__label">自动总结</span>
             <span class="settings-row__trailing">
               <span class="settings-row__value">${memory.summaryEvery ? `每 ${memory.summaryEvery} 轮` : '已关闭'}</span>
-              <span class="settings-row__chevron">${icon('caret-right')}</span>
+              <span class="settings-row__chevron">${uiIcon('chevron-right', { size: 15 })}</span>
             </span>
           </button>
         </div>
@@ -284,7 +286,7 @@ export function renderMemory({ characterId }) {
       <section class="memory-section">
         <div class="memory-section__head">
           <h2>分类</h2>
-          <button class="text-button text-button--small" type="button" data-new-category>${icon('plus')}新增</button>
+          <button class="text-button text-button--small" type="button" data-new-category>${uiIcon('plus', { size: 14 })}新增</button>
         </div>
         <div class="memory-filters">
           <button class="memory-filter${activeFilter === 'all' ? ' is-selected' : ''}" type="button" data-filter="all">
@@ -313,8 +315,8 @@ export function renderMemory({ characterId }) {
                         <span class="memory-entry__category">${escapeHTML(entry.category)}</span>
                         ${entry.source === 'auto' ? '<span class="memory-entry__auto">自动整理</span>' : ''}
                         <span class="memory-entry__actions">
-                          <button class="memory-entry__action" type="button" aria-label="编辑记忆" data-edit-entry="${entry.id}">${icon('pencil-simple')}</button>
-                          <button class="memory-entry__action" type="button" aria-label="删除记忆" data-delete-entry="${entry.id}">${icon('trash-simple')}</button>
+                          <button class="memory-entry__action" type="button" aria-label="编辑记忆" data-edit-entry="${entry.id}">${uiIcon('pencil', { size: 15 })}</button>
+                          <button class="memory-entry__action" type="button" aria-label="删除记忆" data-delete-entry="${entry.id}">${uiIcon('trash', { size: 15 })}</button>
                         </span>
                       </div>
                       <p class="memory-entry__content">${escapeHTML(entry.content)}</p>
@@ -323,7 +325,7 @@ export function renderMemory({ characterId }) {
                   .join('')}
               </div>`
             : `<div class="memory-empty">
-                <span class="memory-empty__icon">${icon('brain')}</span>
+                <span class="memory-empty__icon">${uiIcon('archive', { size: 28 })}</span>
                 <p>${activeFilter === 'all' ? '还没有写下记忆。' : '这个分类还是空的。'}</p>
                 <button class="text-button" type="button" data-new-memory>写一条记忆</button>
               </div>`
@@ -387,6 +389,183 @@ export function renderMemory({ characterId }) {
       );
       if (entry) confirmDeleteEntry(character.id, entry, paint);
     }
+  });
+
+  paint();
+  return { element: screen };
+}
+
+/* --------------------------------------------------------------------------
+   收藏
+   从聊天设置 → 趣味进入。条目按时间排序，支持标题 / 内容实时搜索，
+   点开是还原当时对话的弹层。
+   -------------------------------------------------------------------------- */
+
+function favoriteTime(timestamp) {
+  const date = new Date(timestamp);
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function favoritePreview(favorite) {
+  const parts = favorite.messages
+    .map((message) => {
+      if (message.type === 'sticker') return '[表情]';
+      if (message.type === 'redpacket') return '[红包]';
+      return (message.content || '').trim();
+    })
+    .filter(Boolean);
+  return parts.slice(0, 3).join(' ／ ') || '没有文字内容';
+}
+
+function favoriteMessageMarkup(message) {
+  const mine = message.role === 'user';
+  let inner = `<span class="message-bubble__text">${escapeHTML(message.content || '')}</span>`;
+  if (message.type === 'sticker' && message.url) {
+    inner = `<img class="favorite-message__sticker" src="${escapeHTML(message.url)}" alt="${escapeHTML(message.name || '表情')}" loading="lazy">`;
+  } else if (message.type === 'redpacket') {
+    inner = `<span class="favorite-message__packet">${uiIcon('red-packet', { size: 14 })}红包 ¥${((message.amountFen || 0) / 100).toFixed(2)}</span>`;
+  }
+  return `<div class="favorite-message favorite-message--${mine ? 'user' : 'assistant'}"><div class="message-bubble message-bubble--${mine ? 'user' : 'assistant'}">${inner}</div></div>`;
+}
+
+export function renderFavorites({ characterId = '' } = {}) {
+  const screen = document.createElement('section');
+  screen.className = 'screen screen--favorites';
+
+  let query = '';
+  let order = 'desc';
+  let searchOpen = false;
+
+  const backTo = characterId ? `#/chat/${characterId}/settings` : '#/me';
+
+  screen.innerHTML = `
+    ${appHeader({
+      title: '收藏',
+      backTo,
+      action: `${iconButton({
+        name: 'magnifying-glass',
+        label: '搜索收藏',
+        action: 'data-favorites-search',
+      })}${iconButton({
+        name: 'arrows-down-up',
+        label: '切换时间排序',
+        action: 'data-favorites-sort',
+        className: 'favorites-sort',
+      })}`,
+    })}
+    <main class="page-scroll">
+      <div class="page-content page-content--favorites">
+        <label class="favorites-search" data-favorites-searchbar hidden>
+          <span>${uiIcon('search', { size: 16 })}</span>
+          <input type="search" data-favorites-query placeholder="搜索标题或内容" aria-label="搜索收藏" autocomplete="off">
+          <button class="favorites-search__clear" type="button" data-favorites-clear aria-label="清空搜索">${uiIcon('x', { size: 14 })}</button>
+        </label>
+        <div class="favorites-list" data-favorites-list></div>
+      </div>
+    </main>`;
+
+  const list = screen.querySelector('[data-favorites-list]');
+  const searchBar = screen.querySelector('[data-favorites-searchbar]');
+  const input = screen.querySelector('[data-favorites-query]');
+  const sortButton = screen.querySelector('.favorites-sort');
+
+  const visibleFavorites = () => {
+    const needle = query.trim().toLocaleLowerCase();
+    const items = getFavorites().filter((favorite) => {
+      if (!needle) return true;
+      const haystack = `${favorite.title} ${favorite.characterName} ${favorite.messages
+        .map((message) => message.content || '')
+        .join(' ')}`.toLocaleLowerCase();
+      return haystack.includes(needle);
+    });
+    return items
+      .slice()
+      .sort((a, b) =>
+        order === 'desc' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt,
+      );
+  };
+
+  const openFavorite = (favorite) => {
+    openSheet({
+      title: favorite.title,
+      description: `${favorite.characterName || '对方'} · ${favorite.messages.length} 条 · ${favoriteTime(favorite.createdAt)}`,
+      className: 'favorite-sheet',
+      content: `<div class="favorite-thread">${favorite.messages
+        .map(favoriteMessageMarkup)
+        .join('')}</div>`,
+      actions: `<button class="button button--secondary" type="button" data-favorite-remove>删除这条收藏</button>`,
+      onMount: (sheet) => {
+        sheet
+          .querySelector('[data-favorite-remove]')
+          .addEventListener('click', () => {
+            deleteFavorite(favorite.id);
+            closeActiveSheet({ immediate: true });
+            toast('收藏已删除');
+            paint();
+          });
+      },
+    });
+  };
+
+  const paint = () => {
+    sortButton.classList.toggle('is-asc', order === 'asc');
+    sortButton.setAttribute(
+      'aria-label',
+      order === 'desc' ? '当前按时间降序，点击切换' : '当前按时间升序，点击切换',
+    );
+    const items = visibleFavorites();
+    if (!items.length) {
+      list.innerHTML = `<div class="favorites-empty">
+        <span class="favorites-empty__icon">${uiIcon('bookmark', { size: 28 })}</span>
+        <h2>${query.trim() ? '没有匹配的收藏' : '还没有收藏'}</h2>
+        <p>${query.trim() ? '换个关键词试试。' : '长按一条消息，选「多选」，再点顶栏的收藏。'}</p>
+      </div>`;
+      return;
+    }
+    list.innerHTML = items
+      .map(
+        (favorite) => `<button class="favorite-card" type="button" data-favorite="${favorite.id}">
+          <span class="favorite-card__top">
+            <span class="favorite-card__title">${escapeHTML(favorite.title)}</span>
+            <time class="favorite-card__time">${favoriteTime(favorite.createdAt)}</time>
+          </span>
+          <span class="favorite-card__meta">${escapeHTML(favorite.characterName || '对方')} · ${favorite.messages.length} 条消息</span>
+          <span class="favorite-card__preview">${escapeHTML(favoritePreview(favorite))}</span>
+        </button>`,
+      )
+      .join('');
+  };
+
+  screen.addEventListener('click', (event) => {
+    if (event.target.closest('[data-favorites-search]')) {
+      searchOpen = !searchOpen;
+      searchBar.hidden = !searchOpen;
+      if (searchOpen) input.focus();
+      return;
+    }
+    if (event.target.closest('[data-favorites-sort]')) {
+      order = order === 'desc' ? 'asc' : 'desc';
+      paint();
+      return;
+    }
+    if (event.target.closest('[data-favorites-clear]')) {
+      query = '';
+      input.value = '';
+      paint();
+      input.focus();
+      return;
+    }
+    const card = event.target.closest('[data-favorite]');
+    if (card) {
+      const favorite = getFavorites().find((item) => item.id === card.dataset.favorite);
+      if (favorite) openFavorite(favorite);
+    }
+  });
+
+  input.addEventListener('input', () => {
+    query = input.value;
+    paint();
   });
 
   paint();

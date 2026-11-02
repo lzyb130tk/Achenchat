@@ -6,7 +6,7 @@ import {
 } from '../services/store.js';
 import { escapeHTML, firstNameMark } from '../services/utils.js';
 import { avatarField, setupAvatarField } from './avatar-field.js';
-import { icon } from './icons.js';
+import { uiIcon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
@@ -37,7 +37,7 @@ export function openMaskEditor({ mask = null, onSaved = null } = {}) {
           <textarea class="field__input field__textarea" name="maskPersona" rows="5" placeholder="你希望 AI 把你当作怎样的人？可以写性格、身份和相处方式。">${escapeHTML(mask?.persona || '')}</textarea>
         </span>
       </label>
-      ${isEdit && getMasks().length > 1 ? `<button class="text-button text-button--danger" type="button" data-delete-mask>${icon('trash-simple')}删除这个面具</button>` : ''}
+      ${isEdit && getMasks().length > 1 ? `<button class="text-button text-button--danger" type="button" data-delete-mask>${uiIcon('trash', { size: 15 })}删除这个面具</button>` : ''}
     </div>`,
     actions: `<button class="button button--primary" type="button" data-save-mask>保存</button>`,
     onMount: (sheet) => {

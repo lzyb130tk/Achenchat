@@ -1,5 +1,5 @@
 import { appHeader } from '../components/app-header.js';
-import { icon } from '../components/icons.js';
+import { icon, uiIcon } from '../components/icons.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import { addTag, deleteTag, getAllCharacters, getTags, updateTag } from '../services/store.js';
@@ -61,7 +61,7 @@ export function renderTags() {
     openSheet({
       title: '管理标签',
       content: `<label class="field"><span class="field__label">标签名称</span><span class="field__control"><input class="field__input" maxlength="12" value="${escapeHTML(tag.name)}" data-edit-tag-name></span></label>
-        <button class="text-button text-button--danger" type="button" data-delete-tag>${icon('trash-simple')}删除标签</button>`,
+        <button class="text-button text-button--danger" type="button" data-delete-tag>${uiIcon('trash', { size: 15 })}删除标签</button>`,
       actions: '<button class="button button--primary" type="button" data-save-tag>保存</button>',
       onMount: (sheet) => {
         const nameInput = sheet.querySelector('[data-edit-tag-name]');
