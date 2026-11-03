@@ -268,6 +268,8 @@ export const DEFAULT_CHAT_STYLE = {
   typingSpeed: 0.035,
   sendMode: 'single',
   composerStyle: 'default',
+  composerPlaceholder: '',
+  typingText: '',
   loadingStyle: 'bubble',
   messageGroup: 'group',
   messageGap: 4,

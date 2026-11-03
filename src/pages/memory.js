@@ -404,6 +404,7 @@ function favoriteMessageMarkup(message) {
 }
 
 export function renderFavorites({ characterId = '' } = {}) {
+  if (!getCharacter(characterId)) return null;
   const screen = document.createElement('section');
   screen.className = 'screen screen--favorites';
 
@@ -446,7 +447,7 @@ export function renderFavorites({ characterId = '' } = {}) {
 
   const visibleFavorites = () => {
     const needle = query.trim().toLocaleLowerCase();
-    const items = getFavorites().filter((favorite) => {
+    const items = getFavorites(characterId).filter((favorite) => {
       if (!needle) return true;
       const haystack = `${favorite.title} ${favorite.characterName} ${favorite.messages
         .map((message) => message.content || '')
@@ -473,7 +474,7 @@ export function renderFavorites({ characterId = '' } = {}) {
         sheet
           .querySelector('[data-favorite-remove]')
           .addEventListener('click', () => {
-            deleteFavorite(favorite.id);
+            deleteFavorite(favorite.id, characterId);
             closeActiveSheet({ immediate: true });
             toast('收藏已删除');
             paint();
@@ -532,7 +533,7 @@ export function renderFavorites({ characterId = '' } = {}) {
     }
     const card = event.target.closest('[data-favorite]');
     if (card) {
-      const favorite = getFavorites().find((item) => item.id === card.dataset.favorite);
+      const favorite = getFavorites(characterId).find((item) => item.id === card.dataset.favorite);
       if (favorite) openFavorite(favorite);
     }
   });

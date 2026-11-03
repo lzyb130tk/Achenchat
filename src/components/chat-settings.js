@@ -115,6 +115,7 @@ const VIEW_TITLES = {
   spark: '连续火花',
   reaction: '贴表情大小',
   about: '关于我',
+  text: '聊天提示文字',
 };
 
 export function applyChatStyle(screen, style) {
@@ -384,6 +385,12 @@ export function createChatSettingsPage({ character, style }) {
           <section class="chat-settings__group">
             <h3 class="chat-settings__group-label">互动</h3>
             <div class="chat-settings__list">
+              <button class="chat-settings__row" type="button" data-open-view="text">
+                <span class="chat-settings__row-icon">${uiIcon('textbox', { size: 18 })}</span>
+                <span class="chat-settings__row-label">聊天提示文字</span>
+                <span class="chat-settings__row-value">${current.composerPlaceholder || current.typingText ? '已自定义' : '默认'}</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
+              </button>
               <button class="chat-settings__row" type="button" data-open-view="stickers">
                 <span class="chat-settings__row-icon">${uiIcon('sticker', { size: 18 })}</span>
                 <span class="chat-settings__row-label">表情包</span>
@@ -411,7 +418,7 @@ export function createChatSettingsPage({ character, style }) {
               <button class="chat-settings__row" type="button" data-open-favorites>
                 <span class="chat-settings__row-icon">${uiIcon('bookmark', { size: 18 })}</span>
                 <span class="chat-settings__row-label">收藏</span>
-                <span class="chat-settings__row-value">${getFavoriteCount()} 条</span>
+                <span class="chat-settings__row-value">${getFavoriteCount(character.id)} 条</span>
                 <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </button>
             </div>
@@ -876,7 +883,30 @@ export function createChatSettingsPage({ character, style }) {
           <p class="settings-note">每天聊一句就会累积一天；今天或昨天有消息时火花才会保留。</p>`;
       };
 
+      const textMarkup = () => `
+        <p class="settings-note">只修改这段聊天的提示文字，留空则使用默认文字。</p>
+        <label class="field">
+          <span class="field__label">输入框提示</span>
+          <span class="field__control">
+            <input class="field__input" type="text" maxlength="80" data-composer-placeholder
+              placeholder="和${escapeHTML(character.name)}说点什么…" value="${escapeHTML(current.composerPlaceholder || '')}">
+          </span>
+        </label>
+        <label class="field">
+          <span class="field__label">正在输入提示</span>
+          <span class="field__control">
+            <input class="field__input" type="text" maxlength="80" data-typing-text
+              placeholder="正在输入" value="${escapeHTML(current.typingText || '')}">
+          </span>
+          <span class="field__hint">对方回复时显示，跟随「加载反馈」设置。</span>
+        </label>
+        <div class="button-row">
+          <button class="button button--secondary" type="button" data-reset-chat-text>恢复默认文字</button>
+          <button class="button button--secondary" type="button" data-save-chat-text>保存</button>
+        </div>`;
+
       const subviewMarkup = () => {
+        if (view === 'text') return textMarkup();
         if (view === 'send') return sendMarkup();
         if (view === 'composer') return composerMarkup();
         if (view === 'speed') return speedMarkup();
@@ -1319,6 +1349,23 @@ export function createChatSettingsPage({ character, style }) {
             notify({ timeAwareness: enabled });
             paint();
             toast(enabled ? '时间感知已开启' : '时间感知已关闭');
+          });
+          return;
+        }
+
+        if (view === 'text') {
+          content.querySelector('[data-save-chat-text]').addEventListener('click', () => {
+            notify({
+              composerPlaceholder: content.querySelector('[data-composer-placeholder]').value,
+              typingText: content.querySelector('[data-typing-text]').value,
+            });
+            paint();
+            toast('提示文字已保存');
+          });
+          content.querySelector('[data-reset-chat-text]').addEventListener('click', () => {
+            notify({ composerPlaceholder: '', typingText: '' });
+            paint();
+            toast('已恢复默认文字');
           });
           return;
         }

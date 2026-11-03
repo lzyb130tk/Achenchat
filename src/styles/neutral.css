@@ -111,9 +111,25 @@ html[data-glass] .screen--chat .chat-composer__send.is-receive {
   box-shadow: none;
 }
 
-.chat-header__typing,
+.chat-header__typing {
+  color: #2f9a68;
+  min-width: 0;
+  max-width: 100%;
+}
+
 html[data-theme="dark"] .chat-header__typing {
-  color: var(--color-ink-secondary);
+  color: #5cc493;
+}
+
+.chat-header__typing-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-header__typing-dots {
+  flex-shrink: 0;
 }
 
 /* Context menus match a single soft panel with full-width action rows. */

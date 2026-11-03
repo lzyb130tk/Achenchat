@@ -87,7 +87,7 @@ function chatHeader(character, status, style, streak) {
           <span class="status-dot status-dot--accent"></span>
           <span data-chat-status>${escapeHTML(status || '在你身边')}</span>
           <span class="chat-header__typing" data-chat-typing>
-            <span class="chat-header__typing-label">正在输入</span>
+            <span class="chat-header__typing-label">${escapeHTML(style.typingText || '正在输入')}</span>
             <span class="chat-header__typing-dots"><i></i><i></i><i></i></span>
           </span>
         </span>
@@ -1067,6 +1067,7 @@ export function renderChat({ characterId, refresh }) {
     hasConfig: hasApiConfig(),
     sendMode: chatStyle.sendMode,
     composerStyle: chatStyle.composerStyle,
+    composerPlaceholder: chatStyle.composerPlaceholder,
     sentCount: 0,
     onCompose: () => scrollToBottom(true),
     onConfigure: () => {

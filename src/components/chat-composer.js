@@ -11,6 +11,7 @@ export function createChatComposer({
   sendMode = 'single',
   sentCount = 0,
   composerStyle = 'default',
+  composerPlaceholder = '',
   onSend,
   onStop,
   onConfigure,
@@ -63,7 +64,6 @@ export function createChatComposer({
           class="chat-composer__input"
           rows="1"
           maxlength="2000"
-          placeholder="和${characterName}说点什么…"
           aria-label="消息内容"
           enterkeyhint="send"
         ></textarea>
@@ -75,6 +75,7 @@ export function createChatComposer({
     </div>`;
 
   const input = element.querySelector('.chat-composer__input');
+  input.placeholder = composerPlaceholder || `和${characterName}说点什么…`;
   const sendButton = element.querySelector('[data-send]');
   const sendIcon = element.querySelector('[data-send-icon]');
   const sendBadge = element.querySelector('[data-send-badge]');

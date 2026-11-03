@@ -139,6 +139,8 @@ function createChatStyle(raw = {}) {
     typingSpeed: Math.round(Math.min(0.12, Math.max(0.005, speed)) * 1000) / 1000,
     sendMode: raw.sendMode === 'multi' ? 'multi' : 'single',
     composerStyle: raw.composerStyle === 'raised' ? 'raised' : 'default',
+    composerPlaceholder: text(raw.composerPlaceholder).trim().slice(0, 80),
+    typingText: text(raw.typingText).trim().slice(0, 80),
     loadingStyle: raw.loadingStyle === 'header' ? 'header' : 'bubble',
     messageGroup: raw.messageGroup === 'each' ? 'each' : 'group',
     messageGap: Math.min(16, Math.max(0, Math.round(finite(raw.messageGap, DEFAULT_CHAT_STYLE.messageGap)))),
@@ -651,7 +653,13 @@ function normalizeFavorite(raw) {
 
 function normalizeFavorites(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.map(normalizeFavorite).filter(Boolean).slice(-300);
+  const counts = new Map();
+  return raw.map(normalizeFavorite).filter((favorite) => {
+    if (!favorite) return false;
+    const count = (counts.get(favorite.characterId) || 0) + 1;
+    counts.set(favorite.characterId, count);
+    return count <= 300;
+  });
 }
 
 function normalizeShop(raw) {
@@ -1753,15 +1761,17 @@ export function deleteBubblePreset(id) {
   return true;
 }
 
-export function getFavorites() {
-  return state.favorites;
+export function getFavorites(characterId) {
+  if (!characterId) return [];
+  return state.favorites.filter((favorite) => favorite.characterId === characterId);
 }
 
-export function getFavoriteCount() {
-  return state.favorites.length;
+export function getFavoriteCount(characterId) {
+  return getFavorites(characterId).length;
 }
 
 export function addFavorite({ title, characterId, characterName, messages }) {
+  if (typeof characterId !== 'string' || !characterId.trim()) return null;
   const favorite = normalizeFavorite({
     id: makeId('favorite'),
     title,
@@ -1772,13 +1782,19 @@ export function addFavorite({ title, characterId, characterName, messages }) {
   });
   if (!favorite) return null;
   state.favorites.unshift(favorite);
-  if (state.favorites.length > 300) state.favorites.length = 300;
+  let count = 0;
+  state.favorites = state.favorites.filter(
+    (item) => item.characterId !== characterId || ++count <= 300,
+  );
   persist();
   return favorite;
 }
 
-export function deleteFavorite(id) {
-  const index = state.favorites.findIndex((item) => item.id === id);
+export function deleteFavorite(id, characterId) {
+  if (!characterId) return false;
+  const index = state.favorites.findIndex(
+    (item) => item.id === id && item.characterId === characterId,
+  );
   if (index < 0) return false;
   state.favorites.splice(index, 1);
   persist();
