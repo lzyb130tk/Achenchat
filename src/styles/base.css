@@ -135,6 +135,11 @@ h3 {
 }
 
 .status-bar {
+  --statusbar-off: color-mix(in srgb, currentColor 26%, transparent);
+  --statusbar-battery-track: color-mix(in srgb, currentColor 18%, transparent);
+  --statusbar-battery-low: #ff3b30;
+  --statusbar-battery-text: var(--color-bg);
+
   position: absolute;
   z-index: 150;
   top: 0;
@@ -163,29 +168,29 @@ h3 {
 .status-bar__signals {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
-.status-bar__signal,
+.status-bar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: inherit;
+}
+
+.status-bar__icon--battery-wide {
+  width: 26px;
+}
+
+.status-bar__icon svg {
+  display: block;
+}
+
 .status-bar__battery {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-}
-
-.status-bar__signal .ph {
-  font-size: 1.1rem;
-}
-
-.status-bar__battery .ph {
-  font-size: 1.22rem;
-}
-
-.status-bar__battery span {
-  min-width: 32px;
-  font-size: 0.75rem;
-  font-weight: var(--weight-medium);
-  text-align: right;
 }
 
 .screen {
