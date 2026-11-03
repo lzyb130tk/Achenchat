@@ -94,6 +94,27 @@
   --color-danger-soft:   #f0e5e0;
   --color-danger-contrast: #ffffff;
 
+  /* ============ 功能性语义色 ============ */
+  --color-typing:         #4a6b54;
+  --color-status-success: #4a6b54;
+  --color-status-danger:  #a8503c;
+  --color-packet:         #a8503c;
+  --color-packet-deep:    #8f4334;
+  --color-packet-ink:     #fff7ef;
+
+  /* ============ 暖色（头像 / 便签 / 小店） ============ */
+  --color-warm-ink:       #2d2b25;
+  --color-warm-ink-muted: #a9a496;
+  --color-warm-surface:   #efebe7;
+  --color-avatar-warm:     #f2dfd2;
+  --color-avatar-warm-ink: #7a4a35;
+  --color-shop-tint:      #f3ece6;
+
+  /* rgba(var(--x-rgb), alpha) 阴影/遮罩基色 */
+  --ink-cool-rgb: 20, 20, 25;
+  --ink-warm-rgb: 45, 43, 37;
+  --cream-rgb: 255, 247, 239;
+
   /* ============ 其它表面 ============ */
   --color-backdrop: #e9e7e3;
   --color-nav:      #faf9f7;

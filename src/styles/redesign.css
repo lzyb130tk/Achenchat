@@ -7391,7 +7391,7 @@ html[data-theme="dark"] .screen--chat :is(.chat-header__back, .chat-header__acti
 .sticker-new__upload {
   background: transparent;
   color: var(--color-ink);
-  /* border: 1px solid var(--color-line-strong); */
+  border: 1px solid var(--color-line-strong);
   box-shadow: none;
 }
 
