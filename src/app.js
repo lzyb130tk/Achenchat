@@ -109,6 +109,11 @@ function renderCurrent({ isRefresh = false } = {}) {
   activePage = page;
   const view = document.getElementById('view');
   view.replaceChildren(page.element);
+  page.element.classList.toggle('is-refresh', isRefresh);
+  if (!isRefresh) {
+    const isTab = /^\/(messages|contacts|discover|me)$/.test(path);
+    page.element.classList.add(isTab ? 'screen-enter--tab' : 'screen-enter--push');
+  }
 
   const character = match ? getCharacter(match[1]) : null;
   const title = route.title || character?.name;

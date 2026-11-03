@@ -66,7 +66,6 @@ export function renderMessages({ refresh }) {
             </div>
             <p class="messages-search-empty" data-search-empty hidden>没有找到相关对话</p>`
           : ''}
-        <p class="messages-privacy">聊天记录保存在本机，回复由你配置的 AI 服务处理</p>
       </div>
     </main>
     ${bottomNav('messages')}`;

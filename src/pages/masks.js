@@ -5,7 +5,6 @@ import { openMaskEditor } from '../components/mask-editor.js';
 import { toast } from '../components/toast.js';
 import {
   getActiveMask,
-  getMaskConversationCount,
   getMasks,
   setActiveMask,
 } from '../services/store.js';
@@ -29,11 +28,6 @@ export function renderMasks({ refresh }) {
     })}
     <main class="page-scroll">
       <div class="page-content page-content--masks">
-        <section class="masks-intro">
-          <span class="masks-intro__icon">${uiIcon('mask', { size: 22 })}</span>
-          <div><h2>换一种身份聊天</h2><p>面具会改变 AI 对你的称呼，也会进入对话设定。</p><span class="masks-intro__note">${uiIcon('mask', { size: 12 })}仅影响之后使用该面具的对话</span></div>
-        </section>
-        <h2 class="masks-section-title">我的面具 · ${masks.length}</h2>
         <div class="mask-list">
           ${masks
             .map(
@@ -43,21 +37,17 @@ export function renderMasks({ refresh }) {
                   <span class="mask-row__copy">
                     <span class="mask-row__name">${escapeHTML(mask.name)}${mask.id === active.id ? '<span class="mask-row__badge">当前</span>' : ''}</span>
                     <span class="mask-row__meta">${escapeHTML(mask.signature || mask.persona || '还没有写下人设。')}</span>
-                    <span class="mask-row__usage">${uiIcon('chat', { size: 12 })}在 ${getMaskConversationCount(mask.id)} 段对话中使用</span>
                   </span>
                 </button>
                 <button class="icon-button icon-button--small" type="button" aria-label="编辑${escapeHTML(mask.name)}" data-edit-mask="${mask.id}">${uiIcon('pencil', { size: 15 })}</button>
-                <span class="mask-row__chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </div>`,
             )
             .join('')}
         </div>
         <button class="masks-create" type="button" data-new-mask>
-          <span class="masks-create__icon">${uiIcon('plus', { size: 20 })}</span>
-          <span><strong>创建新面具</strong><small>为不同故事准备不同身份</small></span>
-          ${uiIcon('chevron-right', { size: 15 })}
+          ${uiIcon('plus', { size: 15 })}
+          <span>新建面具</span>
         </button>
-        <p class="masks-footnote">${uiIcon('info', { size: 13 })}切换面具不会修改已发送的消息内容</p>
       </div>
     </main>`;
 

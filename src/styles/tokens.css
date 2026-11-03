@@ -1,165 +1,196 @@
 :root {
   color-scheme: light;
 
+  /* ============ 字体 ============ */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
-  --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei UI", sans-serif;
+  --font-display: var(--font-sans);
 
-  --text-2xs: 0.6875rem;
-  --text-xs: 0.75rem;
-  --text-sm: 0.8125rem;
-  --text-md: 0.875rem;
-  --text-body: 0.9375rem;
-  --text-lg: 1.0625rem;
-  --text-xl: 1.3125rem;
-  --text-2xl: 1.75rem;
-  --text-display: 2.125rem;
+  /* ============ 字号（6 档，强制走 tokens） ============ */
+  --text-xs:   12px;
+  --text-sm:   13px;
+  --text-md:   14px;
+  --text-body: 15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  26px;
+  --text-display: 34px;
 
-  --leading-tight: 1.2;
-  --leading-snug: 1.45;
-  --leading-body: 1.65;
+  /* 兼容旧变量名（已废弃，保留映射） */
+  --text-2xs: var(--text-xs);
 
-  --weight-regular: 400;
-  --weight-medium: 500;
+  /* ============ 行高 ============ */
+  --leading-tight: 1.3;
+  --leading-snug:  1.45;
+  --leading-body:  1.6;
+
+  /* ============ 字重 ============ */
+  --weight-regular:  400;
+  --weight-medium:   500;
   --weight-semibold: 600;
 
-  --tracking-tight: -0.025em;
-  --tracking-wide: 0.08em;
+  /* ============ 字距（中文不用负字距） ============ */
+  --tracking-tight: 0;
+  --tracking-wide:  0.04em;
 
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-7: 32px;
-  --space-8: 40px;
-  --space-9: 48px;
+  /* ============ 间距（4px 基数） ============ */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
   --space-10: 64px;
 
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-xl: 22px;
-  --radius-2xl: 26px;
+  /* ============ 圆角（4 档） ============ */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
   --radius-full: 999px;
 
+  /* 兼容旧变量名（已废弃，保留映射） */
+  --radius-xs:  var(--radius-sm);
+  --radius-2xl: var(--radius-lg);
+
+  /* ============ 布局 ============ */
   --header-height: 54px;
-  --nav-height: 60px;
+  --nav-height:    60px;
   --statusbar-height: calc(40px + env(safe-area-inset-top));
-  /* Reserve gesture-bar space even in WebViews that report a zero inset. */
   --bottom-safe-space: max(24px, env(safe-area-inset-bottom, 0px));
 
-  /* Neutral grey and white, with colour reserved for meaningful content. */
-  --color-bg: #f7f7f7;
-  --color-surface: #ffffff;
-  --color-surface-muted: #eeeeee;
-  --color-surface-soft: #f2f2f2;
-  --color-ink: #262626;
-  --color-ink-secondary: #707070;
-  --color-ink-tertiary: #828282;
-  --color-line: #e8e8e8;
-  --color-line-strong: #d6d6d6;
-  --color-accent: #646464;
-  --color-accent-strong: #404040;
-  --color-accent-soft: #eeeeee;
+  /* ============ 中性灰（暖灰，不偏蓝） ============ */
+  --color-bg:            #f7f6f4;
+  --color-surface:       #ffffff;
+  --color-surface-soft:  #f1efec;
+  --color-surface-muted: #e8e6e2;
+
+  --color-ink:           #1a1a1c;
+  --color-ink-secondary: #6b6b70;
+  --color-ink-tertiary:  #a8a8ad;
+
+  --color-line:        #e5e3df;
+  --color-line-strong: #d0cdc7;
+
+  /* ============ 主色 = 不是黑的黑 ============ */
+  --color-accent:          #2a2a2e;
+  --color-accent-strong:   #1a1a1c;
+  --color-accent-soft:     #ebeae7;
   --color-accent-contrast: #ffffff;
-  --color-positive: #696e70;
-  --color-danger: #98666c;
-  --color-danger-soft: #f1e9eb;
+
+  /* ============ 主按钮 = 实色墨黑 ============ */
+  --color-action:      #1f1f22;
+  --color-action-ink:  #ffffff;
+
+  /* ============ 语义色（低饱和） ============ */
+  --color-positive:      #4a6b54;
+  --color-positive-soft: #e3eae4;
+  --color-warning:       #a8703c;
+  --color-warning-soft:  #f1e8db;
+  --color-danger:        #a8503c;
+  --color-danger-soft:   #f0e5e0;
   --color-danger-contrast: #ffffff;
-  --color-action: rgb(210, 210, 210, 0.56);
-  --color-action-ink: #ffffff;
-  --color-backdrop: #e9e9e9;
-  --color-nav: #fafafa;
-  --color-overlay: rgba(25, 25, 30, 0.44);
-  --color-hero: #303034;
-  --color-hero-soft: #45454b;
-  --color-hero-ink: #f5f5f7;
-  --color-hero-muted: rgba(245, 245, 247, 0.66);
 
+  /* ============ 其它表面 ============ */
+  --color-backdrop: #e9e7e3;
+  --color-nav:      #faf9f7;
+  --color-overlay:  rgba(20, 20, 25, 0.45);
+  --color-hero:        #2a2a2e;
+  --color-hero-soft:   #3a3a40;
+  --color-hero-ink:    #f5f5f7;
+  --color-hero-muted:  rgba(245, 245, 247, 0.66);
+
+  /* ============ 阴影（3 档，只给悬浮元素） ============ */
   --shadow-card: none;
-  --shadow-sm: 0 1px 2px rgba(25, 25, 30, 0.035);
-  --shadow-md: 0 4px 12px -4px rgba(25, 25, 30, 0.08);
-  --shadow-lg: 0 16px 40px -12px rgba(25, 25, 30, 0.16);
+  --shadow-sm: 0 1px 2px rgba(20, 20, 25, 0.04);
+  --shadow-md: 0 4px 16px -4px rgba(20, 20, 25, 0.08);
+  --shadow-lg: 0 12px 32px -8px rgba(20, 20, 25, 0.16);
 
+  /* ============ 玻璃（只给悬浮 chrome） ============ */
   --glass-blur: 18px;
-  --glass-bg: color-mix(in srgb, var(--color-surface) 68%, transparent);
-
-  /* Soft frosted surfaces without specular edges or saturated highlights. */
-  --glass-fill: rgba(255, 255, 255, 0.88);
+  --glass-bg: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  --glass-fill: rgba(255, 255, 255, 0.86);
   --glass-fill-strong: rgba(255, 255, 255, 0.94);
   --glass-edge: transparent;
-  --glass-rim: rgba(25, 25, 30, 0.07);
-  --glass-shadow-dock: 0 4px 16px rgba(25, 25, 30, 0.07);
-  --glass-shadow-card: 0 2px 8px rgba(25, 25, 30, 0.04);
-  --nav-pill: rgba(0, 0, 0, 0.045);
+  --glass-rim: rgba(20, 20, 25, 0.06);
+  --glass-shadow-dock: 0 4px 16px rgba(20, 20, 25, 0.08);
+  --glass-shadow-card: 0 2px 8px rgba(20, 20, 25, 0.04);
+  --nav-pill: rgba(20, 20, 25, 0.05);
 
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* ============ 动效 ============ */
+  --ease-out:      cubic-bezier(0.22, 1, 0.36, 1);
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration-fast: 160ms;
   --duration-base: 260ms;
   --duration-slow: 480ms;
 
-  --z-nav: 20;
+  /* ============ 层级 ============ */
+  --z-nav:   20;
   --z-sheet: 100;
   --z-toast: 200;
+
+  /* ============ 列表行高度（3 档） ============ */
+  --row-sm: 44px;
+  --row-md: 56px;
+  --row-lg: 72px;
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-bg: #171717;
-  --color-surface: #242424;
-  --color-surface-muted: #363636;
-  --color-surface-soft: #2d2d2d;
-  --color-ink: #f2f2f2;
-  --color-ink-secondary: #b8b8b8;
-  --color-ink-tertiary: #969696;
-  --color-line: #383838;
-  --color-line-strong: #505050;
-  --color-accent: #c4c4c4;
-  --color-accent-strong: #e2e2e2;
-  --color-accent-soft: rgba(192, 192, 200, 0.16);
-  --color-accent-contrast: #242424;
-  --color-positive: #b2b5b6;
-  --color-danger: #c99ca2;
-  --color-danger-soft: rgba(201, 156, 162, 0.14);
-  --color-danger-contrast: #242424;
-  --color-action: #e5e5e5;
-  --color-action-ink: #242424;
-  --color-backdrop: #111111;
-  --color-nav: #1d1d1d;
-  --color-overlay: rgba(0, 0, 0, 0.62);
-  --color-hero: #242428;
-  --color-hero-soft: #383838;
-  --color-hero-ink: #f3f3f6;
-  --color-hero-muted: rgba(243, 243, 246, 0.66);
+  --color-bg:            #171715;
+  --color-surface:       #232220;
+  --color-surface-soft:  #2b2a27;
+  --color-surface-muted: #353330;
+
+  --color-ink:           #f2f1ee;
+  --color-ink-secondary: #b3b1ac;
+  --color-ink-tertiary:  #807e79;
+
+  --color-line:        #36342f;
+  --color-line-strong: #4a4842;
+
+  --color-accent:          #e8e6e2;
+  --color-accent-strong:   #f5f4f1;
+  --color-accent-soft:     rgba(232, 230, 226, 0.12);
+  --color-accent-contrast: #1a1a1c;
+
+  --color-action:      #e8e6e2;
+  --color-action-ink:  #1a1a1c;
+
+  --color-positive:      #8ba892;
+  --color-positive-soft: rgba(139, 168, 146, 0.16);
+  --color-warning:       #d4a06a;
+  --color-warning-soft:  rgba(212, 160, 106, 0.16);
+  --color-danger:        #d08a7a;
+  --color-danger-soft:   rgba(208, 138, 122, 0.16);
+  --color-danger-contrast: #1a1a1c;
+
+  --color-backdrop: #0e0e0d;
+  --color-nav:      #1c1b1a;
+  --color-overlay:  rgba(0, 0, 0, 0.62);
+  --color-hero:        #2a2a2e;
+  --color-hero-soft:   #3a3a40;
+  --color-hero-ink:    #f5f5f7;
+  --color-hero-muted:  rgba(245, 245, 247, 0.66);
 
   --shadow-card: none;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 12px -4px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 16px 40px -12px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.36);
 
-  --glass-fill: rgba(40, 40, 40, 0.88);
-  --glass-fill-strong: rgba(44, 44, 44, 0.94);
+  --glass-fill: rgba(40, 39, 36, 0.88);
+  --glass-fill-strong: rgba(44, 43, 40, 0.94);
   --glass-edge: transparent;
-  --glass-rim: rgba(0, 0, 0, 0.45);
-  --glass-shadow-dock: 0 6px 20px -6px rgba(0, 0, 0, 0.28);
+  --glass-rim: rgba(0, 0, 0, 0.4);
+  --glass-shadow-dock: 0 6px 20px -6px rgba(0, 0, 0, 0.32);
   --glass-shadow-card: 0 4px 14px -4px rgba(0, 0, 0, 0.24);
-  --nav-pill: rgba(255, 255, 255, 0.1);
+  --nav-pill: rgba(255, 255, 255, 0.08);
 }
 
-html[data-font-size="sm"] {
-  font-size: 15px;
-}
-
-html[data-font-size="md"] {
-  font-size: 16px;
-}
-
-html[data-font-size="lg"] {
-  font-size: 17.5px;
-}
+html[data-font-size="sm"] { font-size: 15px; }
+html[data-font-size="md"] { font-size: 16px; }
+html[data-font-size="lg"] { font-size: 17.5px; }

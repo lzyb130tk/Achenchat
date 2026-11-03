@@ -79,7 +79,6 @@ export function renderContacts({ refresh, match }) {
           </button>
         </div>
         <div data-contact-body></div>
-        <div class="contacts-footer-note" aria-hidden="true">${icon('chats-circle')}<span>新的相遇，会从这里开始</span></div>
       </div>
     </main>
     ${bottomNav('contacts')}`;

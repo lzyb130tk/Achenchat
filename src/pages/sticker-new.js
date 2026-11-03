@@ -31,8 +31,7 @@ export function renderStickerNew({ focusLinks = false } = {}) {
             <div class="sticker-new__form">
               <label class="field"><span class="field__label">名称</span><span class="field__control"><input class="field__input" name="packName" maxlength="20" value="${escapeHTML(name)}" placeholder="例如：猫猫日常"></span></label>
               <label class="field"><span class="field__label">图片链接</span><span class="field__control field__control--area"><textarea class="field__input field__textarea" name="packUrls" rows="6" spellcheck="false" placeholder="https://example.com/1.png&#10;https://example.com/2.png">${escapeHTML(urlText)}</textarea></span></label>
-              <p class="sticker-new__hint">${icon('info')}支持 http 或 https 图片地址 · 每行一个</p>
-              <button class="sticker-new__upload" type="button" data-upload-stickers>${icon('image')}从相册选择</button>
+                            <button class="sticker-new__upload" type="button" data-upload-stickers>${icon('image')}从相册选择</button>
               <input type="file" accept="image/*" multiple data-sticker-files hidden>
               ${localImages.length ? `<p class="sticker-new__selected">已从相册选择 ${localImages.length} 张图片</p>` : ''}
             </div>` : `

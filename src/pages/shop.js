@@ -136,11 +136,8 @@ export function renderShop({ refresh }) {
     <main class="page-scroll">
       <div class="page-content page-content--shop">
         <section class="shop-store shop-store--${type.tone}">
-          <span class="shop-store__wash" aria-hidden="true"></span>
-          ${type.id === 'flower' ? '<img class="shop-store__flowers" src="src/assets/shop-flowers.png" alt="" aria-hidden="true">' : ''}
           <span class="shop-store__icon">${icon(type.icon)}</span>
           <div class="shop-store__copy">
-            <span class="shop-store__eyebrow">营业中</span>
             <h2>${escapeHTML(type.name)}</h2>
             <p>${escapeHTML(type.blurb)}</p>
           </div>

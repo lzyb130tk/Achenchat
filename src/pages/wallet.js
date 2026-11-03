@@ -35,9 +35,7 @@ export function renderWallet({ refresh } = {}) {
     <main class="page-scroll">
       <div class="page-content page-content--wallet">
         <section class="wallet-card">
-          <span class="wallet-card__label">${icon('wallet')}零钱余额</span>
           <strong class="wallet-card__amount">${formatMoney(wallet.balanceFen)}</strong>
-          <p>红包往来和小店工资，都存放在这里。</p>
           <div class="wallet-card__actions">
             <button class="button button--primary" type="button" data-wallet-topup>充值</button>
             <button class="button button--secondary" type="button" data-wallet-transfer>转出</button>
@@ -65,7 +63,6 @@ export function renderWallet({ refresh } = {}) {
               : `<p class="settings-empty__text">还没有零钱记录。</p>`
           }
         </section>
-        <p class="wallet-privacy">${icon('shield-check')}资金记录仅保存在你的设备上 · 演示零钱不涉及真实支付</p>
       </div>
     </main>`;
   screen.querySelector('[data-wallet-ledger]').addEventListener('click', () => {

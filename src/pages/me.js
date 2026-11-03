@@ -49,7 +49,7 @@ export function renderMe({ refresh }) {
             </a>
           </div>
           <button class="profile-card__edit" type="button" data-edit-profile>
-            ${uiIcon('pencil', { size: 14 })}<span>编辑资料</span>
+            ${uiIcon('pencil', { size: 14 })}<span></span>
           </button>
         </section>
         ${settingsGroup({

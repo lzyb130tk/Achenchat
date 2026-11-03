@@ -20,8 +20,7 @@ export function renderTags() {
         </div>
         <h2 class="tags-heading" data-tags-heading></h2>
         <div class="tags-list" data-tags-list></div>
-        <p class="tags-footnote">删除标签不会删除伙伴</p>
-      </div>
+              </div>
     </main>`;
 
   const input = screen.querySelector('[data-tag-name]');

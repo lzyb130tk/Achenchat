@@ -243,8 +243,7 @@ export function renderStickers({ refresh }) {
                   <button class="button button--primary stickers-empty__create" type="button" data-empty-add>${uiIcon('plus', { size: 16 })}创建表情包</button>
                   <button class="stickers-empty__link" type="button" data-link-import>从链接导入</button>
                 </div>
-                <p class="stickers-empty__tip">${icon('sparkle')}<span>为表情包起一个清楚的名字，<br>AI 会更准确地使用它。</span></p>
-              </section>`
+                              </section>`
         }
       </div>
     </main>`;

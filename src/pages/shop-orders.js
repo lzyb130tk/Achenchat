@@ -38,8 +38,7 @@ export function renderShopOrders() {
                   </label>`).join('')}
                 </fieldset>`).join('')}
               </div>
-              <p class="orders-api-note">提交后将三道选择发送给你配置的 AI 服务评估，并将虚拟订单工资存入钱包。${hasApiConfig() ? '' : '请先到<a href="#/settings/api">API 配置</a>完成设置。'}</p>
-              <button class="button button--primary orders-submit" type="button" data-submit-orders>提交并结算</button>`}
+                            <button class="button button--primary orders-submit" type="button" data-submit-orders>提交并结算</button>`}
         </div>
       </main>`;
 

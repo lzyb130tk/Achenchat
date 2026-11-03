@@ -67,16 +67,16 @@ function openAboutSheet() {
 function openBackupSheet(refresh) {
   openSheet({
     title: '数据备份与导入',
-    description: '备份包含对话、聊天图片、面具、钱包与偏好，不包含 API 密钥。',
+    
     content: `<div class="action-list">
       <button class="action-row" type="button" data-export-backup>
         <span class="action-row__icon">${uiIcon('download', { size: 20 })}</span>
-        <span class="action-row__copy"><strong>导出备份</strong><small>ZIP 分模块保存对话与图片</small></span>
+        <span class="action-row__copy"><strong>导出备份</strong></span>
         <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
       <button class="action-row" type="button" data-import-backup>
         <span class="action-row__icon">${uiIcon('upload', { size: 20 })}</span>
-        <span class="action-row__copy"><strong>导入备份</strong><small>支持 ZIP，也兼容旧版 JSON</small></span>
+        <span class="action-row__copy"><strong>导入备份</strong></span>
         <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
     </div>
@@ -259,7 +259,6 @@ function openThemeSheet(refresh) {
     content: `<div class="theme-section">
         <h3 class="theme-section__title">预设</h3>
         <div class="theme-presets">${presetMarkup()}</div>
-        <p class="theme-note">调整颜色只覆盖主色与强调色，底色仍跟随所选预设。</p>
       </div>
       <div class="theme-section">
         <h3 class="theme-section__title">自定义</h3>
@@ -403,11 +402,11 @@ function openGlassSheet(refresh) {
 
   openSheet({
     title: '毛玻璃',
-    description: '顶栏、底栏和输入框使用半透明模糊；关闭后恢复纯色。',
+    
     content: `<label class="switch-row">
         <span class="switch-row__copy">
           <strong>开启毛玻璃</strong>
-          <small>顶栏与底栏共用同一层玻璃底色</small>
+          
         </span>
         <span class="switch">
           <input type="checkbox" data-glass-toggle${enabled ? ' checked' : ''} aria-label="开启毛玻璃">
@@ -521,7 +520,6 @@ export function renderSettings({ refresh }) {
               tone: 'danger',
             }),
           ].join(''),
-          extra: `<p class="settings-privacy-note">${icon('info')}聊天记录保存在本机，回复由你配置的 AI 服务处理</p>`,
         })}
         ${settingsGroup({
           label: '关于',

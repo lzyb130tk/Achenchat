@@ -74,7 +74,6 @@ export function renderApiConfig() {
           </div>
           <button class="button api-form__test" type="button" data-test-connection>${icon('wifi-high')}测试连接</button>
           <button class="button button--primary api-form__submit" type="submit">保存配置</button>
-          <p class="api-form__note">${icon('shield-check')}密钥仅保存在这台设备的 IndexedDB 中，不会上传到 Achat。</p>
         </form>
       </div>
     </main>`;

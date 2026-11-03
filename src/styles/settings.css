@@ -388,7 +388,7 @@
 .about-me-card__text {
   position: relative;
   z-index: 1;
-  color: #2d2b25;
+  color: var(--color-warm-ink);
   font-size: var(--text-body);
   line-height: 1.78;
   letter-spacing: 0.02em;
@@ -402,7 +402,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #a9a496;
+  color: var(--color-warm-ink-muted);
   font-size: var(--text-2xs);
   letter-spacing: 0.05em;
   padding-left: 6px;
@@ -431,7 +431,7 @@
   display: grid;
   margin-left: auto;
   place-items: center;
-  color: #a9a496;
+  color: var(--color-warm-ink-muted);
   opacity: 0.35;
   transition:
     opacity 0.22s ease,
@@ -553,7 +553,7 @@
 }
 
 .memory-card__auto {
-  color: #a9a496;
+  color: var(--color-warm-ink-muted);
   font-size: var(--text-2xs);
   letter-spacing: 0.04em;
 }
@@ -570,7 +570,7 @@
   height: 28px;
   place-items: center;
   border-radius: var(--radius-full);
-  color: #a9a496;
+  color: var(--color-warm-ink-muted);
   opacity: 0.4;
   transition:
     background-color 0.2s ease,
@@ -595,7 +595,7 @@
   position: relative;
   z-index: 1;
   padding-left: 6px;
-  color: #2d2b25;
+  color: var(--color-warm-ink);
   font-size: var(--text-sm);
   line-height: 1.72;
   letter-spacing: 0.015em;
