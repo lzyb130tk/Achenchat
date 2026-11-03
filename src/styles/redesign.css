@@ -5328,13 +5328,27 @@ html[data-glass="off"] .screen--chat :is(.chat-header__back, .chat-header__actio
   font-weight: 500;
 }
 /* =========================================================
-   最终视觉完美版：极浅灰色渐变 + 边缘渐隐遮罩（无生硬边界）
+   完美修正版：将渐变与模糊画在背后，绝不遮挡任何文字和头像
    ========================================================= */
 
-/* 1. 顶栏：恢复极浅灰色，加上渐隐遮罩，解决黑块和看不清的问题 */
+/* 1. 先清空顶栏容器本身的背景，确保它绝对干净透明 */
 .screen--chat .chat-header,
 html[data-glass="on"] .chat-header {
-  /* 浅色模式下的极浅灰/白渐变 */
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* 2. 用伪元素在「背后」画极浅渐变 + 模糊 + 边缘渐隐 */
+.screen--chat .chat-header::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;           /* 覆盖整个顶栏 */
+  z-index: -1 !important;        /* 【关键】沉到文字和头像的下方 */
+  pointer-events: none !important; /* 不阻挡点击 */
+  
+  /* 极浅的灰色渐变（平时几乎看不见） */
   background: linear-gradient(
     180deg, 
     rgba(20, 20, 25, 0.06) 0%, 
@@ -5342,20 +5356,17 @@ html[data-glass="on"] .chat-header {
     transparent 100%
   ) !important;
   
-  /* 加一点点模糊，让滚上去的字变柔和 */
-  -webkit-backdrop-filter: blur(10px) !important;
-  backdrop-filter: blur(10px) !important;
+  /* 施加模糊 */
+  -webkit-backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(12px) !important;
   
-  /* 【核心魔法】用遮罩把下半部分渐变透明，彻底消灭那个生硬的“方形边缘” */
-  -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%) !important;
-  mask-image: linear-gradient(180deg, #000 40%, transparent 100%) !important;
-  
-  box-shadow: none !important;
+  /* 用遮罩让这个“模糊块”的底部渐隐，消灭生硬的边界 */
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 100%) !important;
+  mask-image: linear-gradient(180deg, #000 30%, transparent 100%) !important;
 }
 
-/* 深色模式下的顶栏，自动适配浅白渐隐 */
-html[data-theme="dark"] .screen--chat .chat-header,
-html[data-theme="dark"][data-glass="on"] .chat-header {
+/* 深色模式下的伪元素适配 */
+html[data-theme="dark"] .screen--chat .chat-header::before {
   background: linear-gradient(
     180deg, 
     rgba(255, 255, 255, 0.08) 0%, 
@@ -5364,14 +5375,12 @@ html[data-theme="dark"][data-glass="on"] .chat-header {
   ) !important;
 }
 
-/* 2. 底栏大外壳：彻底关掉大面积的实时模糊（防止滑动卡顿和糊块） */
+/* 3. 底栏外壳：同样干掉大块模糊，用背景色托底 */
 .screen--chat .chat-composer,
 html[data-glass="on"] .chat-composer {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   box-shadow: none !important;
-  
-  /* 用和背景色相同的渐变来做托底，保证底部的文字不会穿透 */
   background: linear-gradient(
     0deg, 
     var(--color-bg) 50%, 
@@ -5380,11 +5389,9 @@ html[data-glass="on"] .chat-composer {
   ) !important;
 }
 
-/* 3. 确保最里面的输入框保留高级的毛玻璃质感 */
+/* 4. 保留你本来就觉得没问题的底部输入框玻璃质感 */
 html[data-glass="on"] .screen--chat .chat-composer__field {
   background: color-mix(in srgb, var(--color-surface) 70%, transparent) !important;
   -webkit-backdrop-filter: blur(18px) saturate(1.4) !important;
   backdrop-filter: blur(18px) saturate(1.4) !important;
-  /* 修复部分手机浏览器边缘发黑/发糊的渲染Bug */
-  -webkit-mask-image: -webkit-radial-gradient(white, black) !important;
 }
