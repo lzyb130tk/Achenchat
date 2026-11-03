@@ -5327,3 +5327,34 @@ html[data-glass="off"] .screen--chat :is(.chat-header__back, .chat-header__actio
   font-size: var(--text-md);
   font-weight: 500;
 }
+
+
+/* =========================================
+   终极修复：移除大容器（头部、底栏）的糊块，仅保留内部小部件的玻璃感
+   ========================================= */
+
+/* 1. 干掉头部外壳和底栏外壳的模糊，并强制背景透明 */
+html[data-glass="on"] .screen--chat .chat-header,
+html[data-glass="on"] .screen--chat .chat-composer,
+.screen--chat .chat-header,
+.screen--chat .chat-composer {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: transparent !important; /* 防止背景色叠加出黑框 */
+  box-shadow: none !important;
+}
+
+/* 2. 给头部重新加一个极其微弱的渐变遮罩（防止往上滑的文字和状态栏重叠看不清） */
+.screen--chat .chat-header {
+  background: linear-gradient(180deg, rgba(20, 20, 25, 0.08) 0%, transparent 100%) !important;
+}
+html[data-theme="dark"] .screen--chat .chat-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%) !important;
+}
+
+/* 3. 修复输入框内部的小细节（确保输入框本身发糊时边缘自然） */
+.screen--chat .chat-composer__field {
+  /* 修复安卓/苹果边缘渲染，保证只在这个圆角框内模糊 */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  transform: translateZ(0); 
+}
