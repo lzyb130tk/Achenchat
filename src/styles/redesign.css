@@ -5328,33 +5328,54 @@ html[data-glass="off"] .screen--chat :is(.chat-header__back, .chat-header__actio
   font-weight: 500;
 }
 
+/* =========================================================
+   终极修复：干掉大外壳的模糊脏块，保留清晰渐变与内部圆角玻璃
+   ========================================================= */
 
-/* =========================================
-   终极修复：移除大容器（头部、底栏）的糊块，仅保留内部小部件的玻璃感
-   ========================================= */
-
-/* 1. 干掉头部外壳和底栏外壳的模糊，并强制背景透明 */
+/* 1. 强行关闭外壳（顶栏、底栏）的模糊，解决滑动时一整块糊掉的 Bug */
 html[data-glass="on"] .screen--chat .chat-header,
 html[data-glass="on"] .screen--chat .chat-composer,
 .screen--chat .chat-header,
 .screen--chat .chat-composer {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  background: transparent !important; /* 防止背景色叠加出黑框 */
   box-shadow: none !important;
 }
 
-/* 2. 给头部重新加一个极其微弱的渐变遮罩（防止往上滑的文字和状态栏重叠看不清） */
+/* 2. 顶栏：恢复并加深原来的黑色渐变（从 5% 提升到 75%），确保滑动时看不清备注 */
 .screen--chat .chat-header {
-  background: linear-gradient(180deg, rgba(20, 20, 25, 0.08) 0%, transparent 100%) !important;
-}
-html[data-theme="dark"] .screen--chat .chat-header {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(20, 20, 25, 0.75) 0%,      /* 顶部加深，保证状态栏和名字清晰可见 */
+    rgba(20, 20, 25, 0.55) 45%,     /* 中间柔和过渡 */
+    rgba(20, 20, 25, 0.15) 80%,     /* 接近底部变淡 */
+    rgba(20, 20, 25, 0) 100%        /* 底部完全透明，和气泡自然融合 */
+  ) !important;
 }
 
-/* 3. 修复输入框内部的小细节（确保输入框本身发糊时边缘自然） */
-.screen--chat .chat-composer__field {
-  /* 修复安卓/苹果边缘渲染，保证只在这个圆角框内模糊 */
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  transform: translateZ(0); 
+html[data-theme="dark"] .screen--chat .chat-header {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.85) 0%,    
+    rgba(255, 255, 255, 0.65) 45%,   
+    rgba(255, 255, 255, 0.15) 80%,   
+    rgba(255, 255, 255, 0) 100%      
+  ) !important;
+}
+
+/* 3. 底栏：给底部一个背景色兜底，这样底下滚过去的聊天气泡就不会和输入框打架了 */
+.screen--chat .chat-composer {
+  background: linear-gradient(
+    0deg,
+    var(--color-bg) 40%,
+    color-mix(in srgb, var(--color-bg) 85%, transparent) 85%,
+    transparent 100%
+  ) !important;
+}
+
+/* 4. 确保内部真正的圆角输入框依然保留高级的玻璃模糊效果 */
+html[data-glass="on"] .screen--chat .chat-composer__field {
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.6) !important;
+  backdrop-filter: blur(18px) saturate(1.6) !important;
 }
