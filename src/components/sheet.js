@@ -43,7 +43,7 @@ export function openSheet({
   layer.className = 'sheet-layer';
   layer.innerHTML = `
     <button class="sheet-backdrop" type="button" data-sheet-close aria-label="关闭"></button>
-    <section class="sheet ${className}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+    <section class="sheet ${className || (!content.trim() && actions ? 'alert-dialog' : '')}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
       <div class="sheet__grip" aria-hidden="true"></div>
       <header class="sheet__header">
         <div class="sheet__heading">

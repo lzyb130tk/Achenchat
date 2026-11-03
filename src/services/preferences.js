@@ -22,36 +22,36 @@ export const COLOR_MODE_LABELS = Object.fromEntries(
    Theme colours
    -------------------------------------------------------------------------- */
 
-export const DEFAULT_PRIMARY_COLOR = '#3b332c';
-export const DEFAULT_ACCENT_COLOR = '#9f4a34';
+export const DEFAULT_PRIMARY_COLOR = '#444449';
+export const DEFAULT_ACCENT_COLOR = '#646464';
 
 export const THEME_PRESETS = [
   {
     id: 'default',
-    name: '暖陶土',
+    name: '灰白',
     meta: '默认',
     primary: DEFAULT_PRIMARY_COLOR,
     accent: DEFAULT_ACCENT_COLOR,
     surfaces: {
       light: {
-        bg: '#f5f1e8',
-        surface: '#fffdf9',
-        soft: '#efe9df',
-        muted: '#e7dfd3',
-        line: '#e4dcd0',
-        lineStrong: '#d2c7b8',
-        nav: '#fbf7f0',
-        backdrop: '#e7e0d5',
+        bg: '#f7f7f7',
+        surface: '#ffffff',
+        soft: '#f2f2f2',
+        muted: '#eeeeee',
+        line: '#e8e8e8',
+        lineStrong: '#d6d6d6',
+        nav: '#fafafa',
+        backdrop: '#e9e9e9',
       },
       dark: {
-        bg: '#151110',
-        surface: '#1e1a17',
-        soft: '#231f1b',
-        muted: '#2b2621',
-        line: '#302a24',
-        lineStrong: '#413931',
-        nav: '#171310',
-        backdrop: '#0b0908',
+        bg: '#171717',
+        surface: '#242424',
+        soft: '#2d2d2d',
+        muted: '#363636',
+        line: '#383838',
+        lineStrong: '#505050',
+        nav: '#1d1d1d',
+        backdrop: '#111111',
       },
     },
   },

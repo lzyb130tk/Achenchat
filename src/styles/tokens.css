@@ -49,53 +49,53 @@
   --header-height: 54px;
   --nav-height: 60px;
   --statusbar-height: calc(40px + env(safe-area-inset-top));
+  /* Reserve gesture-bar space even in WebViews that report a zero inset. */
+  --bottom-safe-space: max(24px, env(safe-area-inset-bottom, 0px));
 
-  /* Warm stationery ramp: parchment ground, ivory cards, espresso ink and a
-     single herb-and-terracotta accent. Neutrals stay slightly tinted so the
-     UI never falls back to the cold grey/white of a system palette. */
-  --color-bg: #f5f1e8;
-  --color-surface: #fffdf9;
-  --color-surface-muted: #e7dfd3;
-  --color-surface-soft: #efe9df;
-  --color-ink: #211b16;
-  --color-ink-secondary: #696056;
-  --color-ink-tertiary: #968b7e;
-  --color-line: #e4dcd0;
-  --color-line-strong: #d2c7b8;
-  --color-accent: #9f4a34;
-  --color-accent-strong: #7d3624;
-  --color-accent-soft: #f2e0d8;
-  --color-accent-contrast: #fff9f5;
-  --color-positive: #5d735f;
-  --color-danger: #9c3e30;
-  --color-danger-soft: #f4e0da;
-  --color-danger-contrast: #fff9f5;
-  --color-action: #3b332c;
-  --color-action-ink: #fbf6ef;
-  --color-backdrop: #e7e0d5;
-  --color-nav: #fbf7f0;
-  --color-overlay: rgba(26, 20, 15, 0.44);
-  --color-hero: #241e19;
-  --color-hero-soft: #3a2d25;
-  --color-hero-ink: #fcf3e8;
-  --color-hero-muted: rgba(252, 243, 232, 0.66);
+  /* Neutral grey and white, with colour reserved for meaningful content. */
+  --color-bg: #f7f7f7;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eeeeee;
+  --color-surface-soft: #f2f2f2;
+  --color-ink: #262626;
+  --color-ink-secondary: #707070;
+  --color-ink-tertiary: #828282;
+  --color-line: #e8e8e8;
+  --color-line-strong: #d6d6d6;
+  --color-accent: #646464;
+  --color-accent-strong: #404040;
+  --color-accent-soft: #eeeeee;
+  --color-accent-contrast: #ffffff;
+  --color-positive: #696e70;
+  --color-danger: #98666c;
+  --color-danger-soft: #f1e9eb;
+  --color-danger-contrast: #ffffff;
+  --color-action: rgb(210, 210, 210, 0.56);
+  --color-action-ink: #ffffff;
+  --color-backdrop: #e9e9e9;
+  --color-nav: #fafafa;
+  --color-overlay: rgba(25, 25, 30, 0.44);
+  --color-hero: #303034;
+  --color-hero-soft: #45454b;
+  --color-hero-ink: #f5f5f7;
+  --color-hero-muted: rgba(245, 245, 247, 0.66);
 
-  --shadow-sm: 0 1px 2px rgba(33, 26, 20, 0.05);
-  --shadow-md: 0 8px 22px -10px rgba(33, 26, 20, 0.18);
-  --shadow-lg: 0 24px 56px -20px rgba(33, 26, 20, 0.3);
+  --shadow-card: none;
+  --shadow-sm: 0 1px 2px rgba(25, 25, 30, 0.035);
+  --shadow-md: 0 4px 12px -4px rgba(25, 25, 30, 0.08);
+  --shadow-lg: 0 16px 40px -12px rgba(25, 25, 30, 0.16);
 
   --glass-blur: 18px;
   --glass-bg: color-mix(in srgb, var(--color-surface) 68%, transparent);
 
-  /* Liquid-glass chrome: a translucent fill, a bright hairline edge and a
-     soft drop shadow, so docks float instead of sitting flush on an edge. */
-  --glass-fill: rgba(255, 255, 255, 0.72);
-  --glass-fill-strong: rgba(255, 255, 255, 0.56);
-  --glass-edge: rgba(255, 255, 255, 0.7);
-  --glass-rim: rgba(33, 26, 20, 0.07);
-  --glass-shadow-dock: 0 14px 34px -16px rgba(33, 26, 20, 0.3), 0 2px 6px rgba(33, 26, 20, 0.05);
-  --glass-shadow-card: 0 20px 44px -24px rgba(33, 26, 20, 0.4), 0 1px 2px rgba(33, 26, 20, 0.05);
-  --nav-pill: rgba(28, 22, 17, 0.07);
+  /* Soft frosted surfaces without specular edges or saturated highlights. */
+  --glass-fill: rgba(255, 255, 255, 0.88);
+  --glass-fill-strong: rgba(255, 255, 255, 0.94);
+  --glass-edge: transparent;
+  --glass-rim: rgba(25, 25, 30, 0.07);
+  --glass-shadow-dock: 0 4px 16px rgba(25, 25, 30, 0.07);
+  --glass-shadow-card: 0 2px 8px rgba(25, 25, 30, 0.04);
+  --nav-pill: rgba(0, 0, 0, 0.045);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -111,43 +111,44 @@
 html[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-bg: #151110;
-  --color-surface: #1e1a17;
-  --color-surface-muted: #2b2621;
-  --color-surface-soft: #231f1b;
-  --color-ink: #f3ede4;
-  --color-ink-secondary: #b3a89b;
-  --color-ink-tertiary: #877c6f;
-  --color-line: #302a24;
-  --color-line-strong: #413931;
-  --color-accent: #d68a6e;
-  --color-accent-strong: #e5a189;
-  --color-accent-soft: rgba(214, 138, 110, 0.16);
-  --color-accent-contrast: #241410;
-  --color-positive: #94a890;
-  --color-danger: #e58a77;
-  --color-danger-soft: rgba(229, 138, 119, 0.14);
-  --color-danger-contrast: #241410;
-  --color-action: #ece2d4;
-  --color-action-ink: #1c1712;
-  --color-backdrop: #0b0908;
-  --color-nav: #171310;
+  --color-bg: #171717;
+  --color-surface: #242424;
+  --color-surface-muted: #363636;
+  --color-surface-soft: #2d2d2d;
+  --color-ink: #f2f2f2;
+  --color-ink-secondary: #b8b8b8;
+  --color-ink-tertiary: #969696;
+  --color-line: #383838;
+  --color-line-strong: #505050;
+  --color-accent: #c4c4c4;
+  --color-accent-strong: #e2e2e2;
+  --color-accent-soft: rgba(192, 192, 200, 0.16);
+  --color-accent-contrast: #242424;
+  --color-positive: #b2b5b6;
+  --color-danger: #c99ca2;
+  --color-danger-soft: rgba(201, 156, 162, 0.14);
+  --color-danger-contrast: #242424;
+  --color-action: #e5e5e5;
+  --color-action-ink: #242424;
+  --color-backdrop: #111111;
+  --color-nav: #1d1d1d;
   --color-overlay: rgba(0, 0, 0, 0.62);
-  --color-hero: #2b241e;
-  --color-hero-soft: #45352a;
-  --color-hero-ink: #fbf2e7;
-  --color-hero-muted: rgba(251, 242, 231, 0.66);
+  --color-hero: #242428;
+  --color-hero-soft: #383838;
+  --color-hero-ink: #f3f3f6;
+  --color-hero-muted: rgba(243, 243, 246, 0.66);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 8px 22px -10px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 24px 56px -20px rgba(0, 0, 0, 0.7);
+  --shadow-card: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 12px -4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 16px 40px -12px rgba(0, 0, 0, 0.35);
 
-  --glass-fill: rgba(44, 39, 34, 0.66);
-  --glass-fill-strong: rgba(36, 32, 28, 0.88);
-  --glass-edge: rgba(255, 255, 255, 0.09);
+  --glass-fill: rgba(40, 40, 40, 0.88);
+  --glass-fill-strong: rgba(44, 44, 44, 0.94);
+  --glass-edge: transparent;
   --glass-rim: rgba(0, 0, 0, 0.45);
-  --glass-shadow-dock: 0 14px 34px -14px rgba(0, 0, 0, 0.66), 0 2px 6px rgba(0, 0, 0, 0.3);
-  --glass-shadow-card: 0 20px 44px -22px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(0, 0, 0, 0.35);
+  --glass-shadow-dock: 0 6px 20px -6px rgba(0, 0, 0, 0.28);
+  --glass-shadow-card: 0 4px 14px -4px rgba(0, 0, 0, 0.24);
   --nav-pill: rgba(255, 255, 255, 0.1);
 }
 

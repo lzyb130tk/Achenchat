@@ -1,8 +1,6 @@
 .screen--chat {
   position: relative;
-  background:
-    radial-gradient(120% 50% at 50% 0%, var(--color-surface-soft), transparent 62%),
-    var(--color-bg);
+  background: var(--color-bg);
 }
 
 .chat-header {
@@ -641,23 +639,17 @@ html[data-theme="dark"] .message-reaction {
 
 .screen[data-chat-background="warm"] .chat-scroll {
   background-color: #f7e9d6;
-  background-image:
-    radial-gradient(80% 55% at 88% 4%, rgba(226, 169, 117, 0.34), transparent 68%),
-    radial-gradient(70% 55% at 8% 92%, rgba(209, 141, 103, 0.18), transparent 70%);
+  background-image: none;
 }
 
 .screen[data-chat-background="night"] .chat-scroll {
   background-color: #272421;
-  background-image:
-    radial-gradient(80% 55% at 92% 0%, rgba(208, 147, 113, 0.14), transparent 66%),
-    radial-gradient(70% 55% at 4% 100%, rgba(133, 112, 90, 0.13), transparent 70%);
+  background-image: none;
 }
 
 .screen[data-chat-background="dawn"] .chat-scroll {
   background-color: #e7eeeb;
-  background-image:
-    radial-gradient(80% 55% at 90% 4%, rgba(162, 192, 190, 0.32), transparent 68%),
-    radial-gradient(70% 55% at 6% 94%, rgba(194, 178, 151, 0.2), transparent 70%);
+  background-image: none;
 }
 
 .screen[data-chat-background="night"] .message-bubble--user {

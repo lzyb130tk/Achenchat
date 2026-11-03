@@ -2,36 +2,9 @@
 <html lang="zh-CN" data-theme="light" data-font-size="md">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // 这个 App 是按 430 的版心设计的（桌面预览窗口、手机原型框都是 430）。
-      // 安卓主流机型的 CSS 宽度只有 360，按 device-width 渲染会把版面挤扁：
-      // 间距被吃掉、文字换行、按钮被压变形。
-      // 所以窄屏手机把布局视口锁死在 430，让浏览器整体等比缩小 ——
-      // 360 的机器拿到的就是 427 / 440 那套版式，只是等比缩了一点。
-      // 平板、桌面、横屏继续按设备真实宽度渲染。
-      (function () {
-        var DESIGN_WIDTH = 430;
-
-        function viewportFor(locked) {
-          return (
-            (locked ? "width=" + DESIGN_WIDTH : "width=device-width, initial-scale=1") +
-            ", viewport-fit=cover, interactive-widget=resizes-content"
-          );
-        }
-
-        function render(locked) {
-          document.write('<meta name="viewport" content="' + viewportFor(locked) + '">');
-          document.documentElement.setAttribute('data-viewport', locked ? 'designed' : 'native');
-        }
-
-        var screenWidth = (window.screen && window.screen.width) || 0;
-        var screenHeight = (window.screen && window.screen.height) || 0;
-        // 竖屏、且屏幕 CSS 宽度不超过设计版心的机型，一律按 430 渲染。
-        render(screenWidth > 0 && screenWidth <= DESIGN_WIDTH && screenHeight >= screenWidth);
-      })();
-    </script>
-    <meta name="theme-color" content="#f4f1ec" />
-    <meta name="description" content="Achat，和 AI 恋人慢慢聊天。" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#f7f7f7" />
+    <meta name="description" content="Achat" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Achat" />
@@ -47,40 +20,13 @@
     <link rel="stylesheet" href="src/styles/chat.css" />
     <link rel="stylesheet" href="src/styles/settings.css" />
     <link rel="stylesheet" href="src/styles/redesign.css" />
+    <link rel="stylesheet" href="src/styles/neutral.css" />
+    <link rel="stylesheet" href="src/styles/responsive.css" />
   </head>
   <body>
     <div id="app">
       <div id="view"></div>
     </div>
-    <script>
-      // 兜底校正：iframe、部分 WebView、DevTools 响应式模式里 screen.width 不可靠，
-      // 这里用真实布局宽度再判断一次，不一致就改写 viewport（横竖屏切换也会重算）。
-      (function () {
-        var DESIGN_WIDTH = 430;
-
-        function viewportFor(locked) {
-          return (
-            (locked ? "width=" + DESIGN_WIDTH : "width=device-width, initial-scale=1") +
-            ", viewport-fit=cover, interactive-widget=resizes-content"
-          );
-        }
-
-        function sync() {
-          var meta = document.querySelector('meta[name="viewport"]');
-          if (!meta) return;
-          var width = document.documentElement.clientWidth;
-          var height = document.documentElement.clientHeight;
-          var locked = width > 0 && width <= DESIGN_WIDTH && height >= width;
-          var next = viewportFor(locked);
-          if (meta.getAttribute('content') !== next) meta.setAttribute('content', next);
-          document.documentElement.setAttribute('data-viewport', locked ? 'designed' : 'native');
-        }
-
-        sync();
-        window.addEventListener('resize', sync);
-        window.addEventListener('orientationchange', sync);
-      })();
-    </script>
     <script type="module" src="src/main.js"></script>
   </body>
 </html>

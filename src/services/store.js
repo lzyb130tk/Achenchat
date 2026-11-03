@@ -740,13 +740,14 @@ function normalizeState(candidate) {
   const themePreset = presetIds.includes(rawAppearance?.themePreset)
     ? rawAppearance.themePreset
     : 'default';
-  // The warm-stationery palette replaced the old grey/brick defaults. Carry
-  // users who never tuned their colours over to the new ones instead of
-  // flagging their untouched theme as a custom override.
+  // Carry untouched legacy defaults into the current palette; preserve
+  // colours that users chose individually.
   if (
     themePreset === 'default' &&
-    primaryColor === '#201c17' &&
-    accentColor === '#a94a32'
+    ((primaryColor === '#201c17' && accentColor === '#a94a32') ||
+      (primaryColor === '#3b332c' && accentColor === '#9f4a34') ||
+      (primaryColor === '#34465c' && accentColor === '#536d8e') ||
+      (primaryColor === '#444449' && accentColor === '#626268'))
   ) {
     primaryColor = DEFAULT_APPEARANCE.primaryColor;
     accentColor = DEFAULT_APPEARANCE.accentColor;

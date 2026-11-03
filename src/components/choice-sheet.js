@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 export function openChoiceSheet({ title, options, current, onChoose }) {
   openSheet({
     title,
+    className: 'choice-dialog',
     content: `<div class="option-list">
       ${options
         .map(

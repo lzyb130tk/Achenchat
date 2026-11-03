@@ -1,0 +1,327 @@
+/* Quiet grey-white surfaces. Content sits flat; only transient controls float. */
+
+html[data-glass] :is(.screen--messages, .screen--contacts, .screen--discover, .screen--me) .app-header__title {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+html[data-glass] .screen .app-header {
+  background: var(--color-bg);
+  backdrop-filter: none;
+}
+
+html[data-glass] .screen--messages .conversation-list--main {
+  gap: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--color-surface);
+}
+
+html[data-glass] .screen--messages .conversation-item {
+  position: relative;
+  min-height: 78px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-glass] .screen--messages .conversation-item + .conversation-item::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 76px;
+  height: 0.5px;
+  background: var(--color-line);
+  content: "";
+}
+
+html[data-glass] .screen--messages .conversation-item:active {
+  background: var(--color-surface-soft);
+  transform: none;
+}
+
+html[data-glass] .screen--messages .messages-search {
+  background: var(--color-surface-muted);
+  box-shadow: none;
+}
+
+html[data-glass] .screen--messages .conversation-item__unread {
+  background: var(--color-accent);
+}
+
+html[data-glass] :is(.screen--contacts, .screen--me, .screen--settings) :is(.settings-group__card, .contact-list, .contacts-shortcuts, .profile-card) {
+  border: 0;
+  box-shadow: none;
+}
+
+html[data-glass] :is(.contacts-shortcut__icon, .settings-row__icon, .option-row__icon) {
+  background: transparent;
+  color: var(--color-ink-secondary);
+}
+
+/* Frosted controls have no bright rims, tinted glow or specular highlights. */
+html[data-glass] .nav-dock .bottom-nav,
+html[data-glass] .screen--chat .chat-composer__field {
+  background: var(--glass-fill-strong);
+  box-shadow: var(--glass-shadow-card);
+}
+
+html[data-glass="on"] .nav-dock .bottom-nav,
+html[data-glass="on"] .screen--chat .chat-composer__field {
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+html[data-glass="off"] .nav-dock .bottom-nav,
+html[data-glass="off"] .screen--chat .chat-composer__field {
+  background: var(--color-surface);
+}
+
+html[data-glass] .screen--chat .chat-header {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chat-veil) 96%, transparent) 0%,
+    color-mix(in srgb, var(--chat-veil) 76%, transparent) 52%,
+    color-mix(in srgb, var(--chat-veil) 32%, transparent) 82%,
+    transparent 100%
+  );
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass="on"] .screen--chat .chat-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass] .screen--chat :is(.chat-header__back, .chat-header__action) {
+  background: var(--color-surface-soft);
+  color: var(--color-ink);
+  box-shadow: none;
+}
+
+html[data-glass] .screen--chat .chat-composer__send {
+  width: 50px;
+  border-radius: 22px;
+  box-shadow: none;
+}
+
+html[data-glass] .screen--chat .chat-composer__send.is-receive {
+  box-shadow: none;
+}
+
+.chat-header__typing,
+html[data-theme="dark"] .chat-header__typing {
+  color: var(--color-ink-secondary);
+}
+
+/* Context menus match a single soft panel with full-width action rows. */
+html[data-glass] .message-menu {
+  width: min(232px, calc(100vw - 24px));
+  padding: 5px 0;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--glass-fill-strong);
+  box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+html[data-glass] .message-menu__item {
+  min-height: 46px;
+  gap: 12px;
+  padding: 11px 18px;
+  border-radius: 0;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+html[data-glass] .message-menu__item .ui-icon {
+  color: inherit;
+}
+
+html[data-glass] .message-menu__item--danger {
+  margin-top: 4px;
+  border-top: 0.5px solid var(--color-line);
+  color: var(--color-danger);
+}
+
+/* Sheets and small dialogs share the same muted frosted material. */
+html[data-glass] .sheet,
+html[data-glass] .sheet.chat-action-sheet {
+  background: var(--glass-fill-strong);
+  box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass="on"] .sheet,
+html[data-glass="on"] .sheet.chat-action-sheet {
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+html[data-glass="off"] :is(.sheet, .sheet.chat-action-sheet, .message-menu) {
+  background: var(--color-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.sheet-layer:has(.choice-dialog, .alert-dialog) {
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+html[data-glass] .sheet:is(.choice-dialog, .alert-dialog) {
+  width: min(340px, 100%);
+  max-height: 80%;
+  padding: 8px;
+  border-radius: 28px;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 160ms ease, transform 200ms var(--ease-out);
+}
+
+.sheet-layer.is-open .sheet:is(.choice-dialog, .alert-dialog) {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sheet:is(.choice-dialog, .alert-dialog) .sheet__grip {
+  display: none;
+}
+
+html[data-glass] .sheet:is(.choice-dialog, .alert-dialog) .sheet__header {
+  gap: 8px;
+  padding: 10px 12px 14px;
+}
+
+.sheet:is(.choice-dialog, .alert-dialog) .sheet__heading h2 {
+  font-size: 17px;
+  letter-spacing: -0.015em;
+}
+
+html[data-glass] .sheet:is(.choice-dialog, .alert-dialog) .sheet__body {
+  padding: 0 0 4px;
+}
+
+html[data-glass] .sheet.alert-dialog .sheet__body:empty {
+  display: none;
+}
+
+html[data-glass] .sheet.alert-dialog .sheet__actions {
+  padding: 0 0 2px;
+}
+
+html[data-glass] .sheet.alert-dialog .sheet__actions .button {
+  min-height: 44px;
+  border-radius: 22px;
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+  box-shadow: none;
+}
+
+html[data-glass] .sheet.alert-dialog .button--danger {
+  color: var(--color-danger);
+}
+
+html[data-glass] .option-list {
+  display: grid;
+  gap: 3px;
+  background: transparent;
+}
+
+html[data-glass] .option-row {
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-glass] .option-row.is-selected {
+  background: var(--color-surface-muted);
+  box-shadow: none;
+}
+
+html[data-glass] .option-row + .option-row::before {
+  display: none;
+}
+
+html[data-glass] .option-row + .option-row,
+html[data-theme="dark"] .option-row + .option-row {
+  box-shadow: none;
+}
+
+html[data-glass] .option-row__icon,
+html[data-glass] .option-row.is-selected .option-row__icon {
+  background: none;
+  color: var(--color-ink-secondary);
+}
+
+html[data-glass] .choice-card.is-selected {
+  background: var(--color-surface-muted);
+  box-shadow: none;
+}
+
+/* Neutral selection controls, including the previews in chat settings. */
+html[data-glass] .choice-card__check,
+html[data-glass] .option-row__check {
+  background: transparent;
+  color: var(--color-ink);
+}
+
+html[data-glass] .screen--masks .masks-intro,
+.screen--shop .shop-store,
+html[data-theme="dark"] .screen--shop .shop-store,
+.glass-demo {
+  background: var(--color-surface);
+}
+
+html[data-glass] :is(.creation-footer, .mask-new__footer) {
+  background: var(--color-bg);
+}
+
+html[data-glass] .screen--chat :is(.chat-header__back, .chat-header__action) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass] :is(.tags-row__icon, .shop-type__icon, .mini-tile__icon) {
+  background: var(--color-surface-soft);
+  color: var(--color-ink-secondary);
+}
+
+.avatar {
+  background: var(--color-surface-muted);
+  color: var(--color-ink-secondary);
+}
+
+.profile-card__aura {
+  display: none;
+}
+
+.shop-store {
+  background: var(--color-surface);
+}
+
+.about-me-card,
+.memory-card {
+  background: var(--color-surface);
+  border-radius: 20px;
+  box-shadow: none;
+}
+
+.about-me-card::after,
+.memory-card::after {
+  display: none;
+}
+
+html[data-glass] .screen--character-new .avatar-field__preview .avatar {
+  background: var(--color-surface-muted);
+  color: var(--color-ink-secondary);
+  box-shadow: none;
+}

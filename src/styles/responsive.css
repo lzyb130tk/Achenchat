@@ -1,0 +1,104 @@
+/* Use the app width, including the 430px desktop preview, for layout density.
+   Text keeps its rem size; only whitespace and avatars become more compact. */
+#app {
+  container-type: inline-size;
+}
+
+.screen {
+  --layout-gutter: clamp(12px, calc(10cqw - 24px), 20px);
+  --layout-gap: clamp(10px, calc(5cqw - 8px), 14px);
+  --layout-card-padding: clamp(10px, calc(5cqw - 8px), 14px);
+}
+
+html[data-glass] .screen .page-content,
+html[data-glass] .screen .creation-content,
+html[data-glass] .screen .contact-search__content {
+  padding-inline: var(--layout-gutter);
+}
+
+html[data-glass] .screen .app-header {
+  padding-inline: var(--layout-gutter);
+}
+
+html[data-glass] .screen--messages .conversation-item {
+  gap: var(--layout-gap);
+  padding: var(--layout-card-padding);
+}
+
+html[data-glass] .screen--messages .conversation-item .avatar {
+  --avatar-size: clamp(44px, calc(10cqw + 8px), 52px);
+}
+
+html[data-glass] .screen--contacts .contact-item {
+  min-height: 66px;
+  gap: var(--layout-gap);
+  padding: 10px var(--layout-card-padding);
+}
+
+html[data-glass] .screen--contacts .contact-item .avatar {
+  --avatar-size: clamp(42px, calc(8cqw + 14px), 48px);
+}
+
+html[data-glass] .screen--me .profile-card {
+  gap: var(--layout-gap);
+  padding: var(--layout-card-padding);
+}
+
+html[data-glass] .screen--me .profile-card__avatar .avatar {
+  --avatar-size: clamp(52px, calc(16cqw - 6px), 64px);
+}
+
+html[data-glass] .screen .settings-row {
+  gap: var(--layout-gap);
+  padding-inline: var(--layout-card-padding);
+}
+
+html[data-glass] .screen--contacts .tag-strip {
+  margin-inline: calc(-1 * var(--layout-gutter));
+  padding-inline: var(--layout-gutter);
+}
+
+html[data-glass] .screen--messages .messages-search {
+  height: clamp(46px, calc(10cqw + 10px), 54px);
+  padding-inline: var(--layout-card-padding);
+}
+
+/* Keep secondary copy legible without enlarging the entire interface. */
+html[data-glass] .screen--messages .conversation-item__name,
+html[data-glass] .screen--contacts .contact-item__name {
+  font-size: 1.0625rem;
+}
+
+html[data-glass] .screen--messages .conversation-item__preview,
+html[data-glass] .screen--contacts .contact-item__meta,
+html[data-glass] .screen--me .profile-card__copy > p {
+  font-size: 0.875rem;
+}
+
+html[data-glass] .screen .settings-row__label,
+html[data-glass] .screen .button {
+  font-size: 0.9375rem;
+}
+
+html[data-glass] .screen .settings-row__value,
+html[data-glass] .screen .field__label {
+  font-size: 0.8125rem;
+}
+
+html[data-glass] .screen .messages-section-title,
+html[data-glass] .screen .section-heading h2,
+html[data-glass] .screen .settings-group__label,
+html[data-glass] .screen .conversation-item__time,
+html[data-glass] .screen .messages-privacy,
+.nav-dock .bottom-nav__label {
+  font-size: 0.75rem;
+}
+
+.nav-dock .bottom-nav__item {
+  min-height: 54px;
+}
+
+/* Long names yield space to fixed controls, including at larger font settings. */
+html[data-glass] .screen--me .profile-card__edit {
+  flex-shrink: 0;
+}
