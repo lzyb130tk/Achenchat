@@ -22,8 +22,8 @@ export const COLOR_MODE_LABELS = Object.fromEntries(
    Theme colours
    -------------------------------------------------------------------------- */
 
-export const DEFAULT_PRIMARY_COLOR = '#201c17';
-export const DEFAULT_ACCENT_COLOR = '#a94a32';
+export const DEFAULT_PRIMARY_COLOR = '#3b332c';
+export const DEFAULT_ACCENT_COLOR = '#9f4a34';
 
 export const THEME_PRESETS = [
   {
@@ -34,24 +34,24 @@ export const THEME_PRESETS = [
     accent: DEFAULT_ACCENT_COLOR,
     surfaces: {
       light: {
-        bg: '#f4f1ec',
-        surface: '#ffffff',
-        soft: '#f0ebe4',
-        muted: '#e9e3db',
-        line: '#e7e1d9',
-        lineStrong: '#d8d0c6',
-        nav: '#fbf8f4',
-        backdrop: '#e6dfd5',
+        bg: '#f5f1e8',
+        surface: '#fffdf9',
+        soft: '#efe9df',
+        muted: '#e7dfd3',
+        line: '#e4dcd0',
+        lineStrong: '#d2c7b8',
+        nav: '#fbf7f0',
+        backdrop: '#e7e0d5',
       },
       dark: {
-        bg: '#141210',
-        surface: '#1d1a17',
-        soft: '#221e1a',
-        muted: '#2a2521',
-        line: '#2e2924',
-        lineStrong: '#3c342d',
-        nav: '#161310',
-        backdrop: '#0c0a09',
+        bg: '#151110',
+        surface: '#1e1a17',
+        soft: '#231f1b',
+        muted: '#2b2621',
+        line: '#302a24',
+        lineStrong: '#413931',
+        nav: '#171310',
+        backdrop: '#0b0908',
       },
     },
   },

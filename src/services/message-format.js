@@ -1,4 +1,4 @@
-const TAG_NAMES = 'status|msg|redbag|sticker|tagline';
+const TAG_NAMES = 'status|msg|redbag|sticker|tagline|emoji|repo';
 // Models slip on the protocol now and then, writing [ msg ], [/msg] or 【msg】.
 // Accept those spellings so a stray space never swallows a whole reply.
 const TAG_SOURCE = String.raw`[\[【]\s*(\/|／)?\s*(${TAG_NAMES})\s*[\]】]`;
@@ -64,6 +64,111 @@ function splitSegments(value) {
     .filter(Boolean);
 }
 
+// A reaction entry is "对方消息原文-👍"; several entries are joined with a
+// colon inside one [emoji] block. Message text may itself contain ":" or "-",
+// so a colon only ends an entry when the piece after it is a complete entry.
+// The emoji is always whatever follows the final dash.
+const EMOJI_TAIL_PATTERN =
+  /^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\p{Regional_Indicator}|‍|️|\s)+$/u;
+const INLINE_BLOCK_PATTERN =
+  /[\[【]\s*(?:emoji|repo)\s*[\]】][\s\S]*?[\[【]\s*\/?\s*(?:emoji|repo)\s*[\]】]/gi;
+
+function looksLikeEmoji(value) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 24) return false;
+  try {
+    return EMOJI_TAIL_PATTERN.test(trimmed);
+  } catch {
+    return /[^\w\s]/.test(trimmed);
+  }
+}
+
+function lastDashIndex(value) {
+  return Math.max(
+    value.lastIndexOf('-'),
+    value.lastIndexOf('－'),
+    value.lastIndexOf('—'),
+    value.lastIndexOf('–'),
+  );
+}
+
+function readReactionEntry(value) {
+  const part = String(value || '').trim();
+  if (!part) return null;
+  const dash = lastDashIndex(part);
+  if (dash <= 0) return null;
+  const targetText = part.slice(0, dash).trim();
+  const emoji = part.slice(dash + 1).trim().slice(0, 16);
+  if (!targetText || !emoji || !looksLikeEmoji(emoji)) return null;
+  return { targetText, emoji };
+}
+
+function splitReactionEntries(content) {
+  const entries = [];
+  let buffer = '';
+  for (const part of String(content || '').split(/[:：]/)) {
+    buffer = buffer ? `${buffer}:${part}` : part;
+    if (!readReactionEntry(part)) continue;
+    const entry = readReactionEntry(buffer);
+    if (entry) entries.push(entry);
+    buffer = '';
+  }
+  if (buffer.trim()) {
+    const entry = readReactionEntry(buffer);
+    if (entry) entries.push(entry);
+  }
+  return entries;
+}
+
+// Models occasionally nest a [emoji]/[repo] block inside [msg]. Keep the
+// surrounding message clean instead of rendering the raw tags.
+function stripInlineBlocks(value) {
+  return String(value || '').replace(INLINE_BLOCK_PATTERN, ' ');
+}
+
+function normalizeMatchText(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+export function resolveMessageByText(text, messages, { roles = ['user'] } = {}) {
+  const target = normalizeMatchText(text);
+  if (!target) return null;
+  const pool = (Array.isArray(messages) ? messages : []).filter(
+    (message) => message && roles.includes(message.role),
+  );
+  let best = null;
+  let bestScore = 0;
+  let bestIndex = -1;
+  pool.forEach((message, index) => {
+    const content = normalizeMatchText(message.content);
+    if (!content) return;
+    let score = 0;
+    if (content === target) {
+      score = 100;
+    } else if (content.includes(target)) {
+      score = 80 + Math.min(12, (target.length / content.length) * 12);
+    } else if (target.includes(content) && content.length >= 2) {
+      score = 70 + Math.min(12, (content.length / target.length) * 12);
+    } else {
+      const limit = Math.min(content.length, target.length);
+      let shared = 0;
+      while (shared < limit && content[shared] === target[shared]) shared += 1;
+      if (shared >= Math.min(6, limit)) {
+        score = 50 + (shared / limit) * 15;
+      }
+    }
+    if (score > bestScore || (score === bestScore && score > 0 && index > bestIndex)) {
+      best = message;
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+  return bestScore >= 50 ? best : null;
+}
+
 function collectBlocks(tokens, raw) {
   const blocks = [];
   const open = new Map();
@@ -91,7 +196,7 @@ function collectBlocks(tokens, raw) {
 function recoverOpenBlocks(open, tokens, raw) {
   const recovered = [];
   for (const [tag, start] of open) {
-    if (tag !== 'msg' && tag !== 'redbag') continue;
+    if (tag !== 'msg' && tag !== 'redbag' && tag !== 'emoji') continue;
     const next = tokens.find((token) => token.start >= start.contentStart);
     const content = raw
       .slice(start.contentStart, next ? next.start : raw.length)
@@ -106,7 +211,14 @@ function recoverOpenBlocks(open, tokens, raw) {
 function plainFallback(raw, blocks) {
   let plain = raw;
   const hiddenBlocks = blocks
-    .filter((block) => block.tag === 'status' || block.tag === 'sticker' || block.tag === 'tagline')
+    .filter(
+      (block) =>
+        block.tag === 'status' ||
+        block.tag === 'sticker' ||
+        block.tag === 'tagline' ||
+        block.tag === 'emoji' ||
+        block.tag === 'repo',
+    )
     .sort((a, b) => b.from - a.from);
   for (const block of hiddenBlocks) {
     plain = `${plain.slice(0, block.from)} ${plain.slice(block.to)}`;
@@ -150,7 +262,7 @@ export function parseAIReply(raw, { stickers = [] } = {}) {
 
   for (const block of ordered) {
     if (block.tag === 'msg') {
-      for (const content of splitSegments(block.content)) {
+      for (const content of splitSegments(stripInlineBlocks(block.content))) {
         segments.push({ type: 'text', content: content.slice(0, 1000) });
       }
       continue;
@@ -171,6 +283,20 @@ export function parseAIReply(raw, { stickers = [] } = {}) {
           packName: sticker.packName,
         });
       }
+      continue;
+    }
+    if (block.tag === 'emoji') {
+      for (const entry of splitReactionEntries(block.content)) {
+        segments.push({ type: 'reaction', ...entry });
+      }
+      continue;
+    }
+    if (block.tag === 'repo') {
+      const targetText = stripInlineBlocks(block.content)
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 300);
+      if (targetText) segments.push({ type: 'repo', targetText });
     }
   }
 
@@ -191,6 +317,10 @@ export function messageAsText(message) {
   if (message.type === 'sticker') {
     return message.name ? `[表情：${message.name}]` : '[表情]';
   }
+  if (message.type === 'image') {
+    const count = message.images?.length || 1;
+    return count > 1 ? `[图片 ×${count}]` : '[图片]';
+  }
   return message.content || '';
 }
 
@@ -198,5 +328,6 @@ export function messageLength(message) {
   if (!message) return 0;
   if (message.type === 'redpacket') return (message.note || '').length + 4;
   if (message.type === 'sticker') return 4 + (message.name || '').length;
+  if (message.type === 'image') return 6;
   return (message.content || '').length;
 }

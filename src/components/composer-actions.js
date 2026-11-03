@@ -4,11 +4,15 @@ import { escapeHTML } from '../services/utils.js';
 import { icon, uiIcon } from './icons.js';
 import { closeActiveSheet, openSheet } from './sheet.js';
 
-export function openComposerActions({ onRedPacket, onSticker, onRetry }) {
+export function openComposerActions({ onRedPacket, onSticker, onRetry, onImage }) {
   openSheet({
     title: '更多',
     className: 'chat-action-sheet',
     content: `<div class="composer-action-grid">
+      <button class="composer-action" type="button" data-composer-image>
+        <span class="composer-action__icon">${uiIcon('image', { size: 22 })}</span>
+        <span>图片</span>
+      </button>
       <button class="composer-action" type="button" data-composer-redpacket>
         <span class="composer-action__icon">${uiIcon('red-packet', { size: 22 })}</span>
         <span>红包</span>
@@ -23,6 +27,10 @@ export function openComposerActions({ onRedPacket, onSticker, onRetry }) {
       </button>
     </div>`,
     onMount: (sheet) => {
+      sheet.querySelector('[data-composer-image]').addEventListener('click', () => {
+        closeActiveSheet({ immediate: true, reason: 'replace' });
+        onImage?.();
+      });
       sheet.querySelector('[data-composer-redpacket]').addEventListener('click', () => {
         closeActiveSheet({ immediate: true, reason: 'replace' });
         onRedPacket?.();

@@ -124,8 +124,8 @@ export function openConversationActions({ character, conversation, refresh }) {
             confirmSheet.querySelector('[data-cancel-delete]').addEventListener('click', () => {
               closeActiveSheet();
             });
-            confirmSheet.querySelector('[data-confirm-delete]').addEventListener('click', () => {
-              deleteConversation(character.id);
+            confirmSheet.querySelector('[data-confirm-delete]').addEventListener('click', async () => {
+              await deleteConversation(character.id);
               closeActiveSheet({ immediate: true });
               toast('对话已删除');
               refresh();

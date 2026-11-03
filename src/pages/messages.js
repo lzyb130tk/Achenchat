@@ -7,6 +7,7 @@ import {
 import { conversationItem } from '../components/conversation-item.js';
 import { icon, iconButton } from '../components/icons.js';
 import { onDataChanged } from '../services/events.js';
+import { createInertialScroll } from '../services/inertial-scroll.js';
 import { getSortedConversations } from '../services/store.js';
 import { messagePreview } from '../services/utils.js';
 
@@ -108,6 +109,11 @@ export function renderMessages({ refresh }) {
     });
   });
 
+  const scroll = screen.querySelector('.page-scroll');
+  const inertia = createInertialScroll(scroll, {
+    content: scroll?.querySelector('.page-content'),
+  });
+
   const unsubscribe = onDataChanged(() => {
     refresh();
   });
@@ -115,6 +121,7 @@ export function renderMessages({ refresh }) {
   return {
     element: screen,
     cleanup() {
+      inertia.destroy();
       unsubscribe();
     },
   };

@@ -10,6 +10,24 @@ import { createSeedConversations, DEFAULT_PROFILE } from '../data/seed.js';
 import { generateShopIncome, getShopType, localDayKey, nextNoon } from '../data/shop.js';
 import { dbGet, dbSet } from './db.js';
 import {
+  dbGetAllImages,
+  dbGetAllMessages,
+  dbGetMessage,
+  dbGetMessagePage,
+  dbGetMessagesSince,
+  dbGetRecentMessages,
+  dbPutImage,
+  dbPutMessage,
+  dbPutMessages,
+  dbDeleteMessage,
+  dbDeleteMessages,
+  dbDeleteMessagesForCharacter,
+  dbCountMessages,
+  dbGetImage,
+  dbClearAllData,
+  dbClearMessagesAndImages,
+} from './db.js';
+import {
   DEFAULT_ACCENT_COLOR,
   DEFAULT_PRIMARY_COLOR,
   THEME_PRESETS,
@@ -46,6 +64,9 @@ const DEFAULT_TAGS = [
 let state = null;
 let writeChain = Promise.resolve();
 let writeQueued = false;
+
+const STATE_SCHEMA = 2;
+const MAX_IMAGES_PER_MESSAGE = 9;
 
 function makeId(prefix) {
   const value =
@@ -125,8 +146,10 @@ function createChatStyle(raw = {}) {
     backgroundImage: text(raw.backgroundImage),
     avatarSize: Math.min(48, Math.max(20, Math.round(finite(raw.avatarSize, 28)))),
     avatarRadius: Math.min(50, Math.max(0, Math.round(finite(raw.avatarRadius, 50)))),
+    reactionSize: Math.min(40, Math.max(14, Math.round(finite(raw.reactionSize, 20)))),
     showUserAvatar: Boolean(raw.showUserAvatar),
     showStatus: raw.showStatus !== false,
+    timeAwareness: Boolean(raw.timeAwareness),
     sparkEnabled: Boolean(raw.sparkEnabled),
     sparkIcon,
     sparkSvg: sanitizeSvgIcon(raw.sparkSvg),
@@ -143,6 +166,44 @@ function normalizeQuote(raw) {
     name: text(raw.name).trim().slice(0, 40) || '对方',
     content,
   };
+}
+
+function preferenceKey(content) {
+  return text(content)
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[。！？!?，,、；;：:"'“”‘’]/g, '');
+}
+
+function normalizePreferences(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seenIds = new Set();
+  const seenContent = new Set();
+  const items = [];
+  for (const entry of raw) {
+    const content = text(
+      typeof entry === 'string' ? entry : entry?.content ?? entry?.text,
+    )
+      .trim()
+      .slice(0, 160);
+    if (!content) continue;
+    const key = preferenceKey(content);
+    if (!key || seenContent.has(key)) continue;
+    seenContent.add(key);
+    let id = text(entry?.id);
+    if (!id || seenIds.has(id)) id = makeId('pref');
+    seenIds.add(id);
+    const createdAt = finite(entry?.createdAt, Date.now());
+    items.push({
+      id,
+      content,
+      source: entry?.source === 'auto' ? 'auto' : 'manual',
+      createdAt,
+      updatedAt: finite(entry?.updatedAt, createdAt),
+    });
+  }
+  return items.slice(-80);
 }
 
 function normalizeMemory(raw = {}) {
@@ -182,6 +243,11 @@ function normalizeMemory(raw = {}) {
   );
   const rawEvery = Math.round(finite(source.summaryEvery, DEFAULT_MEMORY.summaryEvery));
   const summaryEvery = rawEvery <= 0 ? 0 : Math.min(200, Math.max(1, rawEvery));
+  const rawPreferenceEvery = Math.round(
+    finite(source.preferenceEvery, DEFAULT_MEMORY.preferenceEvery),
+  );
+  const preferenceEvery =
+    rawPreferenceEvery <= 0 ? 0 : Math.min(50, Math.max(1, rawPreferenceEvery));
   return {
     contextCount,
     summaryEvery,
@@ -197,6 +263,18 @@ function normalizeMemory(raw = {}) {
     categories: [...categorySet].slice(0, 24),
     items,
     lastSummaryAt: Math.max(0, finite(source.lastSummaryAt)),
+    preferences: normalizePreferences(source.preferences),
+    preferenceEvery,
+    preferenceRounds: Math.min(
+      1000,
+      Math.max(
+        0,
+        Math.round(
+          finite(source.preferenceRounds, DEFAULT_MEMORY.preferenceRounds),
+        ),
+      ),
+    ),
+    lastPreferenceAt: Math.max(0, finite(source.lastPreferenceAt)),
   };
 }
 
@@ -229,6 +307,7 @@ function createEmptyWallet() {
 function createDefaultState({ seeded = true, emptyWallet = false } = {}) {
   return {
     version: 2,
+    schema: STATE_SCHEMA,
     settings: {
       api: { ...DEFAULT_API },
       appearance: { ...DEFAULT_APPEARANCE },
@@ -249,13 +328,64 @@ function createDefaultState({ seeded = true, emptyWallet = false } = {}) {
   };
 }
 
+const MAX_REACTIONS_PER_MESSAGE = 3;
+
+export function normalizeReactions(raw) {
+  if (!Array.isArray(raw)) return [];
+  const reactions = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const emoji = text(item?.emoji).trim().slice(0, 16);
+    if (!emoji) continue;
+    const by = item?.by === 'assistant' ? 'assistant' : 'user';
+    const key = `${by}:${emoji}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    reactions.push({ emoji, by });
+  }
+  return reactions.slice(-MAX_REACTIONS_PER_MESSAGE);
+}
+
 function normalizeMessage(raw) {
   if (!raw || typeof raw !== 'object' || !Number.isFinite(raw.createdAt)) return null;
   if (raw.role !== 'user' && raw.role !== 'assistant') return null;
 
-  const type = raw.type === 'redpacket' || raw.type === 'sticker' ? raw.type : 'text';
+  const reactions = normalizeReactions(raw.reactions);
+  const reactionField = reactions.length ? { reactions } : {};
+  const type =
+    raw.type === 'redpacket' || raw.type === 'sticker' || raw.type === 'image'
+      ? raw.type
+      : 'text';
   const quote = normalizeQuote(raw.quote);
   const rawField = text(raw.raw).trim() ? { raw: text(raw.raw).slice(0, 4000) } : {};
+  const meta = {};
+  if (typeof raw.characterId === 'string') meta.characterId = raw.characterId;
+  if (Number.isFinite(raw.seq)) meta.seq = Math.max(1, Math.round(raw.seq));
+  if (type === 'image') {
+    const images = Array.isArray(raw.images)
+      ? raw.images
+          .map((image) => ({
+            id: text(image?.id),
+            width: Math.max(1, Math.round(finite(image?.width, 1))),
+            height: Math.max(1, Math.round(finite(image?.height, 1))),
+          }))
+          .filter((image) => image.id)
+          .slice(0, MAX_IMAGES_PER_MESSAGE)
+      : [];
+    if (!images.length) return null;
+    return {
+      id: text(raw.id, makeId('image-message')),
+      role: raw.role,
+      type,
+      images,
+      content: text(raw.content).slice(0, 500),
+      ...(quote ? { quote } : {}),
+      ...reactionField,
+      ...rawField,
+      ...meta,
+      createdAt: raw.createdAt,
+    };
+  }
   if (type === 'redpacket') {
     const amountFen = Math.round(finite(raw.amountFen));
     if (amountFen <= 0) return null;
@@ -268,7 +398,9 @@ function normalizeMessage(raw) {
       claimed: Boolean(raw.claimed),
       claimedAt: Number.isFinite(raw.claimedAt) ? raw.claimedAt : null,
       ...(quote ? { quote } : {}),
+      ...reactionField,
       ...rawField,
+      ...meta,
       createdAt: raw.createdAt,
     };
   }
@@ -284,7 +416,9 @@ function normalizeMessage(raw) {
       packName: text(raw.packName),
       name: text(raw.name).trim().slice(0, 20),
       ...(quote ? { quote } : {}),
+      ...reactionField,
       ...rawField,
+      ...meta,
       createdAt: raw.createdAt,
     };
   }
@@ -295,19 +429,36 @@ function normalizeMessage(raw) {
     type: 'text',
     content: text(raw.content),
     ...(quote ? { quote } : {}),
+    ...reactionField,
     ...rawField,
+    ...meta,
     createdAt: raw.createdAt,
   };
 }
 
 function normalizeConversation(raw) {
-  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.messages)) return null;
+  if (!raw || typeof raw !== 'object') return null;
+  const legacyMessages = Array.isArray(raw.messages)
+    ? raw.messages.map(normalizeMessage).filter(Boolean)
+    : [];
+  const lastMessage =
+    normalizeMessage(raw.lastMessage) || legacyMessages[legacyMessages.length - 1] || null;
+  const messageCount = Math.max(
+    0,
+    Math.round(finite(raw.messageCount, legacyMessages.length)),
+  );
   return {
     unread: Math.max(0, Math.round(finite(raw.unread))),
     pinned: Boolean(raw.pinned),
     multiSentCount: Math.max(0, Math.min(999, Math.round(finite(raw.multiSentCount)))),
     maskIds: Array.isArray(raw.maskIds) ? raw.maskIds.filter((id) => typeof id === 'string') : [],
-    messages: raw.messages.map(normalizeMessage).filter(Boolean).slice(-200),
+    messageCount,
+    lastSeq: Math.max(
+      messageCount,
+      Math.round(finite(raw.lastSeq, messageCount)),
+      Math.round(finite(lastMessage?.seq, 0)),
+    ),
+    lastMessage,
     style: createChatStyle(raw.style),
     memory: normalizeMemory(raw.memory),
     status: normalizeConversationStatus(raw.status),
@@ -581,17 +732,29 @@ function normalizeState(candidate) {
   }
 
   const rawAppearance = candidate?.settings?.appearance;
-  const primaryColor =
+  let primaryColor =
     normalizeHexColor(rawAppearance?.primaryColor) || DEFAULT_APPEARANCE.primaryColor;
-  const accentColor =
+  let accentColor =
     normalizeHexColor(rawAppearance?.accentColor) || DEFAULT_APPEARANCE.accentColor;
   const presetIds = THEME_PRESETS.map((preset) => preset.id);
   const themePreset = presetIds.includes(rawAppearance?.themePreset)
     ? rawAppearance.themePreset
     : 'default';
+  // The warm-stationery palette replaced the old grey/brick defaults. Carry
+  // users who never tuned their colours over to the new ones instead of
+  // flagging their untouched theme as a custom override.
+  if (
+    themePreset === 'default' &&
+    primaryColor === '#201c17' &&
+    accentColor === '#a94a32'
+  ) {
+    primaryColor = DEFAULT_APPEARANCE.primaryColor;
+    accentColor = DEFAULT_APPEARANCE.accentColor;
+  }
 
   return {
     version: 2,
+    schema: STATE_SCHEMA,
     settings: {
       api: {
         ...DEFAULT_API,
@@ -669,6 +832,30 @@ function migrateLegacy(legacy) {
   };
 }
 
+async function importLegacyMessages(rawConversations) {
+  if (!rawConversations || typeof rawConversations !== 'object') return 0;
+  let imported = 0;
+  for (const [characterId, raw] of Object.entries(rawConversations)) {
+    const conversation = state.conversations[characterId];
+    if (!conversation) continue;
+    const rawMessages = Array.isArray(raw?.messages) ? raw.messages : [];
+    if (!rawMessages.length) continue;
+    const messages = rawMessages.map(normalizeMessage).filter(Boolean);
+    if (!messages.length) continue;
+    const records = messages.map((message, index) => ({
+      ...message,
+      characterId,
+      seq: index + 1,
+    }));
+    await dbPutMessages(records);
+    conversation.messageCount = records.length;
+    conversation.lastSeq = records.length;
+    conversation.lastMessage = records[records.length - 1];
+    imported += records.length;
+  }
+  return imported;
+}
+
 export async function initStore() {
   let stored = null;
   try {
@@ -682,6 +869,8 @@ export async function initStore() {
     const candidate = legacy ? migrateLegacy(legacy) : createDefaultState();
     state = normalizeState(candidate);
     try {
+      await dbClearMessagesAndImages();
+      await importLegacyMessages(candidate.conversations);
       await dbSet(DB_KEY, clone(state));
       if (legacy) localStorage.removeItem(LEGACY_KEY);
     } catch {
@@ -689,6 +878,16 @@ export async function initStore() {
     }
   } else {
     state = normalizeState(stored);
+    if (stored.schema !== STATE_SCHEMA) {
+      try {
+        await dbClearMessagesAndImages();
+        await importLegacyMessages(stored.conversations);
+        state.schema = STATE_SCHEMA;
+        await dbSet(DB_KEY, clone(state));
+      } catch {
+        // Keep whatever was already readable.
+      }
+    }
   }
 
   settleShopIncome();
@@ -711,6 +910,14 @@ function persist() {
 
 export function getState() {
   return state;
+}
+
+/**
+ * Waits for queued message/state writes to reach IndexedDB. Reads that must see
+ * a just-created message (reply history, page load) await this first.
+ */
+export function flushMessageWrites() {
+  return writeChain.catch(() => {});
 }
 
 export function getApiConfig() {
@@ -750,7 +957,7 @@ export function getMaskConversationCount(maskId) {
     // Older conversations did not record a mask. Attribute those with user messages to the original mask.
     return !conversation.maskIds?.length
       && maskId === state.masks[0]?.id
-      && conversation.messages.some((message) => message.role === 'user');
+      && (conversation.messageCount || 0) > 0;
   }).length;
 }
 
@@ -971,7 +1178,9 @@ function createEmptyConversation() {
     unread: 0,
     pinned: false,
     multiSentCount: 0,
-    messages: [],
+    messageCount: 0,
+    lastSeq: 0,
+    lastMessage: null,
     style: createChatStyle(),
     memory: normalizeMemory(DEFAULT_MEMORY),
     status: null,
@@ -990,6 +1199,45 @@ export function getConversation(characterId) {
   return state.conversations[characterId] || null;
 }
 
+function queueMessageWrite(message, imageBlobs = []) {
+  writeChain = writeChain
+    .then(async () => {
+      for (const image of imageBlobs) await dbPutImage(image);
+      await dbPutMessage(message);
+    })
+    .catch(() => {
+      // Keep the in-memory state usable when a write fails.
+    });
+}
+
+export function getMessagePage(characterId, options = {}) {
+  return dbGetMessagePage(characterId, options);
+}
+
+export function getRecentMessages(characterId, limit = 50) {
+  return dbGetRecentMessages(characterId, limit);
+}
+
+export function getMessagesSince(characterId, seq = 0) {
+  return dbGetMessagesSince(characterId, seq);
+}
+
+export function getImageRecord(imageId) {
+  return dbGetImage(imageId);
+}
+
+export async function refreshConversationTail(characterId) {
+  const conversation = getConversation(characterId);
+  if (!conversation) return null;
+  const [recent] = await dbGetRecentMessages(characterId, 1);
+  const count = await dbCountMessages(characterId);
+  conversation.lastMessage = recent || null;
+  conversation.messageCount = count;
+  conversation.lastSeq = Math.max(conversation.lastSeq || 0, count);
+  persist();
+  return conversation;
+}
+
 export function incrementMultiSentCount(characterId) {
   const conversation = ensureConversation(characterId);
   conversation.multiSentCount = Math.min(999, (conversation.multiSentCount || 0) + 1);
@@ -998,12 +1246,10 @@ export function incrementMultiSentCount(characterId) {
 }
 
 // How many messages the user has queued up since the last reply. Derived from
-// the message list so deleting a queued message can never leave a stale count
-// behind in the "receive" badge.
-export function countPendingUserMessages(characterId) {
-  const conversation = getConversation(characterId);
-  if (!conversation) return 0;
-  const { messages } = conversation;
+// the stored message list so deleting a queued message can never leave a stale
+// count behind in the "receive" badge.
+export async function countPendingUserMessages(characterId) {
+  const messages = await dbGetRecentMessages(characterId, 80);
   let count = 0;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index].role !== 'user') break;
@@ -1012,9 +1258,9 @@ export function countPendingUserMessages(characterId) {
   return Math.min(999, count);
 }
 
-export function recountMultiSentCount(characterId) {
+export async function recountMultiSentCount(characterId) {
   const conversation = ensureConversation(characterId);
-  conversation.multiSentCount = countPendingUserMessages(characterId);
+  conversation.multiSentCount = await countPendingUserMessages(characterId);
   persist();
   return conversation.multiSentCount;
 }
@@ -1029,14 +1275,16 @@ export function clearMultiSentCount(characterId) {
 export function addMessage(characterId, role, content, options = {}) {
   const conversation = ensureConversation(characterId);
   conversation.maskIds ||= [];
-  if (!conversation.maskIds.length && conversation.messages.some((message) => message.role === 'user')) {
+  if (!conversation.maskIds.length && (conversation.messageCount || 0) > 0) {
     conversation.maskIds.push(state.masks[0].id);
   }
   if (!conversation.maskIds.includes(state.activeMaskId)) conversation.maskIds.push(state.activeMaskId);
   const type =
-    options.type === 'redpacket' || options.type === 'sticker' ? options.type : 'text';
+    options.type === 'redpacket' || options.type === 'sticker' || options.type === 'image'
+      ? options.type
+      : 'text';
   const message = {
-    id: makeId('message'),
+    id: makeId(type === 'image' ? 'image-message' : 'message'),
     role,
     type,
     createdAt: Date.now(),
@@ -1044,6 +1292,7 @@ export function addMessage(characterId, role, content, options = {}) {
   const quote = normalizeQuote(options.quote);
   if (quote) message.quote = quote;
   if (options.raw) message.raw = text(options.raw).slice(0, 4000);
+  const imageBlobs = [];
 
   if (type === 'redpacket') {
     message.amountFen = Math.max(1, Math.round(options.amountFen || 0));
@@ -1054,47 +1303,133 @@ export function addMessage(characterId, role, content, options = {}) {
     message.url = text(options.url);
     message.packName = text(options.packName);
     message.name = text(options.name).trim().slice(0, 20);
+  } else if (type === 'image') {
+    const sources = Array.isArray(options.images) ? options.images.slice(0, MAX_IMAGES_PER_MESSAGE) : [];
+    const refs = [];
+    for (const source of sources) {
+      if (!source?.blob) continue;
+      const id = makeId('image');
+      refs.push({
+        id,
+        width: Math.max(1, Math.round(finite(source.width, 1))),
+        height: Math.max(1, Math.round(finite(source.height, 1))),
+      });
+      imageBlobs.push({ id, blob: source.blob, createdAt: Date.now() });
+    }
+    if (!refs.length) return null;
+    message.images = refs;
+    message.content = text(content).slice(0, 500);
   } else {
     message.content = text(content);
   }
 
-  conversation.messages.push(message);
+  message.seq = (conversation.lastSeq || 0) + 1;
+  conversation.lastSeq = message.seq;
+  conversation.messageCount = (conversation.messageCount || 0) + 1;
+  conversation.lastMessage = message;
   if (options.unread) conversation.unread = (conversation.unread || 0) + 1;
+  queueMessageWrite({ ...message, characterId }, imageBlobs);
   persist();
   return message;
 }
 
-export function updateMessage(characterId, messageId, patch) {
-  const message = state.conversations[characterId]?.messages.find(
-    (item) => item.id === messageId,
+export async function updateMessage(characterId, messageId, patch) {
+  await flushMessageWrites();
+  const existing = await dbGetMessage(messageId);
+  if (!existing || existing.characterId !== characterId) return null;
+  const updated = { ...existing, ...patch };
+  await dbPutMessage(updated);
+  const conversation = getConversation(characterId);
+  if (conversation?.lastMessage?.id === messageId) conversation.lastMessage = updated;
+  persist();
+  return updated;
+}
+
+// Tapbacks live on the message itself so they survive reloads and backups.
+// A sender may only hold one reaction per emoji; tapping the same emoji again
+// removes it (toggle), matching the iMessage gesture. The list is capped so a
+// bubble never disappears behind a pile of stickers.
+export async function reactToMessage(
+  characterId,
+  messageId,
+  emoji,
+  by = 'user',
+  { toggle = true } = {},
+) {
+  await flushMessageWrites();
+  const existing = await dbGetMessage(messageId);
+  if (!existing || existing.characterId !== characterId) return null;
+  const value = text(emoji).trim().slice(0, 16);
+  if (!value) return null;
+  const role = by === 'assistant' ? 'assistant' : 'user';
+  const current = normalizeReactions(existing.reactions);
+  const index = current.findIndex(
+    (reaction) => reaction.emoji === value && reaction.by === role,
   );
-  if (!message) return null;
-  Object.assign(message, patch);
+  let next;
+  if (index >= 0) {
+    if (!toggle) return current;
+    next = current.filter((_, position) => position !== index);
+  } else {
+    next = [...current, { emoji: value, by: role }].slice(
+      -MAX_REACTIONS_PER_MESSAGE,
+    );
+  }
+  const updated = { ...existing, reactions: next };
+  await dbPutMessage(updated);
+  const conversation = getConversation(characterId);
+  if (conversation?.lastMessage?.id === messageId) conversation.lastMessage = updated;
   persist();
-  return message;
+  return next;
 }
 
-export function deleteMessage(characterId, messageId) {
-  const conversation = state.conversations[characterId];
-  if (!conversation) return null;
-  const index = conversation.messages.findIndex((item) => item.id === messageId);
-  if (index < 0) return null;
-  const [removed] = conversation.messages.splice(index, 1);
-  persist();
-  return removed;
+export async function deleteMessage(characterId, messageId) {
+  const existing = await dbGetMessage(messageId);
+  if (!existing || existing.characterId !== characterId) return null;
+  await dbDeleteMessage(messageId);
+  await deleteImageRecordsForMessages([existing]);
+  await refreshConversationTail(characterId);
+  return existing;
 }
 
-export function removeLastAssistantReply(characterId) {
-  const conversation = state.conversations[characterId];
+export async function removeLastAssistantReply(characterId) {
+  const conversation = getConversation(characterId);
   if (!conversation) return { removed: [] };
-  const messages = conversation.messages;
+  const messages = await dbGetRecentMessages(characterId, 200);
   let index = messages.length - 1;
   while (index >= 0 && messages[index].role === 'assistant') index -= 1;
   if (index === messages.length - 1) return { removed: [] };
-  const removed = messages.splice(index + 1);
-  persist();
+  const removed = messages.slice(index + 1);
+  await dbDeleteMessages(removed.map((message) => message.id));
+  await deleteImageRecordsForMessages(removed);
+  await refreshConversationTail(characterId);
   return { removed };
 }
+
+function favoriteImageIds() {
+  const ids = new Set();
+  for (const favorite of state.favorites || []) {
+    for (const message of favorite.messages || []) {
+      for (const image of message.images || []) {
+        if (image?.id) ids.add(image.id);
+      }
+    }
+  }
+  return ids;
+}
+
+async function deleteImageRecordsForMessages(messages) {
+  const protectedIds = favoriteImageIds();
+  const ids = messages
+    .flatMap((message) =>
+      message.type === 'image' && Array.isArray(message.images)
+        ? message.images.map((image) => image.id)
+        : [],
+    )
+    .filter((id) => id && !protectedIds.has(id));
+  if (ids.length) await dbDeleteImages(ids);
+}
+
 
 export function setConversationStatus(characterId, statusText) {
   const conversation = ensureConversation(characterId);
@@ -1191,6 +1526,81 @@ export function deleteMemoryCategory(characterId, name) {
   return true;
 }
 
+export function getChatPreferences(characterId) {
+  return ensureConversation(characterId).memory.preferences || [];
+}
+
+export function addChatPreference(
+  characterId,
+  content,
+  { source = 'manual' } = {},
+) {
+  const value = text(content).trim().slice(0, 160);
+  if (!value) return null;
+  const conversation = ensureConversation(characterId);
+  if (!Array.isArray(conversation.memory.preferences)) {
+    conversation.memory.preferences = [];
+  }
+  const key = preferenceKey(value);
+  const duplicate = conversation.memory.preferences.some(
+    (item) => preferenceKey(item.content) === key,
+  );
+  if (duplicate) return null;
+  const entry = {
+    id: makeId('pref'),
+    content: value,
+    source: source === 'auto' ? 'auto' : 'manual',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  conversation.memory.preferences.push(entry);
+  conversation.memory.preferences = conversation.memory.preferences.slice(-80);
+  persist();
+  return entry;
+}
+
+export function updateChatPreference(characterId, preferenceId, content) {
+  const conversation = state.conversations[characterId];
+  const entry = conversation?.memory.preferences?.find(
+    (item) => item.id === preferenceId,
+  );
+  if (!entry) return null;
+  const value = text(content).trim().slice(0, 160);
+  if (!value) return null;
+  const key = preferenceKey(value);
+  const duplicate = conversation.memory.preferences.some(
+    (item) => item.id !== preferenceId && preferenceKey(item.content) === key,
+  );
+  if (duplicate) return null;
+  entry.content = value;
+  entry.updatedAt = Date.now();
+  persist();
+  return entry;
+}
+
+export function deleteChatPreference(characterId, preferenceId) {
+  const conversation = state.conversations[characterId];
+  if (!conversation?.memory.preferences) return false;
+  const index = conversation.memory.preferences.findIndex(
+    (item) => item.id === preferenceId,
+  );
+  if (index < 0) return false;
+  conversation.memory.preferences.splice(index, 1);
+  persist();
+  return true;
+}
+
+export function markMemoryPreferences(characterId, at, consumedRounds = 0) {
+  const conversation = ensureConversation(characterId);
+  conversation.memory.lastPreferenceAt = Math.max(0, finite(at, Date.now()));
+  conversation.memory.preferenceRounds = Math.max(
+    0,
+    (conversation.memory.preferenceRounds || 0) -
+      Math.max(0, Math.round(consumedRounds)),
+  );
+  persist();
+}
+
 export function markMemorySummary(characterId, at, consumedRounds = 0) {
   const conversation = ensureConversation(characterId);
   conversation.memory.lastSummaryAt = Math.max(0, finite(at, Date.now()));
@@ -1208,6 +1618,10 @@ export function incrementMemoryRound(characterId) {
     1000,
     (conversation.memory.roundsSinceSummary || 0) + 1,
   );
+  conversation.memory.preferenceRounds = Math.min(
+    1000,
+    (conversation.memory.preferenceRounds || 0) + 1,
+  );
   persist();
   return conversation.memory.roundsSinceSummary;
 }
@@ -1220,17 +1634,25 @@ export function markConversationRead(characterId) {
   }
 }
 
-export function clearConversation(characterId) {
+export async function clearConversation(characterId) {
   const conversation = ensureConversation(characterId);
-  conversation.messages = [];
+  const existing = await dbGetRecentMessages(characterId, 100000);
+  await dbDeleteMessagesForCharacter(characterId);
+  await deleteImageRecordsForMessages(existing);
+  conversation.messageCount = 0;
+  conversation.lastSeq = 0;
+  conversation.lastMessage = null;
   conversation.unread = 0;
   conversation.status = null;
   conversation.memory.lastSummaryAt = 0;
   conversation.memory.roundsSinceSummary = 0;
+  conversation.memory.lastPreferenceAt = 0;
+  conversation.memory.preferenceRounds = 0;
   persist();
 }
 
-export function deleteConversation(characterId) {
+export async function deleteConversation(characterId) {
+  await clearConversation(characterId);
   delete state.conversations[characterId];
   persist();
 }
@@ -1245,8 +1667,8 @@ export function getSortedConversations() {
   return getAllCharacters()
     .flatMap((character) => {
       const conversation = state.conversations[character.id];
-      if (!conversation?.messages.length) return [];
-      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      const lastMessage = conversation?.lastMessage;
+      if (!lastMessage || !(conversation.messageCount > 0)) return [];
       return [{ character, conversation, lastMessage }];
     })
     .sort((a, b) => {
@@ -1267,7 +1689,7 @@ export function getUnreadTotal() {
 export function getStats() {
   const conversations = getSortedConversations();
   const messageCount = conversations.reduce(
-    (total, item) => total + item.conversation.messages.length,
+    (total, item) => total + (item.conversation.messageCount || 0),
     0,
   );
   const startedAt = state.masks.reduce(
@@ -1463,12 +1885,10 @@ export function sendRedPacket(characterId, amountFen, note) {
   return { ok: true, message };
 }
 
-export function claimRedPacket(characterId, messageId) {
+export async function claimRedPacket(characterId, messageId) {
   const character = getCharacter(characterId);
-  const message = state.conversations[characterId]?.messages.find(
-    (item) => item.id === messageId,
-  );
-  if (!character || !message || message.type !== 'redpacket') {
+  const message = await dbGetMessage(messageId);
+  if (!character || !message || message.type !== 'redpacket' || message.characterId !== characterId) {
     return { ok: false, message: '红包不存在' };
   }
   if (message.role !== 'assistant') return { ok: false, message: '这是你发出的红包' };
@@ -1476,6 +1896,9 @@ export function claimRedPacket(characterId, messageId) {
 
   message.claimed = true;
   message.claimedAt = Date.now();
+  await dbPutMessage(message);
+  const conversation = getConversation(characterId);
+  if (conversation?.lastMessage?.id === messageId) conversation.lastMessage = message;
   state.wallet.balanceFen += message.amountFen;
   addWalletTransaction('redpacket-in', message.amountFen, `${character.name}的红包`);
   persist();
@@ -1607,31 +2030,462 @@ export function toggleMomentLike(momentId) {
   return index < 0;
 }
 
-export function createBackup() {
+const ZIP_CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < 256; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    }
+    table[index] = value >>> 0;
+  }
+  return table;
+})();
+
+function zipCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (let index = 0; index < bytes.length; index += 1) {
+    crc = ZIP_CRC_TABLE[(crc ^ bytes[index]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function zipDateParts(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  return {
+    time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+    date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
+  };
+}
+
+// A compact ZIP writer using stored (uncompressed) entries. JSON and JPEG data
+// are already compact enough, and storing avoids browser support differences.
+function createZip(entries) {
+  const encoder = new TextEncoder();
+  const prepared = entries.map((entry) => {
+    const nameBytes = encoder.encode(entry.name.replace(/\\/g, '/'));
+    const data = entry.data instanceof Uint8Array ? entry.data : encoder.encode(String(entry.data ?? ''));
+    return { nameBytes, data, crc: zipCrc32(data), ...zipDateParts(entry.date) };
+  });
+
+  let localSize = 0;
+  let centralSize = 0;
+  for (const entry of prepared) {
+    localSize += 30 + entry.nameBytes.length + entry.data.length;
+    centralSize += 46 + entry.nameBytes.length;
+  }
+  const buffer = new ArrayBuffer(localSize + centralSize + 22);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  let offset = 0;
+  const central = [];
+
+  for (const entry of prepared) {
+    const localOffset = offset;
+    view.setUint32(offset, 0x04034b50, true);
+    view.setUint16(offset + 4, 20, true);
+    view.setUint16(offset + 6, 0x0800, true);
+    view.setUint16(offset + 8, 0, true);
+    view.setUint16(offset + 10, entry.time, true);
+    view.setUint16(offset + 12, entry.date, true);
+    view.setUint32(offset + 14, entry.crc, true);
+    view.setUint32(offset + 18, entry.data.length, true);
+    view.setUint32(offset + 22, entry.data.length, true);
+    view.setUint16(offset + 26, entry.nameBytes.length, true);
+    view.setUint16(offset + 28, 0, true);
+    offset += 30;
+    bytes.set(entry.nameBytes, offset);
+    offset += entry.nameBytes.length;
+    bytes.set(entry.data, offset);
+    offset += entry.data.length;
+    central.push({ ...entry, localOffset });
+  }
+
+  const centralOffset = offset;
+  for (const entry of central) {
+    view.setUint32(offset, 0x02014b50, true);
+    view.setUint16(offset + 4, 20, true);
+    view.setUint16(offset + 6, 20, true);
+    view.setUint16(offset + 8, 0x0800, true);
+    view.setUint16(offset + 10, 0, true);
+    view.setUint16(offset + 12, entry.time, true);
+    view.setUint16(offset + 14, entry.date, true);
+    view.setUint32(offset + 16, entry.crc, true);
+    view.setUint32(offset + 20, entry.data.length, true);
+    view.setUint32(offset + 24, entry.data.length, true);
+    view.setUint16(offset + 28, entry.nameBytes.length, true);
+    view.setUint16(offset + 30, 0, true);
+    view.setUint16(offset + 32, 0, true);
+    view.setUint16(offset + 34, 0, true);
+    view.setUint16(offset + 36, 0, true);
+    view.setUint32(offset + 38, 0, true);
+    view.setUint32(offset + 42, entry.localOffset, true);
+    offset += 46;
+    bytes.set(entry.nameBytes, offset);
+    offset += entry.nameBytes.length;
+  }
+
+  view.setUint32(offset, 0x06054b50, true);
+  view.setUint16(offset + 4, 0, true);
+  view.setUint16(offset + 6, 0, true);
+  view.setUint16(offset + 8, central.length, true);
+  view.setUint16(offset + 10, central.length, true);
+  view.setUint32(offset + 12, offset - centralOffset, true);
+  view.setUint32(offset + 16, centralOffset, true);
+  view.setUint16(offset + 20, 0, true);
+  return new Blob([buffer], { type: 'application/zip' });
+}
+
+function findZipEnd(bytes) {
+  const minimum = Math.max(0, bytes.length - 65557);
+  for (let index = bytes.length - 22; index >= minimum; index -= 1) {
+    if (
+      bytes[index] === 0x50 &&
+      bytes[index + 1] === 0x4b &&
+      bytes[index + 2] === 0x05 &&
+      bytes[index + 3] === 0x06
+    ) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+async function inflateZipBytes(bytes) {
+  if (typeof DecompressionStream !== 'function') {
+    throw new Error('当前浏览器不支持解压这个备份');
+  }
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function readZip(input) {
+  const bytes = new Uint8Array(input);
+  const eocd = findZipEnd(bytes);
+  if (eocd < 0) throw new Error('这不是有效的 ZIP 备份文件');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const totalEntries = view.getUint16(eocd + 10, true);
+  const centralOffset = view.getUint32(eocd + 16, true);
+  const decoder = new TextDecoder();
+  const files = new Map();
+  let offset = centralOffset;
+
+  for (let index = 0; index < totalEntries; index += 1) {
+    if (view.getUint32(offset, true) !== 0x02014b50) {
+      throw new Error('ZIP 备份的目录信息已损坏');
+    }
+    const method = view.getUint16(offset + 10, true);
+    const compressedSize = view.getUint32(offset + 20, true);
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const localOffset = view.getUint32(offset + 42, true);
+    const name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLength));
+    offset += 46 + nameLength + extraLength + commentLength;
+
+    if (view.getUint32(localOffset, true) !== 0x04034b50) {
+      throw new Error('ZIP 备份中的文件头已损坏');
+    }
+    const localNameLength = view.getUint16(localOffset + 26, true);
+    const localExtraLength = view.getUint16(localOffset + 28, true);
+    const start = localOffset + 30 + localNameLength + localExtraLength;
+    const compressed = bytes.subarray(start, start + compressedSize);
+    let data = compressed;
+    if (method === 8) data = await inflateZipBytes(compressed);
+    else if (method !== 0) throw new Error('备份使用了不支持的压缩方式');
+    files.set(name, data);
+  }
+  return files;
+}
+
+function jsonFile(files, name, fallback = null) {
+  const data = files.get(name);
+  if (!data) return fallback;
+  try {
+    return JSON.parse(new TextDecoder().decode(data));
+  } catch {
+    throw new Error(`备份中的 ${name} 无法解析`);
+  }
+}
+
+function safeFileName(characterId, index) {
+  const cleaned = String(characterId).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+  return `messages/${String(index).padStart(3, '0')}-${cleaned || 'conversation'}.json`;
+}
+
+export async function createBackup() {
   const snapshot = clone(state);
   snapshot.settings.api.apiKey = '';
   snapshot.exportedAt = new Date().toISOString();
   return JSON.stringify(snapshot, null, 2);
 }
 
-export function restoreBackup(raw) {
-  const parsed = JSON.parse(raw);
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    !parsed.conversations ||
-    typeof parsed.conversations !== 'object'
-  ) {
+export async function exportBackupZip() {
+  const [messages, images] = await Promise.all([dbGetAllMessages(), dbGetAllImages()]);
+  const grouped = new Map();
+  for (const message of messages) {
+    if (!grouped.has(message.characterId)) grouped.set(message.characterId, []);
+    grouped.get(message.characterId).push(message);
+  }
+  for (const list of grouped.values()) {
+    list.sort((a, b) => (a.seq || 0) - (b.seq || 0) || a.createdAt - b.createdAt);
+  }
+
+  const snapshot = clone(state);
+  snapshot.settings.api.apiKey = '';
+  const entries = [
+    {
+      name: 'manifest.json',
+      data: JSON.stringify(
+        {
+          format: 'achat-backup',
+          version: 2,
+          app: 'Achenchat',
+          createdAt: new Date().toISOString(),
+          counts: {
+            conversations: Object.keys(snapshot.conversations || {}).length,
+            messages: messages.length,
+            images: images.length,
+            favorites: snapshot.favorites?.length || 0,
+          },
+          modules: ['profile.json', 'conversations.json', 'wallet.json', 'content.json', 'messages/', 'images/'],
+        },
+        null,
+        2,
+      ),
+    },
+    {
+      name: 'profile.json',
+      data: JSON.stringify(
+        {
+          settings: snapshot.settings,
+          masks: snapshot.masks,
+          activeMaskId: snapshot.activeMaskId,
+          tags: snapshot.tags,
+          customCharacters: snapshot.customCharacters,
+          hiddenCharacters: snapshot.hiddenCharacters,
+          characterOverrides: snapshot.characterOverrides,
+        },
+        null,
+        2,
+      ),
+    },
+    {
+      name: 'conversations.json',
+      data: JSON.stringify(snapshot.conversations || {}, null, 2),
+    },
+    {
+      name: 'wallet.json',
+      data: JSON.stringify({ wallet: snapshot.wallet, shop: snapshot.shop }, null, 2),
+    },
+    {
+      name: 'content.json',
+      data: JSON.stringify(
+        {
+          stickerPacks: snapshot.stickerPacks,
+          bubblePresets: snapshot.bubblePresets,
+          likedMoments: snapshot.likedMoments,
+          favorites: snapshot.favorites,
+        },
+        null,
+        2,
+      ),
+    },
+  ];
+
+  let index = 0;
+  for (const [characterId, list] of grouped) {
+    entries.push({
+      name: safeFileName(characterId, index),
+      data: JSON.stringify(list),
+    });
+    index += 1;
+  }
+  for (const image of images) {
+    if (!image?.id || !image.blob) continue;
+    entries.push({
+      name: `images/${image.id}.jpg`,
+      data: new Uint8Array(await image.blob.arrayBuffer()),
+    });
+  }
+
+  return createZip(entries);
+}
+
+export function inspectBackupFile(file) {
+  return file.arrayBuffer().then(async (buffer) => {
+    const bytes = new Uint8Array(buffer);
+    const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+    if (!isZip) {
+      const parsed = JSON.parse(new TextDecoder().decode(bytes));
+      const conversations = parsed?.conversations || {};
+      const messageCount = Object.values(conversations).reduce(
+        (total, conversation) => total + (conversation?.messages?.length || 0),
+        0,
+      );
+      return {
+        format: 'achat-json',
+        legacy: true,
+        createdAt: parsed?.exportedAt || null,
+        counts: {
+          conversations: Object.keys(conversations).length,
+          messages: messageCount,
+          images: 0,
+        },
+      };
+    }
+    const files = await readZip(bytes);
+    const manifest = jsonFile(files, 'manifest.json', null);
+    if (!manifest || manifest.format !== 'achat-backup') {
+      throw new Error('这个 ZIP 不是 Achat 备份');
+    }
+    return manifest;
+  });
+}
+
+async function importZipBackup(files) {
+  const manifest = jsonFile(files, 'manifest.json', null);
+  if (!manifest || manifest.format !== 'achat-backup') {
+    throw new Error('这个 ZIP 不是 Achat 备份');
+  }
+  const profile = jsonFile(files, 'profile.json', {});
+  const conversations = jsonFile(files, 'conversations.json', {});
+  const wallet = jsonFile(files, 'wallet.json', {});
+  const content = jsonFile(files, 'content.json', {});
+
+  const grouped = new Map();
+  for (const [name, data] of files) {
+    if (!name.startsWith('messages/') || !name.endsWith('.json')) continue;
+    let list;
+    try {
+      list = JSON.parse(new TextDecoder().decode(data));
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (!item || typeof item.characterId !== 'string') continue;
+      if (!grouped.has(item.characterId)) grouped.set(item.characterId, []);
+      grouped.get(item.characterId).push(item);
+    }
+  }
+
+  const candidate = {
+    ...profile,
+    conversations,
+    wallet: wallet.wallet,
+    shop: wallet.shop,
+    ...content,
+  };
+  const normalized = normalizeState(candidate);
+  normalized.settings.api.apiKey = state.settings.api.apiKey;
+  normalized.schema = STATE_SCHEMA;
+  state = normalized;
+
+  const records = [];
+  for (const [characterId, list] of grouped) {
+    const conversation = state.conversations[characterId];
+    if (!conversation) continue;
+    list.sort((a, b) => (a.seq || 0) - (b.seq || 0) || a.createdAt - b.createdAt);
+    const normalizedList = list.map(normalizeMessage).filter(Boolean);
+    normalizedList.forEach((message, index) => {
+      records.push({
+        ...message,
+        characterId,
+        seq: index + 1,
+      });
+    });
+    conversation.messageCount = normalizedList.length;
+    conversation.lastSeq = normalizedList.length;
+    conversation.lastMessage = normalizedList[normalizedList.length - 1] || null;
+  }
+  for (const [characterId, conversation] of Object.entries(state.conversations)) {
+    if (grouped.has(characterId)) continue;
+    conversation.messageCount = 0;
+    conversation.lastSeq = 0;
+    conversation.lastMessage = null;
+  }
+
+  const images = [];
+  for (const [name, data] of files) {
+    if (!name.startsWith('images/') || name.endsWith('/')) continue;
+    const id = name.slice('images/'.length).replace(/\.[^.]+$/, '');
+    if (!id) continue;
+    images.push({ id, blob: new Blob([data], { type: 'image/jpeg' }), createdAt: Date.now() });
+  }
+
+  await dbClearAllData();
+  if (records.length) await dbPutMessages(records);
+  for (const image of images) await dbPutImage(image);
+  await dbSet(DB_KEY, clone(state));
+  settleShopIncome();
+  return {
+    counts: {
+      conversations: Object.keys(state.conversations).length,
+      messages: records.length,
+      images: images.length,
+    },
+  };
+}
+
+export async function restoreBackupFile(file) {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+  if (isZip) return importZipBackup(await readZip(bytes));
+
+  let parsed;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
     throw new Error('备份文件格式不正确');
   }
+  if (!parsed || typeof parsed !== 'object' || !parsed.conversations) {
+    throw new Error('备份文件格式不正确');
+  }
+  const rawConversations = parsed.conversations;
   const normalized = normalizeState(parsed);
   normalized.settings.api.apiKey = state.settings.api.apiKey;
+  normalized.schema = STATE_SCHEMA;
   state = normalized;
-  persist();
+  await dbClearAllData();
+  await importLegacyMessages(rawConversations);
+  await dbSet(DB_KEY, clone(state));
+  settleShopIncome();
+  return {
+    counts: {
+      conversations: Object.keys(state.conversations).length,
+      messages: Object.values(state.conversations).reduce(
+        (total, conversation) => total + conversation.messageCount,
+        0,
+      ),
+      images: 0,
+    },
+  };
+}
+
+export async function restoreBackup(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('备份文件格式不正确');
+  }
+  if (!parsed || typeof parsed !== 'object' || !parsed.conversations) {
+    throw new Error('备份文件格式不正确');
+  }
+  const rawConversations = parsed.conversations;
+  const apiKey = state.settings.api.apiKey;
+  state = normalizeState(parsed);
+  state.settings.api.apiKey = apiKey;
+  state.schema = STATE_SCHEMA;
+  await dbClearAllData();
+  await importLegacyMessages(rawConversations);
+  await dbSet(DB_KEY, clone(state));
   settleShopIncome();
 }
 
-export function clearAllData() {
+export async function clearAllData() {
   state = normalizeState({
     ...createDefaultState({ seeded: false, emptyWallet: true }),
     masks: [
@@ -1647,5 +2501,10 @@ export function clearAllData() {
     activeMaskId: 'mask-me',
     wallet: createEmptyWallet(),
   });
-  persist();
+  await dbClearAllData();
+  await dbSet(DB_KEY, clone(state));
+  settleShopIncome();
 }
+
+
+

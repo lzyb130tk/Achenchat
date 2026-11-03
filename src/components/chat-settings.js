@@ -15,16 +15,21 @@ import { copyText } from '../services/clipboard.js';
 import { readImageFile } from '../services/image.js';
 import {
   addBubblePreset,
+  addChatPreference,
   deleteBubblePreset,
+  deleteChatPreference,
   getBubblePresets,
   getChatMemory,
-  getConversation,
   getFavoriteCount,
+  getRecentMessages,
   getStickerPacks,
   updateBubblePreset,
+  updateChatPreference,
   updateChatStyle,
+  updateMemorySettings,
   updateStickerPack,
 } from '../services/store.js';
+import { currentPeriodLabel } from '../services/time-awareness.js';
 import {
   chatStreakDays,
   escapeHTML,
@@ -32,14 +37,69 @@ import {
 } from '../services/utils.js';
 import { characterAvatar } from './avatar.js';
 import { uiIcon } from './icons.js';
+import { closeActiveSheet, openSheet } from './sheet.js';
 import { toast } from './toast.js';
 
 const BACKGROUND_PREVIEWS = {
-  default: '#f4f1ec',
+  default: '#f5f1e8',
   warm: 'linear-gradient(150deg, #f7e6cd, #efd0ad)',
   night: 'linear-gradient(150deg, #33302d, #1d1b19)',
   dawn: 'linear-gradient(150deg, #e8eeeb, #cfdcd7)',
 };
+
+const BUBBLE_PRESET_VISIBLE = 4;
+const BUBBLE_PRESET_COLUMNS = 2;
+
+const BUBBLE_PRESET_PREVIEW_CSS = `
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :host {
+    display: block;
+    height: 100%;
+  }
+
+  .preset-preview {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    overflow: hidden;
+    padding: 10px;
+    background:
+      radial-gradient(120% 100% at 12% 8%, color-mix(in srgb, var(--color-accent-soft) 52%, transparent), transparent 68%),
+      color-mix(in srgb, var(--color-ink) 4%, transparent);
+  }
+
+  .message-bubble {
+    max-width: 86%;
+    padding: 5px 9px;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1.35;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+    white-space: nowrap;
+  }
+
+  .message-bubble--assistant {
+    align-self: flex-start;
+    border-radius: 12px 12px 12px 4px;
+    background: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  .message-bubble--user {
+    align-self: flex-end;
+    border-radius: 12px 12px 4px 12px;
+    background: var(--color-action);
+    color: var(--color-action-ink);
+  }
+`;
 
 const VIEW_TITLES = {
   send: '发送方式',
@@ -53,12 +113,15 @@ const VIEW_TITLES = {
   packet: '红包样式',
   stickers: '表情包',
   spark: '连续火花',
+  reaction: '贴表情大小',
+  about: '关于我',
 };
 
 export function applyChatStyle(screen, style) {
   screen.style.setProperty('--chat-avatar-size', `${style.avatarSize}px`);
   screen.style.setProperty('--chat-avatar-radius', `${style.avatarRadius}%`);
   screen.style.setProperty('--chat-message-gap', `${style.messageGap}px`);
+  screen.style.setProperty('--chat-reaction-size', `${style.reactionSize || 20}px`);
   screen.dataset.chatBackground = style.background || 'default';
   if (style.bubbleCss) screen.dataset.customBubble = '';
   else delete screen.dataset.customBubble;
@@ -96,6 +159,25 @@ function speedLabel(speed) {
   return `${speed.toFixed(3)} 秒 / 字`;
 }
 
+function preferenceDate(timestamp) {
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return '刚刚';
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function preferenceCard(pref, index) {
+  return `<button class="about-me-card" type="button" data-preference="${escapeHTML(pref.id)}" style="--card-index:${index}">
+    <span class="about-me-card__mark" aria-hidden="true">“</span>
+    <span class="about-me-card__text">${escapeHTML(pref.content)}</span>
+    <span class="about-me-card__meta">
+      <span class="about-me-card__source">${pref.source === 'auto' ? 'TA 悄悄记下的' : '你写下的'}</span>
+      <span class="about-me-card__dot" aria-hidden="true"></span>
+      <time>${preferenceDate(pref.updatedAt || pref.createdAt)}</time>
+      <span class="about-me-card__edit" aria-hidden="true">${uiIcon('pencil', { size: 12 })}</span>
+    </span>
+  </button>`;
+}
+
 function backgroundMarkup(style) {
   return `
     <div class="background-grid">
@@ -117,14 +199,19 @@ function backgroundMarkup(style) {
 function presetListMarkup(style) {
   return getBubblePresets()
     .map(
-      (preset) => `<div class="preset-row${style.presetId === preset.id ? ' is-active' : ''}" data-preset-row="${preset.id}">
-        <button class="preset-row__apply" type="button" data-apply-preset="${preset.id}">
-          <span class="preset-row__name">${escapeHTML(preset.name)}</span>
-          ${style.presetId === preset.id ? `<span class="preset-row__current">${uiIcon('check', { size: 12 })}</span>` : ''}
+      (preset) => `<article class="preset-card${style.presetId === preset.id ? ' is-active' : ''}" data-preset-row="${preset.id}">
+        <button class="preset-card__apply" type="button" data-apply-preset="${preset.id}">
+          <span class="preset-card__preview" data-preset-preview="${preset.id}" aria-hidden="true"></span>
+          <span class="preset-card__name">
+            <span class="preset-card__name-text">${escapeHTML(preset.name)}</span>
+            ${style.presetId === preset.id ? `<span class="preset-card__current">${uiIcon('check', { size: 10 })}</span>` : ''}
+          </span>
         </button>
-        <button class="preset-row__action" type="button" aria-label="编辑预设" data-edit-preset="${preset.id}">${uiIcon('pencil', { size: 15 })}</button>
-        <button class="preset-row__action" type="button" aria-label="删除预设" data-delete-preset="${preset.id}">${uiIcon('trash', { size: 15 })}</button>
-      </div>`,
+        <span class="preset-card__actions">
+          <button class="preset-card__action" type="button" aria-label="编辑预设" data-edit-preset="${preset.id}">${uiIcon('pencil', { size: 13 })}</button>
+          <button class="preset-card__action" type="button" aria-label="删除预设" data-delete-preset="${preset.id}">${uiIcon('trash', { size: 13 })}</button>
+        </span>
+      </article>`,
     )
     .join('');
 }
@@ -219,6 +306,9 @@ export function createChatSettingsPage({ character, style }) {
   let presetFormOpen = false;
   let editingPresetId = null;
   let presetDraft = { name: '', css: '' };
+  let presetListScrollTop = 0;
+  let streakDays = 0;
+  let streakLoaded = false;
 
   const screen = document.createElement('section');
   screen.className = 'screen screen--chat-settings';
@@ -276,13 +366,34 @@ export function createChatSettingsPage({ character, style }) {
           const packs = getStickerPacks();
           const enabled = packs.filter((pack) => pack.enabled).length;
           const memory = getChatMemory(character.id);
+          const preferences = memory.preferences || [];
           return `<section class="chat-settings__group">
+            <h3 class="chat-settings__group-label">感知</h3>
+            <div class="chat-settings__list">
+              <div class="chat-settings__row">
+                <span class="chat-settings__row-icon">${uiIcon('clock', { size: 18 })}</span>
+                <span class="chat-settings__row-label">时间感知</span>
+                <span class="chat-settings__row-value">${current.timeAwareness ? currentPeriodLabel() : '已关闭'}</span>
+                <label class="switch">
+                  <input type="checkbox" data-time-awareness${current.timeAwareness ? ' checked' : ''} aria-label="时间感知">
+                  <span class="switch__track"></span>
+                </label>
+              </div>
+            </div>
+          </section>
+          <section class="chat-settings__group">
             <h3 class="chat-settings__group-label">互动</h3>
             <div class="chat-settings__list">
               <button class="chat-settings__row" type="button" data-open-view="stickers">
                 <span class="chat-settings__row-icon">${uiIcon('sticker', { size: 18 })}</span>
                 <span class="chat-settings__row-label">表情包</span>
                 <span class="chat-settings__row-value">${enabled}/${packs.length} 组</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
+              </button>
+              <button class="chat-settings__row" type="button" data-open-view="reaction">
+                <span class="chat-settings__row-icon">${uiIcon('smiley', { size: 18 })}</span>
+                <span class="chat-settings__row-label">贴表情大小</span>
+                <span class="chat-settings__row-value">${current.reactionSize}px</span>
                 <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
               </button>
               <button class="chat-settings__row" type="button" data-open-view="spark">
@@ -308,6 +419,12 @@ export function createChatSettingsPage({ character, style }) {
           <section class="chat-settings__group">
             <h3 class="chat-settings__group-label">记忆</h3>
             <div class="chat-settings__list">
+              <button class="chat-settings__row" type="button" data-open-view="about">
+                <span class="chat-settings__row-icon">${uiIcon('heart', { size: 18 })}</span>
+                <span class="chat-settings__row-label">关于我</span>
+                <span class="chat-settings__row-value">${preferences.length ? `${preferences.length} 件小事` : '还没记住'}</span>
+                <span class="chat-settings__row-chevron">${uiIcon('chevron-right', { size: 15 })}</span>
+              </button>
               <button class="chat-settings__row" type="button" data-memory>
                 <span class="chat-settings__row-icon">${uiIcon('archive', { size: 18 })}</span>
                 <span class="chat-settings__row-label">聊天记忆</span>
@@ -404,7 +521,7 @@ export function createChatSettingsPage({ character, style }) {
           </button>
         </div>`;
 
-      const composerMarkup = () => `<p class="settings-note">默认是单行输入，红包、表情和重试收在左边的「+」里。加高样式把输入卡拉高，红包和重试直接摆在卡面上，左下角的按钮则换成表情包。</p>
+      const composerMarkup = () => `
         <div class="choice-list">
           <button class="choice-card${current.composerStyle === 'raised' ? '' : ' is-selected'}" type="button" data-set-composer="default">
             <span class="choice-card__icon">${uiIcon('textbox', { size: 18 })}</span>
@@ -422,7 +539,7 @@ export function createChatSettingsPage({ character, style }) {
           <span class="composer-preview__line"><i class="composer-preview__dot"></i><i class="composer-preview__text"></i><i class="composer-preview__send"></i></span>
         </div>`;
 
-      const loadingMarkup = () => `<p class="settings-note">等回复时的样子。消息动画就是现在这颗跳动的气泡；顶栏提示会把气泡收起来，只在他名字下面换成一行绿色的「正在输入」，一直显示到消息真正出现。</p>
+      const loadingMarkup = () => `
         <div class="choice-list">
           <button class="choice-card${current.loadingStyle === 'header' ? '' : ' is-selected'}" type="button" data-set-loading="bubble">
             <span class="choice-card__icon">${uiIcon('chat', { size: 18 })}</span>
@@ -444,7 +561,7 @@ export function createChatSettingsPage({ character, style }) {
           <span class="range-row__top"><span>每个字的停顿</span><output>${current.typingSpeed.toFixed(3)}s</output></span>
           <input class="range" type="range" min="5" max="120" step="1" value="${Math.round(current.typingSpeed * 1000)}" data-speed>
         </label>
-        <p class="settings-note">数字越小，消息出现得越快。多条消息之间也会按这个速度停顿。</p>`;
+        `;
 
       const animationMarkup = () => {
         const custom = Boolean(current.animationCss);
@@ -519,7 +636,7 @@ export function createChatSettingsPage({ character, style }) {
           <h4>预设</h4>
           <button class="text-button" type="button" data-add-preset>新增</button>
         </div>
-        <div class="preset-list" data-preset-list>${presetListMarkup(current)}</div>
+        <div class="preset-list preset-list--bubble" data-preset-list>${presetListMarkup(current)}</div>
         <div class="preset-form" data-preset-form${presetFormOpen ? '' : ' hidden'}>
           <label class="field">
             <span class="field__label">预设名称</span>
@@ -560,6 +677,126 @@ export function createChatSettingsPage({ character, style }) {
           </span>
         </label>`;
 
+      const reactionMarkup = () => `<div class="reaction-size-preview" data-reaction-preview style="--chat-reaction-size:${current.reactionSize}px">
+          <span class="message-reaction">😂</span>
+          <span class="message-reaction">👍</span>
+          <span class="message-reaction">❤️</span>
+        </div>
+        
+        <label class="range-row">
+          <span class="range-row__top"><span>Emoji 大小</span><output data-reaction-size-output>${current.reactionSize}px</output></span>
+          <input class="range" type="range" min="14" max="40" step="1" value="${current.reactionSize}" data-reaction-size>
+        </label>`;
+
+      const aboutMeMarkup = () => {
+        const memory = getChatMemory(character.id);
+        const preferences = memory.preferences || [];
+        const auto = (memory.preferenceEvery || 0) > 0;
+        const every = Math.min(50, Math.max(2, memory.preferenceEvery || 4));
+        return `<label class="switch-row about-me__switch">
+            <span class="switch-row__copy">
+              <strong>让 TA 悄悄记住</strong>
+            </span>
+            <span class="switch">
+              <input type="checkbox" data-preference-auto${auto ? ' checked' : ''} aria-label="让 AI 自动记住我的喜好">
+              <span class="switch__track"></span>
+            </span>
+          </label>
+          ${
+            auto
+              ? `<label class="range-row about-me__frequency">
+                  <span class="range-row__top"><span>整理频率</span><output data-preference-output>每 ${every} 次回复</output></span>
+                  <input class="range" type="range" min="2" max="50" step="1" value="${every}" data-preference-frequency aria-label="自动整理频率">
+                </label>`
+              : ''
+          }
+          <div class="about-me__head">
+            <h4>TA 记得的你${preferences.length ? `<span>${preferences.length}</span>` : ''}</h4>
+            <button class="text-button text-button--small" type="button" data-add-preference>${uiIcon('plus', { size: 14 })}添加</button>
+          </div>
+          ${
+            preferences.length
+              ? `<div class="about-me__cards">${preferences
+                  .slice()
+                  .reverse()
+                  .map(preferenceCard)
+                  .join('')}</div>`
+              : `<div class="about-me__empty">
+                  <span class="about-me__empty-icon">${uiIcon('heart', { size: 24 })}</span>
+                  <strong>还没有关于你的小事</strong>
+                  <p>再聊几句，${escapeHTML(character.name)}就会慢慢记住你喜欢什么、讨厌什么。</p>
+                </div>`
+          }`;
+      };
+
+      const openPreferenceSheet = (pref = null) => {
+        openSheet({
+          title: pref ? '关于我' : '添加一件小事',
+          description: pref
+            ? ''
+            : `写一件希望${character.name}一直记得的事。`,
+          content: `<label class="field">
+            
+            <span class="field__control field__control--area">
+              <textarea class="field__input field__textarea" rows="4" maxlength="160" data-preference-text placeholder="例如：讨厌吃香菜，喜欢下雨天">${escapeHTML(pref?.content || '')}</textarea>
+            </span>
+           
+          </label>`,
+          actions: pref
+            ? `<div class="button-row">
+                <button class="button button--danger" type="button" data-delete-preference>删除</button>
+                <button class="button button--primary" type="button" data-save-preference>保存</button>
+              </div>`
+            : `<button class="button button--primary" type="button" data-save-preference>添加</button>`,
+          onMount: (sheet) => {
+            const input = sheet.querySelector('[data-preference-text]');
+            const save = () => {
+              const value = input.value.trim();
+              if (!value) {
+                toast('写一点内容', { tone: 'danger' });
+                input.focus();
+                return;
+              }
+              if (pref) {
+                if (!updateChatPreference(character.id, pref.id, value)) {
+                  toast('这条已经记下了', { tone: 'danger' });
+                  input.focus();
+                  return;
+                }
+                toast('已经改好了');
+              } else if (!addChatPreference(character.id, value)) {
+                toast('这条已经记下了');
+                closeActiveSheet();
+                paint();
+                return;
+              } else {
+                toast('已经记下了');
+              }
+              closeActiveSheet();
+              paint();
+            };
+            input.addEventListener('keydown', (event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                save();
+              }
+            });
+            sheet
+              .querySelector('[data-save-preference]')
+              .addEventListener('click', save);
+            sheet
+              .querySelector('[data-delete-preference]')
+              ?.addEventListener('click', () => {
+                deleteChatPreference(character.id, pref.id);
+                closeActiveSheet();
+                toast('已经忘掉了');
+                paint();
+              });
+            if (!pref) window.setTimeout(() => input.focus(), 120);
+          },
+        });
+      };
+
       const packetMarkup = () => {
         const custom = Boolean(current.packetCss);
         return `<div class="packet-settings-preview">
@@ -597,8 +834,7 @@ export function createChatSettingsPage({ character, style }) {
 
       const sparkMarkup = () => {
         const custom = current.sparkIcon === 'custom';
-        const conversation = getConversation(character.id);
-        const streak = chatStreakDays(conversation?.messages || []);
+        const streak = streakLoaded ? streakDays : 0;
         return `<div class="spark-preview">
             <span class="chat-spark">
               <span class="chat-spark__icon">${getSparkSvg(current)}</span>
@@ -652,6 +888,8 @@ export function createChatSettingsPage({ character, style }) {
         if (view === 'packet') return packetMarkup();
         if (view === 'stickers') return stickersMarkup();
         if (view === 'spark') return sparkMarkup();
+        if (view === 'reaction') return reactionMarkup();
+        if (view === 'about') return aboutMeMarkup();
         return '';
       };
 
@@ -676,6 +914,7 @@ export function createChatSettingsPage({ character, style }) {
           );
         }
         paintTabs();
+        if (view !== 'bubble') presetListScrollTop = 0;
         content.innerHTML = view === 'root' ? rootMarkup() : subviewMarkup();
         previewStyle.textContent =
           view === 'bubble'
@@ -737,8 +976,72 @@ export function createChatSettingsPage({ character, style }) {
       const bindBubble = () => {
         const input = content.querySelector('[data-bubble-css]');
         const presetForm = content.querySelector('[data-preset-form]');
+        const presetList = content.querySelector('[data-preset-list]');
         const gap = content.querySelector('[data-message-gap]');
         const gapOutput = content.querySelector('[data-gap-output]');
+
+        const renderPresetPreviews = () => {
+          presetList.querySelectorAll('[data-preset-preview]').forEach((host) => {
+            const preset = getBubblePresets().find(
+              (item) => item.id === host.dataset.presetPreview,
+            );
+            if (!preset) return;
+            const shadow = host.attachShadow({ mode: 'open' });
+            const baseStyle = document.createElement('style');
+            baseStyle.textContent = BUBBLE_PRESET_PREVIEW_CSS;
+            const presetStyle = document.createElement('style');
+            presetStyle.textContent = preset.css;
+            const scene = document.createElement('div');
+            scene.className = 'preset-preview';
+            scene.innerHTML =
+              '<span class="message-bubble message-bubble--assistant">在呢</span><span class="message-bubble message-bubble--user">晚安</span>';
+            shadow.append(baseStyle, presetStyle, scene);
+          });
+        };
+
+        const syncPresetEdge = () => {
+          const atEnd =
+            presetList.scrollTop + presetList.clientHeight >=
+            presetList.scrollHeight - 1;
+          presetList.classList.toggle('is-at-end', atEnd);
+        };
+
+        const fitPresetList = () => {
+          const cards = presetList.querySelectorAll('.preset-card');
+          if (cards.length <= BUBBLE_PRESET_VISIBLE) {
+            presetList.style.removeProperty('max-height');
+            presetList.classList.remove('is-scrollable');
+            syncPresetEdge();
+            return;
+          }
+          const styles = getComputedStyle(presetList);
+          const gapSize = Number.parseFloat(styles.rowGap) || 0;
+          const padding =
+            (Number.parseFloat(styles.paddingTop) || 0) +
+            (Number.parseFloat(styles.paddingBottom) || 0);
+          const cardHeight = cards[0].getBoundingClientRect().height;
+          const visibleRows = Math.ceil(
+            BUBBLE_PRESET_VISIBLE / BUBBLE_PRESET_COLUMNS,
+          );
+          presetList.style.maxHeight = `${Math.ceil(
+            cardHeight * visibleRows + gapSize * (visibleRows - 1) + padding,
+          )}px`;
+          presetList.classList.add('is-scrollable');
+          syncPresetEdge();
+        };
+
+        renderPresetPreviews();
+        fitPresetList();
+        presetList.scrollTop = presetListScrollTop;
+        syncPresetEdge();
+        presetList.addEventListener(
+          'scroll',
+          () => {
+            presetListScrollTop = presetList.scrollTop;
+            syncPresetEdge();
+          },
+          { passive: true },
+        );
 
         content.querySelectorAll('[data-message-group]').forEach((button) => {
           button.addEventListener('click', () => {
@@ -943,6 +1246,21 @@ export function createChatSettingsPage({ character, style }) {
         });
       };
 
+      const bindReaction = () => {
+        const input = content.querySelector('[data-reaction-size]');
+        const output = content.querySelector('[data-reaction-size-output]');
+        const preview = content.querySelector('[data-reaction-preview]');
+        input.addEventListener('input', () => {
+          const size = Number(input.value);
+          output.textContent = `${size}px`;
+          preview?.style.setProperty('--chat-reaction-size', `${size}px`);
+          applyLocal({ reactionSize: size });
+        });
+        input.addEventListener('change', () => {
+          notify({ reactionSize: Number(input.value) });
+        });
+      };
+
       const bindSpark = () => {
         content.querySelector('[data-spark-enabled]').addEventListener('change', (event) => {
           notify({ sparkEnabled: event.target.checked });
@@ -995,6 +1313,12 @@ export function createChatSettingsPage({ character, style }) {
           });
           content.querySelector('[data-show-status]')?.addEventListener('change', (event) => {
             notify({ showStatus: event.target.checked });
+          });
+          content.querySelector('[data-time-awareness]')?.addEventListener('change', (event) => {
+            const enabled = event.target.checked;
+            notify({ timeAwareness: enabled });
+            paint();
+            toast(enabled ? '时间感知已开启' : '时间感知已关闭');
           });
           return;
         }
@@ -1075,8 +1399,54 @@ export function createChatSettingsPage({ character, style }) {
           return;
         }
 
+        if (view === 'reaction') {
+          bindReaction();
+          return;
+        }
+
         if (view === 'spark') {
           bindSpark();
+          return;
+        }
+
+        if (view === 'about') {
+          content
+            .querySelector('[data-preference-auto]')
+            ?.addEventListener('change', (event) => {
+              const enabled = event.target.checked;
+              updateMemorySettings(character.id, {
+                preferenceEvery: enabled ? 4 : 0,
+              });
+              paint();
+              toast(
+                enabled
+                  ? `${character.name}会悄悄记住你说过的小事`
+                  : '已停止自动整理',
+              );
+            });
+          const frequency = content.querySelector('[data-preference-frequency]');
+          const frequencyOutput = content.querySelector('[data-preference-output]');
+          frequency?.addEventListener('input', () => {
+            if (frequencyOutput) {
+              frequencyOutput.textContent = `每 ${frequency.value} 次回复`;
+            }
+          });
+          frequency?.addEventListener('change', () => {
+            const every = Number(frequency.value);
+            updateMemorySettings(character.id, { preferenceEvery: every });
+            toast(`每 ${every} 次回复整理一次`);
+          });
+          content
+            .querySelector('[data-add-preference]')
+            ?.addEventListener('click', () => openPreferenceSheet());
+          content.querySelectorAll('[data-preference]').forEach((button) => {
+            button.addEventListener('click', () => {
+              const pref = (getChatMemory(character.id).preferences || []).find(
+                (item) => item.id === button.dataset.preference,
+              );
+              if (pref) openPreferenceSheet(pref);
+            });
+          });
         }
       };
 
@@ -1100,5 +1470,14 @@ export function createChatSettingsPage({ character, style }) {
       });
 
       paint();
+
+      getRecentMessages(character.id, 200)
+        .then((messages) => {
+          streakDays = chatStreakDays(messages);
+          streakLoaded = true;
+          if (view === 'spark') paint();
+        })
+        .catch(() => {});
+
   return { element: screen };
 }

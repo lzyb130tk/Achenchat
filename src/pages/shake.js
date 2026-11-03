@@ -72,7 +72,7 @@ export function renderShake() {
       </div>
     </section>`;
 
-    resultSlot.querySelector('[data-add-stranger]').addEventListener('click', () => {
+    resultSlot.querySelector('[data-add-stranger]').addEventListener('click', async () => {
       if (!pending) return;
       const created = createCharacter({ ...pending.character, tagId: '' });
       if (!created) {
@@ -80,10 +80,10 @@ export function renderShake() {
         return;
       }
       ensureConversation(created.id);
-      pending.messages.forEach((message) => {
+      for (const message of pending.messages) {
         const added = addMessage(created.id, message.role, message.content);
-        updateMessage(created.id, added.id, { createdAt: message.createdAt });
-      });
+        if (added) await updateMessage(created.id, added.id, { createdAt: message.createdAt });
+      }
       pending = null;
       toast('已加为好友');
       window.location.hash = `#/chat/${created.id}`;

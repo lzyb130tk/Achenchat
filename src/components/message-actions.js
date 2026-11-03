@@ -7,6 +7,7 @@ function closeMenu() {
   const { layer, cleanup, returnFocus } = activeMenu;
   activeMenu = null;
   cleanup();
+  document.body.classList.remove('is-message-menu-open');
   layer.classList.remove('is-open');
   window.setTimeout(() => {
     layer.remove();
@@ -18,8 +19,21 @@ export function closeMessageMenu() {
   closeMenu();
 }
 
-export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onRaw, onSelect }) {
+export function openMessageMenu({
+  anchor,
+  onCopy,
+  onQuote,
+  onDelete,
+  onEdit,
+  onRaw,
+  onSelect,
+  onReact,
+}) {
   closeMenu();
+  // Blur the room behind the menu so the touched message and the actions are
+  // the only crisp things on screen. The menu lives on <body>, outside the
+  // filtered chat screen, so it stays sharp.
+  document.body.classList.add('is-message-menu-open');
   const layer = document.createElement('div');
   layer.className = 'message-menu-layer';
   layer.innerHTML = `
@@ -28,6 +42,9 @@ export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onR
       <button class="message-menu__item" type="button" role="menuitem" data-menu-action="copy">
         ${uiIcon('copy', { size: 17 })}<span>复制</span>
       </button>
+      ${onReact ? `<button class="message-menu__item" type="button" role="menuitem" data-menu-action="react">
+        ${uiIcon('smiley', { size: 17 })}<span>贴表情</span>
+      </button>` : ''}
       <button class="message-menu__item" type="button" role="menuitem" data-menu-action="quote">
         ${uiIcon('corner-down-right', { size: 17 })}<span>引用</span>
       </button>
@@ -119,6 +136,7 @@ export function openMessageMenu({ anchor, onCopy, onQuote, onDelete, onEdit, onR
       const action = button.dataset.menuAction;
       closeMenu();
       if (action === 'copy') onCopy?.();
+      else if (action === 'react') onReact?.();
       else if (action === 'quote') onQuote?.();
       else if (action === 'edit') onEdit?.();
       else if (action === 'raw') onRaw?.();

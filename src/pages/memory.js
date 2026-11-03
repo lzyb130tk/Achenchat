@@ -15,17 +15,21 @@ import {
 } from '../services/store.js';
 import { escapeHTML } from '../services/utils.js';
 
+function headerIconButton(name, label, action) {
+  return `<button class="icon-button" type="button" aria-label="${label}" ${action}>${uiIcon(name, { size: 19 })}</button>`;
+}
+
 function openContextSheet(characterId, onSaved) {
   const memory = getChatMemory(characterId);
   openSheet({
     title: '带入上下文',
-    description: '每次回复时，最近这段对话会一起发给 AI。',
+    
     content: `<div class="settings-figure"><strong data-context-output>${memory.contextCount}</strong><span>条消息</span></div>
       <label class="range-row">
         <span class="range-row__top"><span>消息条数</span><output>${memory.contextCount}</output></span>
         <input class="range" type="range" min="2" max="120" step="1" value="${memory.contextCount}" data-context-range>
       </label>
-      <p class="sheet-note">更多上下文更连贯，也会多消耗一些 token。</p>`,
+      `,
     actions: `<button class="button button--primary" type="button" data-save-context>保存</button>`,
     onMount: (sheet) => {
       const range = sheet.querySelector('[data-context-range]');
@@ -50,10 +54,10 @@ function openSummarySheet(characterId, onSaved) {
   const rounds = Math.max(1, memory.summaryEvery || 20);
   openSheet({
     title: '自动总结',
-    description: 'AI 回复一次算一轮。达到轮数后，会自动整理这段对话的记忆。',
+    
     content: `<label class="switch-row">
         <span class="switch-row__copy">
-          <strong>自动总结</strong>
+          <strong>启用总结</strong>
           <small>关闭后只保留手动写下的记忆</small>
         </span>
         <span class="switch">
@@ -97,7 +101,7 @@ function openSummarySheet(characterId, onSaved) {
 function openCategorySheet(characterId, onSaved) {
   openSheet({
     title: '新增分类',
-    description: '给记忆分个组，之后会一起出现在 AI 的设定里。',
+    
     content: `<label class="field">
       <span class="field__label">分类名称</span>
       <span class="field__control">
@@ -134,7 +138,7 @@ function openEntrySheet(characterId, { entry = null, defaultCategory = '', onSav
     (categories.includes(defaultCategory) ? defaultCategory : categories[0]);
   openSheet({
     title: entry ? '编辑记忆' : '新增记忆',
-    description: '写下想让 AI 一直记得的事。',
+   
     content: `<div class="memory-form">
       <label class="field">
         <span class="field__label">分类</span>
@@ -155,7 +159,7 @@ function openEntrySheet(characterId, { entry = null, defaultCategory = '', onSav
           <textarea class="field__input field__textarea" name="entryContent" rows="5" maxlength="600" placeholder="例如：周末喜欢去安静的咖啡馆，不太喜欢人多的地方。">${escapeHTML(entry?.content || '')}</textarea>
         </span>
       </label>
-      <p class="field__hint">这条记忆会随每次回复一起交给 AI，尽量写得短而具体。</p>
+      
     </div>`,
     actions: `<button class="button button--primary" type="button" data-save-entry>${entry ? '保存修改' : '添加记忆'}</button>`,
     onMount: (sheet) => {
@@ -227,11 +231,11 @@ export function renderMemory({ characterId }) {
     ${appHeader({
       title: '聊天记忆',
       backTo: `#/chat/${character.id}/settings`,
-      action: iconButton({
-        name: 'plus',
-        label: '新增记忆',
-        action: 'data-new-memory',
-      }),
+      action: [
+        headerIconButton('chat', '带入上下文', 'data-memory-context'),
+        headerIconButton('hourglass', '自动总结', 'data-memory-summary'),
+        headerIconButton('plus', '新增记忆', 'data-new-memory'),
+      ].join(''),
     })}
     <main class="page-scroll">
       <div class="page-content page-content--memory" data-memory-content></div>
@@ -258,79 +262,46 @@ export function renderMemory({ characterId }) {
     const recent = visible.slice().reverse();
 
     content.innerHTML = `
-      <p class="page-intro">只属于你和${escapeHTML(character.name)}的记忆。每次回复时，这些事会一起交给 AI。</p>
-      <section class="memory-overview">
-        <span class="memory-overview__figure"><strong>${memory.items.length}</strong><span>条记忆</span></span>
-        <span class="memory-overview__hint">最近 ${memory.contextCount} 条对话 · ${memory.summaryEvery ? `每 ${memory.summaryEvery} 轮整理 · 已积累 ${memory.roundsSinceSummary || 0} 轮` : '不自动整理'}</span>
+      <section class="memory-filters" aria-label="记忆分类">
+        <button class="memory-filter${activeFilter === 'all' ? ' is-selected' : ''}" type="button" data-filter="all">
+          全部 <span>${memory.items.length}</span>
+        </button>
+        ${memory.categories
+          .map(
+            (name) => `<button class="memory-filter${activeFilter === name ? ' is-selected' : ''}" type="button" data-filter="${escapeHTML(name)}">
+              ${escapeHTML(name)} <span>${counts.get(name) || 0}</span>
+            </button>`,
+          )
+          .join('')}
+        <button class="memory-filter memory-filter--add" type="button" data-new-category aria-label="新增分类">
+          ${uiIcon('plus', { size: 13 })}
+        </button>
       </section>
-      <div class="settings-group">
-        <div class="settings-group__card">
-          <button class="settings-row" type="button" data-memory-context>
-            <span class="settings-row__icon">${uiIcon('chat', { size: 18 })}</span>
-            <span class="settings-row__label">带入上下文</span>
-            <span class="settings-row__trailing">
-              <span class="settings-row__value">最近 ${memory.contextCount} 条</span>
-              <span class="settings-row__chevron">${uiIcon('chevron-right', { size: 15 })}</span>
-            </span>
-          </button>
-          <button class="settings-row" type="button" data-memory-summary>
-            <span class="settings-row__icon">${uiIcon('hourglass', { size: 18 })}</span>
-            <span class="settings-row__label">自动总结</span>
-            <span class="settings-row__trailing">
-              <span class="settings-row__value">${memory.summaryEvery ? `每 ${memory.summaryEvery} 轮` : '已关闭'}</span>
-              <span class="settings-row__chevron">${uiIcon('chevron-right', { size: 15 })}</span>
-            </span>
-          </button>
-        </div>
-      </div>
-      <section class="memory-section">
-        <div class="memory-section__head">
-          <h2>分类</h2>
-          <button class="text-button text-button--small" type="button" data-new-category>${uiIcon('plus', { size: 14 })}新增</button>
-        </div>
-        <div class="memory-filters">
-          <button class="memory-filter${activeFilter === 'all' ? ' is-selected' : ''}" type="button" data-filter="all">
-            全部 <span>${memory.items.length}</span>
-          </button>
-          ${memory.categories
-            .map(
-              (name) => `<button class="memory-filter${activeFilter === name ? ' is-selected' : ''}" type="button" data-filter="${escapeHTML(name)}">
-                ${escapeHTML(name)} <span>${counts.get(name) || 0}</span>
-              </button>`,
-            )
-            .join('')}
-        </div>
-      </section>
-      <section class="memory-section">
-        <div class="memory-section__head">
-          <h2>记忆</h2>
-        </div>
-        ${
-          recent.length
-            ? `<div class="memory-list">
-                ${recent
-                  .map(
-                    (entry) => `<article class="memory-entry" data-entry="${entry.id}">
-                      <div class="memory-entry__head">
-                        <span class="memory-entry__category">${escapeHTML(entry.category)}</span>
-                        ${entry.source === 'auto' ? '<span class="memory-entry__auto">自动整理</span>' : ''}
-                        <span class="memory-entry__actions">
-                          <button class="memory-entry__action" type="button" aria-label="编辑记忆" data-edit-entry="${entry.id}">${uiIcon('pencil', { size: 15 })}</button>
-                          <button class="memory-entry__action" type="button" aria-label="删除记忆" data-delete-entry="${entry.id}">${uiIcon('trash', { size: 15 })}</button>
-                        </span>
-                      </div>
-                      <p class="memory-entry__content">${escapeHTML(entry.content)}</p>
-                    </article>`,
-                  )
-                  .join('')}
-              </div>`
-            : `<div class="memory-empty">
-                <span class="memory-empty__icon">${uiIcon('archive', { size: 28 })}</span>
-                <p>${activeFilter === 'all' ? '还没有写下记忆。' : '这个分类还是空的。'}</p>
-                <button class="text-button" type="button" data-new-memory>写一条记忆</button>
-              </div>`
-        }
-      </section>`;
+      ${
+        recent.length
+          ? `<div class="memory-cards">
+              ${recent
+                .map(
+                  (entry, index) => `<article class="memory-card" data-entry="${entry.id}" style="--card-index:${index}">
+                    <div class="memory-card__head">
+                      <span class="memory-card__category">${escapeHTML(entry.category)}</span>
+                      ${entry.source === 'auto' ? '<span class="memory-card__auto">自动整理</span>' : ''}
+                      <span class="memory-card__actions">
+                        <button class="memory-card__action" type="button" aria-label="编辑记忆" data-edit-entry="${entry.id}">${uiIcon('pencil', { size: 14 })}</button>
+                        <button class="memory-card__action" type="button" aria-label="删除记忆" data-delete-entry="${entry.id}">${uiIcon('trash', { size: 14 })}</button>
+                      </span>
+                    </div>
+                    <p class="memory-card__content">${escapeHTML(entry.content)}</p>
+                  </article>`,
+                )
+                .join('')}
+            </div>`
+          : `<div class="memory-empty">
+              <span class="memory-empty__icon">${uiIcon('archive', { size: 28 })}</span>
+              <p>${activeFilter === 'all' ? '还没有写下记忆。' : '这个分类还是空的。'}</p>
+              <button class="text-button" type="button" data-new-memory>写一条记忆</button>
+            </div>`
+      }`;
   };
 
   const openNewEntry = () => {
@@ -412,6 +383,7 @@ function favoritePreview(favorite) {
     .map((message) => {
       if (message.type === 'sticker') return '[表情]';
       if (message.type === 'redpacket') return '[红包]';
+      if (message.type === 'image') return '[图片]';
       return (message.content || '').trim();
     })
     .filter(Boolean);
@@ -425,6 +397,8 @@ function favoriteMessageMarkup(message) {
     inner = `<img class="favorite-message__sticker" src="${escapeHTML(message.url)}" alt="${escapeHTML(message.name || '表情')}" loading="lazy">`;
   } else if (message.type === 'redpacket') {
     inner = `<span class="favorite-message__packet">${uiIcon('red-packet', { size: 14 })}红包 ¥${((message.amountFen || 0) / 100).toFixed(2)}</span>`;
+  } else if (message.type === 'image') {
+    inner = `<span class="favorite-message__image">${uiIcon('image', { size: 14 })}图片${message.images?.length > 1 ? ` ×${message.images.length}` : ''}</span>`;
   }
   return `<div class="favorite-message favorite-message--${mine ? 'user' : 'assistant'}"><div class="message-bubble message-bubble--${mine ? 'user' : 'assistant'}">${inner}</div></div>`;
 }

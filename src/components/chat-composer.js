@@ -1,5 +1,9 @@
 import { openChoiceSheet } from './choice-sheet.js';
 import { uiIcon } from './icons.js';
+import { toast } from './toast.js';
+import { readChatImage } from '../services/image.js';
+
+const MAX_ATTACHMENTS = 9;
 
 export function createChatComposer({
   characterName,
@@ -36,7 +40,12 @@ export function createChatComposer({
     </div>
     <div class="chat-composer__bar">
       <div class="chat-composer__field">
+        <div class="chat-composer__images" data-images hidden></div>
         <div class="chat-composer__quick" data-quick hidden>
+          <button class="chat-composer__quick-button" type="button" data-pick-image aria-label="发送图片">
+            ${uiIcon('image', { size: 15 })}
+            <span>图片</span>
+          </button>
           <button class="chat-composer__quick-button" type="button" data-quick-redpacket aria-label="发红包">
             ${uiIcon('red-packet', { size: 17 })}
             <span>红包</span>
@@ -49,6 +58,7 @@ export function createChatComposer({
         <button class="chat-composer__extra" type="button" aria-label="更多功能" data-composer-more>
           <span class="chat-composer__extra-icon" data-composer-extra-icon>${uiIcon('plus', { size: 22 })}</span>
         </button>
+        <input class="chat-composer__file" type="file" accept="image/*" multiple hidden data-image-input>
         <textarea
           class="chat-composer__input"
           rows="1"
@@ -76,6 +86,9 @@ export function createChatComposer({
   const quoteBar = element.querySelector('[data-quote]');
   const quoteName = element.querySelector('[data-quote-name]');
   const quoteText = element.querySelector('[data-quote-text]');
+  const imagesBar = element.querySelector('[data-images]');
+  const imageButton = element.querySelector('[data-pick-image]');
+  const imageInput = element.querySelector('[data-image-input]');
 
   let mode = sendMode === 'multi' ? 'multi' : 'single';
   let streaming = false;
@@ -84,6 +97,7 @@ export function createChatComposer({
   let pendingCount = Math.max(0, Number(sentCount) || 0);
   let quote = null;
   let sendGuardUntil = 0;
+  let attachments = [];
 
   const resize = () => {
     input.style.height = 'auto';
@@ -97,6 +111,7 @@ export function createChatComposer({
     pendingCount > 0 &&
     !streaming &&
     !receiving &&
+    !attachments.length &&
     !input.value.trim();
 
   const syncSend = () => {
@@ -110,7 +125,7 @@ export function createChatComposer({
       sendButton.setAttribute('aria-label', '停止生成');
     } else {
       sendIcon.innerHTML = uiIcon(ready ? 'arrow-down' : 'send', { size: 19, strokeWidth: 1.8 });
-      sendButton.disabled = ready ? false : !input.value.trim();
+      sendButton.disabled = ready ? false : !input.value.trim() && !attachments.length;
       sendButton.setAttribute(
         'aria-label',
         ready
@@ -126,6 +141,7 @@ export function createChatComposer({
     sendBadge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
 
     input.disabled = streaming;
+    imageButton.disabled = streaming;
     moreButton.disabled = streaming;
     quickRedPacket.disabled = streaming;
     quickRetry.disabled = streaming;
@@ -161,6 +177,50 @@ export function createChatComposer({
   };
 
   const clearQuote = () => setQuote(null);
+
+  const renderAttachments = () => {
+    imagesBar.hidden = !attachments.length;
+    imagesBar.innerHTML = attachments
+      .map(
+        (image, index) => `<span class="chat-composer__image">
+          <img src="${image.dataUrl}" alt="待发送图片 ${index + 1}">
+          <button type="button" class="chat-composer__image-remove" data-remove-image="${index}" aria-label="移除图片">${uiIcon('x', { size: 12 })}</button>
+        </span>`,
+      )
+      .join('');
+    syncSend();
+  };
+
+  const addFiles = async (fileList) => {
+    const files = [...fileList];
+    for (const file of files) {
+      if (attachments.length >= MAX_ATTACHMENTS) {
+        toast(`最多一次发送 ${MAX_ATTACHMENTS} 张图片`, { tone: 'danger' });
+        break;
+      }
+      try {
+        const image = await readChatImage(file);
+        attachments.push(image);
+      } catch (error) {
+        toast(error?.message || '图片读取失败', { tone: 'danger' });
+      }
+    }
+    renderAttachments();
+  };
+
+  imageButton.addEventListener('click', () => {
+    if (!streaming) imageInput.click();
+  });
+  imageInput.addEventListener('change', () => {
+    if (imageInput.files?.length) addFiles(imageInput.files);
+    imageInput.value = '';
+  });
+  imagesBar.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-remove-image]');
+    if (!button) return;
+    attachments.splice(Number(button.dataset.removeImage), 1);
+    renderAttachments();
+  });
 
   const openModeChooser = () => {
     openChoiceSheet({
@@ -199,12 +259,14 @@ export function createChatComposer({
 
   const send = () => {
     const text = input.value.trim();
-    if (!text || streaming) return;
-    const accepted = onSend(text, quote);
+    if ((!text && !attachments.length) || streaming) return;
+    const accepted = onSend(text, quote, attachments);
     if (accepted === false) return;
     // A double click should not turn "send draft" into "send + receive".
     sendGuardUntil = performance.now() + 360;
     input.value = '';
+    attachments = [];
+    renderAttachments();
     resize();
     clearQuote();
     syncSend();
@@ -339,6 +401,9 @@ export function createChatComposer({
     },
     setQuote,
     clearQuote,
+    pickImage() {
+      if (!streaming) imageInput.click();
+    },
     focus() {
       window.setTimeout(() => input.focus({ preventScroll: true }), 120);
     },

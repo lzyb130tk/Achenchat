@@ -50,30 +50,31 @@
   --nav-height: 60px;
   --statusbar-height: calc(40px + env(safe-area-inset-top));
 
-  /* One warm neutral ramp: paper background, true-white cards, near-black ink,
-     a single deep-brick accent. */
-  --color-bg: #f4f1ec;
-  --color-surface: #ffffff;
-  --color-surface-muted: #e9e3db;
-  --color-surface-soft: #f0ebe4;
-  --color-ink: #1d1915;
-  --color-ink-secondary: #665f58;
-  --color-ink-tertiary: #8d8479;
-  --color-line: #e7e1d9;
-  --color-line-strong: #d8d0c6;
-  --color-accent: #a94a32;
-  --color-accent-strong: #8b3a25;
-  --color-accent-soft: #f5e3dc;
-  --color-accent-contrast: #fff8f4;
-  --color-positive: #4f7357;
-  --color-danger: #a33b2c;
-  --color-danger-soft: #f6e2dd;
-  --color-danger-contrast: #fff8f4;
---color-action: color-mix(in srgb, #6e6e71 75%, transparent);
+  /* Warm stationery ramp: parchment ground, ivory cards, espresso ink and a
+     single herb-and-terracotta accent. Neutrals stay slightly tinted so the
+     UI never falls back to the cold grey/white of a system palette. */
+  --color-bg: #f5f1e8;
+  --color-surface: #fffdf9;
+  --color-surface-muted: #e7dfd3;
+  --color-surface-soft: #efe9df;
+  --color-ink: #211b16;
+  --color-ink-secondary: #696056;
+  --color-ink-tertiary: #968b7e;
+  --color-line: #e4dcd0;
+  --color-line-strong: #d2c7b8;
+  --color-accent: #9f4a34;
+  --color-accent-strong: #7d3624;
+  --color-accent-soft: #f2e0d8;
+  --color-accent-contrast: #fff9f5;
+  --color-positive: #5d735f;
+  --color-danger: #9c3e30;
+  --color-danger-soft: #f4e0da;
+  --color-danger-contrast: #fff9f5;
+  --color-action: #3b332c;
   --color-action-ink: #fbf6ef;
-  --color-backdrop: #e6dfd5;
-  --color-nav: #fbf8f4;
-  --color-overlay: rgba(24, 19, 15, 0.42);
+  --color-backdrop: #e7e0d5;
+  --color-nav: #fbf7f0;
+  --color-overlay: rgba(26, 20, 15, 0.44);
   --color-hero: #241e19;
   --color-hero-soft: #3a2d25;
   --color-hero-ink: #fcf3e8;
@@ -89,7 +90,7 @@
   /* Liquid-glass chrome: a translucent fill, a bright hairline edge and a
      soft drop shadow, so docks float instead of sitting flush on an edge. */
   --glass-fill: rgba(255, 255, 255, 0.72);
-  --glass-fill-strong: rgba(255, 255, 255, 0.86);
+  --glass-fill-strong: rgba(255, 255, 255, 0.56);
   --glass-edge: rgba(255, 255, 255, 0.7);
   --glass-rim: rgba(33, 26, 20, 0.07);
   --glass-shadow-dock: 0 14px 34px -16px rgba(33, 26, 20, 0.3), 0 2px 6px rgba(33, 26, 20, 0.05);
@@ -110,28 +111,28 @@
 html[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-bg: #141210;
-  --color-surface: #1d1a17;
-  --color-surface-muted: #2a2521;
-  --color-surface-soft: #221e1a;
-  --color-ink: #f2ece4;
-  --color-ink-secondary: #b4aa9e;
-  --color-ink-tertiary: #857b70;
-  --color-line: #2e2924;
-  --color-line-strong: #3c342d;
-  --color-accent: #e08a70;
-  --color-accent-strong: #eda38b;
-  --color-accent-soft: rgba(224, 138, 112, 0.16);
-  --color-accent-contrast: #241310;
-  --color-positive: #8aa78e;
-  --color-danger: #ef8b77;
-  --color-danger-soft: rgba(239, 139, 119, 0.14);
-  --color-danger-contrast: #241310;
-  --color-action: #ece1d4;
-  --color-action-ink: #1d1812;
-  --color-backdrop: #0c0a09;
-  --color-nav: #161310;
-  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-bg: #151110;
+  --color-surface: #1e1a17;
+  --color-surface-muted: #2b2621;
+  --color-surface-soft: #231f1b;
+  --color-ink: #f3ede4;
+  --color-ink-secondary: #b3a89b;
+  --color-ink-tertiary: #877c6f;
+  --color-line: #302a24;
+  --color-line-strong: #413931;
+  --color-accent: #d68a6e;
+  --color-accent-strong: #e5a189;
+  --color-accent-soft: rgba(214, 138, 110, 0.16);
+  --color-accent-contrast: #241410;
+  --color-positive: #94a890;
+  --color-danger: #e58a77;
+  --color-danger-soft: rgba(229, 138, 119, 0.14);
+  --color-danger-contrast: #241410;
+  --color-action: #ece2d4;
+  --color-action-ink: #1c1712;
+  --color-backdrop: #0b0908;
+  --color-nav: #171310;
+  --color-overlay: rgba(0, 0, 0, 0.62);
   --color-hero: #2b241e;
   --color-hero-soft: #45352a;
   --color-hero-ink: #fbf2e7;

@@ -20,12 +20,13 @@ import {
 } from '../services/preferences.js';
 import {
   clearAllData,
-  createBackup,
+  exportBackupZip,
   getAppearance,
   getStats,
   getStorageSize,
   hasApiConfig,
-  restoreBackup,
+  inspectBackupFile,
+  restoreBackupFile,
   setAppearance,
 } from '../services/store.js';
 import { escapeHTML, formatFileSize } from '../services/utils.js';
@@ -66,37 +67,49 @@ function openAboutSheet() {
 function openBackupSheet(refresh) {
   openSheet({
     title: '数据备份与导入',
-    description: '备份包含对话、面具、钱包与偏好，不包含 API 密钥。',
+    description: '备份包含对话、聊天图片、面具、钱包与偏好，不包含 API 密钥。',
     content: `<div class="action-list">
       <button class="action-row" type="button" data-export-backup>
         <span class="action-row__icon">${uiIcon('download', { size: 20 })}</span>
-        <span class="action-row__copy"><strong>导出备份</strong><small>保存为 JSON 文件</small></span>
+        <span class="action-row__copy"><strong>导出备份</strong><small>ZIP 分模块保存对话与图片</small></span>
         <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
       <button class="action-row" type="button" data-import-backup>
         <span class="action-row__icon">${uiIcon('upload', { size: 20 })}</span>
-        <span class="action-row__copy"><strong>导入备份</strong><small>用备份替换当前数据</small></span>
+        <span class="action-row__copy"><strong>导入备份</strong><small>支持 ZIP，也兼容旧版 JSON</small></span>
         <span class="action-row__arrow">${uiIcon('chevron-right', { size: 16 })}</span>
       </button>
     </div>
-    <input type="file" accept="application/json,.json" data-backup-file hidden>`,
+    <input type="file" accept=".zip,application/zip,.json,application/json" data-backup-file hidden>`,
     onMount: (sheet) => {
       const fileInput = sheet.querySelector('[data-backup-file]');
+      const exportButton = sheet.querySelector('[data-export-backup]');
 
-      sheet.querySelector('[data-export-backup]').addEventListener('click', () => {
-        const blob = new Blob([createBackup()], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const date = new Date().toISOString().slice(0, 10);
-        link.href = url;
-        link.download = `achat-backup-${date}.json`;
-        link.rel = 'noopener';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        closeActiveSheet();
-        toast('备份已导出');
+      exportButton.addEventListener('click', async () => {
+        if (exportButton.disabled) return;
+        exportButton.disabled = true;
+        const label = exportButton.querySelector('small');
+        const original = label.textContent;
+        label.textContent = '正在打包…';
+        try {
+          const blob = await exportBackupZip();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const date = new Date().toISOString().slice(0, 10);
+          link.href = url;
+          link.download = `achat-backup-${date}.zip`;
+          link.rel = 'noopener';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          closeActiveSheet();
+          toast('备份已导出');
+        } catch (error) {
+          label.textContent = original;
+          exportButton.disabled = false;
+          toast(error.message || '导出失败', { tone: 'danger' });
+        }
       });
 
       sheet.querySelector('[data-import-backup]').addEventListener('click', () => {
@@ -105,19 +118,30 @@ function openBackupSheet(refresh) {
 
       fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
+        fileInput.value = '';
         if (!file) return;
-        let raw = '';
+        let manifest;
         try {
-          raw = await file.text();
-          JSON.parse(raw);
+          manifest = await inspectBackupFile(file);
         } catch {
           toast('无法读取这个备份文件', { tone: 'danger' });
           return;
         }
+        const counts = manifest.counts || {};
+        const summary = manifest.legacy
+          ? '检测到旧版 JSON 备份，导入时会自动迁移消息。'
+          : `ZIP 备份 · ${counts.conversations || 0} 段对话 · ${counts.messages || 0} 条消息 · ${counts.images || 0} 张图片。`;
 
         openSheet({
           title: '导入备份',
           description: '当前所有数据会被替换，API 密钥会保留。',
+          content: `<div class="detail-list">
+            <div class="detail-row"><span>备份格式</span><strong>${manifest.legacy ? 'JSON（旧版）' : 'ZIP'}</strong></div>
+            <div class="detail-row"><span>对话</span><strong>${counts.conversations || 0} 段</strong></div>
+            <div class="detail-row"><span>消息</span><strong>${counts.messages || 0} 条</strong></div>
+            <div class="detail-row"><span>图片</span><strong>${counts.images || 0} 张</strong></div>
+          </div>
+          <p class="sheet-note">${summary}</p>`,
           actions: `<div class="button-row">
             <button class="button button--secondary" type="button" data-cancel-import>取消</button>
             <button class="button button--primary" type="button" data-confirm-import>导入</button>
@@ -126,14 +150,19 @@ function openBackupSheet(refresh) {
             confirmSheet.querySelector('[data-cancel-import]').addEventListener('click', () => {
               closeActiveSheet();
             });
-            confirmSheet.querySelector('[data-confirm-import]').addEventListener('click', () => {
+            confirmSheet.querySelector('[data-confirm-import]').addEventListener('click', async () => {
+              const button = confirmSheet.querySelector('[data-confirm-import]');
+              button.disabled = true;
+              button.textContent = '导入中…';
               try {
-                restoreBackup(raw);
+                await restoreBackupFile(file);
                 applyAppearance(getAppearance());
                 closeActiveSheet();
                 toast('备份已恢复');
                 refresh();
               } catch (error) {
+                button.disabled = false;
+                button.textContent = '导入';
                 toast(error.message || '导入失败', { tone: 'danger' });
               }
             });
@@ -154,8 +183,8 @@ function openClearSheet(refresh) {
     </div>`,
     onMount: (sheet) => {
       sheet.querySelector('[data-cancel-clear]').addEventListener('click', closeActiveSheet);
-      sheet.querySelector('[data-confirm-clear]').addEventListener('click', () => {
-        clearAllData();
+      sheet.querySelector('[data-confirm-clear]').addEventListener('click', async () => {
+        await clearAllData();
         applyAppearance(getAppearance());
         closeActiveSheet();
         toast('数据已清空');

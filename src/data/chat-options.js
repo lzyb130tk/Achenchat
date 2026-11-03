@@ -208,6 +208,11 @@ export const DEFAULT_MEMORY = {
   categories: ['喜好', '日常', '约定'],
   items: [],
   lastSummaryAt: 0,
+  // 「关于我」：AI 在聊天里悄悄整理出的对方偏好，作为长期记忆注入提示词。
+  preferences: [],
+  preferenceEvery: 4,
+  preferenceRounds: 0,
+  lastPreferenceAt: 0,
 };
 
 export const SPARK_ICONS = [
@@ -270,8 +275,10 @@ export const DEFAULT_CHAT_STYLE = {
   backgroundImage: '',
   avatarSize: 28,
   avatarRadius: 50,
+  reactionSize: 20,
   showUserAvatar: false,
   showStatus: true,
+  timeAwareness: false,
   sparkEnabled: false,
   sparkIcon: 'flame',
   sparkSvg: '',

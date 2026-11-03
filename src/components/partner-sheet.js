@@ -69,8 +69,8 @@ export function openPartnerSheet({ character, onChanged, onMuteChange, compact =
             confirmSheet.querySelector('[data-cancel-clear]').addEventListener('click', () => {
               closeActiveSheet();
             });
-            confirmSheet.querySelector('[data-confirm-clear]').addEventListener('click', () => {
-              clearConversation(character.id);
+            confirmSheet.querySelector('[data-confirm-clear]').addEventListener('click', async () => {
+              await clearConversation(character.id);
               closeActiveSheet({ immediate: true });
               toast('对话已清空');
               onChanged?.();

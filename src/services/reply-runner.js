@@ -1,7 +1,13 @@
 import { showMessageBanner } from '../components/message-banner.js';
-import { ApiRequestError, streamChat, summarizeConversation } from './api.js';
+import {
+  ApiRequestError,
+  extractPreferences,
+  streamChat,
+  summarizeConversation,
+} from './api.js';
 import { notifyDataChanged } from './events.js';
 import {
+  addChatPreference,
   addMemoryEntry,
   addMessage,
   getCharacter,
@@ -10,22 +16,30 @@ import {
   getConversation,
   getEnabledStickerEntries,
   getProfile,
+  getRecentMessages,
+  flushMessageWrites,
   hasApiConfig,
   incrementMemoryRound,
   markConversationRead,
+  markMemoryPreferences,
   markMemorySummary,
+  reactToMessage,
   setConversationStatus,
   updateCharacter,
 } from './store.js';
+import { collectAmbientContext } from './time-awareness.js';
 import {
+  messageAsText,
   messageLength,
   parseAIReply,
   readStatus,
+  resolveMessageByText,
 } from './message-format.js';
 
 const runs = new Map();
 const channels = new Map();
 const summaryRuns = new Set();
+const preferenceRuns = new Set();
 
 let activeCharacterId = null;
 
@@ -79,41 +93,142 @@ function scheduleExtra(characterId, character, active, segments, style) {
   window.setTimeout(() => addStickerExtra(character, active), delay);
 }
 
-function persistReply(characterId, parsed, active, raw) {
+async function persistReply(characterId, parsed, active, raw) {
   const character = getCharacter(characterId);
   if (!character || !parsed.segments.length) return null;
   const style = getChatStyle(characterId);
   const status = parsed.status || '';
   if (status) setConversationStatus(characterId, status);
 
+  // Reactions and quotes point at the other person's earlier messages, so read
+  // the freshest history (including anything typed while the reply streamed).
+  await flushMessageWrites();
+  const profile = getProfile();
+  const contextLimit = Math.max(
+    30,
+    getConversation(characterId)?.memory?.contextCount || 24,
+  );
+  const recentMessages = await getRecentMessages(characterId, contextLimit);
+
   const rawText = typeof raw === 'string' ? raw.trim() : '';
-  const messages = parsed.segments.map((segment, index) => {
-    const unread = !active && index === parsed.segments.length - 1;
-    if (segment.type === 'redpacket') {
-      return addMessage(characterId, 'assistant', '', {
-        type: 'redpacket',
-        amountFen: segment.amountFen,
-        note: segment.note,
-        claimed: false,
-        unread,
-        raw: rawText,
+  const items = [];
+  const messages = [];
+  let pendingQuote = null;
+
+  const quoteFor = (target) => ({
+    messageId: target.id,
+    role: target.role,
+    name: target.role === 'assistant' ? character.name : profile.name || '你',
+    content: (target.content || messageAsText(target)).slice(0, 500),
+  });
+
+  const emitMessage = (message) => {
+    if (!message) return;
+    messages.push(message);
+    items.push({ kind: 'message', message });
+  };
+
+  const lastMessageIndex = parsed.segments.reduce(
+    (last, segment, index) =>
+      segment.type === 'text' ||
+      segment.type === 'redpacket' ||
+      segment.type === 'sticker'
+        ? index
+        : last,
+    -1,
+  );
+
+  for (const [index, segment] of parsed.segments.entries()) {
+    const unread = !active && index === lastMessageIndex;
+    if (segment.type === 'reaction') {
+      const target = resolveMessageByText(segment.targetText, recentMessages);
+      if (!target) continue;
+      const reactions = await reactToMessage(
+        characterId,
+        target.id,
+        segment.emoji,
+        'assistant',
+        { toggle: false },
+      );
+      if (!reactions) continue;
+      target.reactions = reactions;
+      items.push({
+        kind: 'reaction',
+        messageId: target.id,
+        emoji: segment.emoji,
+        reactions,
       });
+      continue;
+    }
+    if (segment.type === 'repo') {
+      const target = resolveMessageByText(segment.targetText, recentMessages);
+      if (target) {
+        pendingQuote = target;
+        continue;
+      }
+      // Older models sometimes put "原文-回复" inside one repo block. Accept
+      // that spelling too as long as the left side matches a real message.
+      const dash = Math.max(
+        segment.targetText.lastIndexOf('-'),
+        segment.targetText.lastIndexOf('－'),
+      );
+      if (dash <= 0) continue;
+      const inlineTarget = resolveMessageByText(
+        segment.targetText.slice(0, dash),
+        recentMessages,
+      );
+      const reply = segment.targetText.slice(dash + 1).trim();
+      if (!inlineTarget || !reply) continue;
+      emitMessage(
+        addMessage(characterId, 'assistant', reply.slice(0, 1000), {
+          quote: quoteFor(inlineTarget),
+          unread,
+          raw: rawText,
+        }),
+      );
+      pendingQuote = null;
+      continue;
+    }
+    if (segment.type === 'redpacket') {
+      emitMessage(
+        addMessage(characterId, 'assistant', '', {
+          type: 'redpacket',
+          amountFen: segment.amountFen,
+          note: segment.note,
+          claimed: false,
+          unread,
+          raw: rawText,
+        }),
+      );
+      continue;
     }
     if (segment.type === 'sticker') {
-      return addMessage(characterId, 'assistant', '', {
-        type: 'sticker',
-        url: segment.url,
-        name: segment.name,
-        packName: segment.packName,
-        unread,
-        raw: rawText,
-      });
+      emitMessage(
+        addMessage(characterId, 'assistant', '', {
+          type: 'sticker',
+          url: segment.url,
+          name: segment.name,
+          packName: segment.packName,
+          unread,
+          raw: rawText,
+        }),
+      );
+      continue;
     }
-    return addMessage(characterId, 'assistant', segment.content, { unread, raw: rawText });
-  });
-  const lastMessage = messages.at(-1);
+    const options = { unread, raw: rawText };
+    if (pendingQuote) {
+      options.quote = quoteFor(pendingQuote);
+      pendingQuote = null;
+    }
+    emitMessage(
+      addMessage(characterId, 'assistant', segment.content, options),
+    );
+  }
+
+  const lastMessage = messages.at(-1) || null;
   emit(characterId, 'done', {
     messages,
+    items,
     status,
     active,
   });
@@ -126,12 +241,18 @@ function persistReply(characterId, parsed, active, raw) {
     emit(characterId, 'tagline', { tagline });
   }
 
-  if (!active && !character.muted && document.visibilityState !== 'hidden') {
+  if (
+    lastMessage &&
+    !active &&
+    !character.muted &&
+    document.visibilityState !== 'hidden'
+  ) {
     showMessageBanner(latestMessagePayload(character, lastMessage));
   }
 
   scheduleExtra(characterId, character, active, parsed.segments, style);
   maybeSummarize(characterId);
+  maybeExtractPreferences(characterId);
   return lastMessage;
 }
 
@@ -160,24 +281,26 @@ function maybeSummarize(characterId) {
   if (!conversation || !memory?.summaryEvery) return;
   if ((memory.roundsSinceSummary || 0) < memory.summaryEvery) return;
   const since = memory.lastSummaryAt || 0;
-  const pending = conversation.messages.filter(
-    (message) => message.createdAt > since,
-  );
-  if (!pending.length) return;
-
   const character = getCharacter(characterId);
   if (!character) return;
   summaryRuns.add(characterId);
   const consumedRounds = memory.roundsSinceSummary || 0;
   const categoryList = memory.categories.slice();
-  summarizeConversation({
-    character,
-    profile: getProfile(),
-    messages: pending,
-    categories: categoryList,
-  })
-    .then((text) => {
-      const rows = parseSummary(text);
+  flushMessageWrites()
+    .then(() => getRecentMessages(characterId, 200))
+    .then((messages) => {
+      const pending = messages.filter((message) => message.createdAt > since);
+      if (!pending.length) return null;
+      return summarizeConversation({
+        character,
+        profile: getProfile(),
+        messages: pending,
+        categories: categoryList,
+      }).then((text) => ({ text, pending }));
+    })
+    .then((result) => {
+      if (!result) return;
+      const rows = parseSummary(result.text);
       if (!rows.length) return;
       const existing = new Set(
         getChatMemory(characterId).items.map((item) => item.content),
@@ -195,7 +318,7 @@ function maybeSummarize(characterId) {
       }
       // Advance the checkpoint even when every row was already known, so the
       // same stretch of chat is not summarized again on the next reply.
-      markMemorySummary(characterId, pending.at(-1).createdAt, consumedRounds);
+      markMemorySummary(characterId, result.pending.at(-1).createdAt, consumedRounds);
       if (added) notifyDataChanged();
     })
     .catch(() => {
@@ -203,6 +326,64 @@ function maybeSummarize(characterId) {
     })
     .finally(() => {
       summaryRuns.delete(characterId);
+    });
+}
+
+function maybeExtractPreferences(characterId) {
+  if (!hasApiConfig() || preferenceRuns.has(characterId)) return;
+  const conversation = getConversation(characterId);
+  const memory = conversation?.memory;
+  if (!memory?.preferenceEvery) return;
+  if ((memory.preferenceRounds || 0) < memory.preferenceEvery) return;
+  const character = getCharacter(characterId);
+  if (!character) return;
+
+  preferenceRuns.add(characterId);
+  const consumedRounds = memory.preferenceRounds || 0;
+  const since = memory.lastPreferenceAt || 0;
+  const existing = (getChatMemory(characterId).preferences || []).map(
+    (item) => item.content,
+  );
+
+  flushMessageWrites()
+    .then(() => getRecentMessages(characterId, 200))
+    .then(async (messages) => {
+      const pending = messages.filter(
+        (message) =>
+          message.createdAt > since &&
+          (message.role === 'user' || message.role === 'assistant'),
+      );
+      if (pending.length < 4) return null;
+      const found = await extractPreferences({
+        character,
+        profile: getProfile(),
+        messages: pending,
+        existing,
+      });
+      return { found, pending };
+    })
+    .then((result) => {
+      if (!result) return;
+      let added = 0;
+      for (const content of result.found) {
+        if (addChatPreference(characterId, content, { source: 'auto' })) {
+          added += 1;
+        }
+      }
+      // Advance even when nothing new was found, so the same stretch is not
+      // sent to the model again on the next reply.
+      markMemoryPreferences(
+        characterId,
+        result.pending.at(-1).createdAt,
+        consumedRounds,
+      );
+      if (added) notifyDataChanged();
+    })
+    .catch(() => {
+      // Preference extraction stays silent; the next round can retry.
+    })
+    .finally(() => {
+      preferenceRuns.delete(characterId);
     });
 }
 
@@ -240,33 +421,50 @@ export function startReply(characterId) {
   const run = { controller, partial: '', status: '', finished: false };
   runs.set(characterId, run);
   emit(characterId, 'start', {});
-  const history = conversation.messages.slice(
-    -Math.max(2, conversation.memory?.contextCount || 24),
-  );
-  generate(characterId, character, conversation.memory, history, controller, run);
+  const limit = Math.max(2, conversation.memory?.contextCount || 24);
+  flushMessageWrites()
+    .then(() => getRecentMessages(characterId, limit))
+    .then((history) => {
+      if (controller.signal.aborted) {
+        void finishFromPartial(characterId, run, isActive(characterId));
+        return;
+      }
+      generate(characterId, character, conversation.memory, history, controller, run);
+    })
+    .catch((error) => {
+      if (runs.get(characterId) === run) runs.delete(characterId);
+      emit(characterId, 'error', { message: error?.message || '读取聊天记录失败' });
+    });
   return true;
 }
 
-function finishFromPartial(characterId, run, active) {
+async function finishFromPartial(characterId, run, active) {
   const parsed = parseAIReply(run.partial.trim(), {
     stickers: getEnabledStickerEntries(),
   });
   if (!parsed.segments.length) {
+    if (runs.get(characterId) === run) runs.delete(characterId);
     emit(characterId, 'cancelled', {});
     return;
   }
   run.finished = true;
-  runs.delete(characterId);
-  persistReply(characterId, parsed, active, run.partial.trim());
+  try {
+    await persistReply(characterId, parsed, active, run.partial.trim());
+  } finally {
+    if (runs.get(characterId) === run) runs.delete(characterId);
+  }
 }
 
 async function generate(characterId, character, memory, history, controller, run) {
   try {
+    const style = getChatStyle(characterId);
+    const ambient = style.timeAwareness ? await collectAmbientContext() : null;
     const fullText = await streamChat({
       character,
       profile: getProfile(),
       memory,
       messages: history,
+      ambient,
       signal: controller.signal,
       onDelta: (delta) => {
         run.partial += delta;
@@ -288,15 +486,14 @@ async function generate(characterId, character, memory, history, controller, run
         emit(characterId, 'cancelled', {});
       } else {
         run.finished = true;
-        runs.delete(characterId);
-        persistReply(characterId, parsed, isActive(characterId), content);
+        await persistReply(characterId, parsed, isActive(characterId), content);
       }
     } else {
       emit(characterId, 'cancelled', {});
     }
   } catch (error) {
     if (error.name === 'AbortError' || controller.signal.aborted) {
-      finishFromPartial(characterId, run, isActive(characterId));
+      await finishFromPartial(characterId, run, isActive(characterId));
     } else {
       const message =
         error instanceof ApiRequestError || error?.message

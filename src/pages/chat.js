@@ -15,10 +15,15 @@ import {
 import { openPartnerSheet } from '../components/partner-sheet.js';
 import { showRedPacketReveal } from '../components/red-packet-reveal.js';
 import { openRedPacketSheet } from '../components/red-packet-sheet.js';
+import {
+  closeReactionPicker,
+  openReactionPicker,
+} from '../components/reaction-picker.js';
 import { closeActiveSheet, openSheet } from '../components/sheet.js';
 import { toast } from '../components/toast.js';
 import { getSparkSvg } from '../data/chat-options.js';
 import { copyText } from '../services/clipboard.js';
+import { createInertialScroll } from '../services/inertial-scroll.js';
 import { messageAsText, messageLength } from '../services/message-format.js';
 import {
   addFavorite,
@@ -28,13 +33,17 @@ import {
   countPendingUserMessages,
   deleteMessage,
   ensureConversation,
+  flushMessageWrites,
   getChatStyle,
   getCharacter,
   getConversation,
+  getImageRecord,
+  getMessagePage,
   getProfile,
   hasApiConfig,
   incrementMultiSentCount,
   recountMultiSentCount,
+  reactToMessage,
   removeLastAssistantReply,
   setConversationStatus,
   updateChatStyle,
@@ -127,10 +136,154 @@ function stickerMessage(message) {
   </span>`;
 }
 
+const imageUrlCache = new Map();
+
+async function imageObjectUrl(imageId) {
+  if (!imageId) return '';
+  if (imageUrlCache.has(imageId)) return imageUrlCache.get(imageId);
+  try {
+    const record = await getImageRecord(imageId);
+    if (!record?.blob) return '';
+    const url = URL.createObjectURL(record.blob);
+    imageUrlCache.set(imageId, url);
+    return url;
+  } catch {
+    return '';
+  }
+}
+
+export function revokeChatImageUrls() {
+  for (const url of imageUrlCache.values()) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // Data-URL previews are not revocable; nothing to release.
+    }
+  }
+  imageUrlCache.clear();
+}
+
+async function hydrateImages(root) {
+  const nodes = [...root.querySelectorAll('img[data-image-id]')];
+  await Promise.all(
+    nodes.map(async (img) => {
+      if (img.dataset.loaded) return;
+      img.dataset.loaded = '1';
+      const url = await imageObjectUrl(img.dataset.imageId);
+      if (url) {
+        img.src = url;
+      } else {
+        img.closest('[data-image-message]')?.classList.add('is-missing');
+      }
+    }),
+  );
+}
+
+function imageStackMarkup(message) {
+  const images = Array.isArray(message.images) ? message.images : [];
+  if (!images.length) return '';
+  const id = escapeHTML(message.id);
+  const caption = message.content?.trim()
+    ? `<span class="chat-image__caption">${escapeHTML(message.content.trim().slice(0, 200))}</span>`
+    : '';
+  if (images.length === 1) {
+    return `<button class="chat-image chat-image--single" type="button" data-image-message="${id}" data-image-index="0" aria-label="查看图片">
+      <img data-image-id="${escapeHTML(images[0].id)}" alt="图片" loading="lazy">${caption}
+    </button>`;
+  }
+  const layers = images
+    .slice(0, 3)
+    .map(
+      (image, index) =>
+        `<span class="chat-image-layer" data-image-index="${index}"><img data-image-id="${escapeHTML(image.id)}" alt="图片 ${index + 1}" loading="lazy"></span>`,
+    )
+    .join('');
+  return `<button class="chat-image-stack" type="button" data-image-message="${id}" aria-label="查看 ${images.length} 张图片">
+    ${layers}
+    <span class="chat-image-stack__count">${images.length > 3 ? `+${images.length - 3}` : ''}</span>
+    ${caption}
+  </button>`;
+}
+
+function openImageViewer(message, startIndex = 0) {
+  const images = Array.isArray(message.images) ? message.images : [];
+  if (!images.length) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'image-viewer';
+  overlay.innerHTML = `
+    <div class="image-viewer__top">
+      <span class="image-viewer__count" data-viewer-count></span>
+      <button class="icon-button image-viewer__close" type="button" data-viewer-close aria-label="关闭">${uiIcon('x', { size: 22 })}</button>
+    </div>
+    <div class="image-viewer__stage"><img data-viewer-image alt="图片"></div>
+    <div class="image-viewer__nav">
+      <button class="icon-button" type="button" data-viewer-prev aria-label="上一张">${uiIcon('chevron-left', { size: 24 })}</button>
+      <button class="icon-button" type="button" data-viewer-next aria-label="下一张">${uiIcon('chevron-right', { size: 24 })}</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.body.classList.add('has-image-viewer');
+  let index = Math.max(0, Math.min(images.length - 1, startIndex));
+  const imageNode = overlay.querySelector('[data-viewer-image]');
+  const countNode = overlay.querySelector('[data-viewer-count]');
+  const prev = overlay.querySelector('[data-viewer-prev]');
+  const next = overlay.querySelector('[data-viewer-next]');
+  prev.hidden = images.length < 2;
+  next.hidden = images.length < 2;
+
+  const show = async () => {
+    countNode.textContent = `${index + 1} / ${images.length}`;
+    imageNode.removeAttribute('src');
+    const url = await imageObjectUrl(images[index].id);
+    if (url) imageNode.src = url;
+  };
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    document.body.classList.remove('has-image-viewer');
+  };
+  const move = (step) => {
+    index = (index + step + images.length) % images.length;
+    show();
+  };
+  const onKey = (event) => {
+    if (event.key === 'Escape') close();
+    if (event.key === 'ArrowLeft') move(-1);
+    if (event.key === 'ArrowRight') move(1);
+  };
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target.closest('[data-viewer-image]')) return;
+    if (event.target.closest('[data-viewer-prev]')) return move(-1);
+    if (event.target.closest('[data-viewer-next]')) return move(1);
+    close();
+  });
+  overlay.querySelector('[data-viewer-close]').addEventListener('click', close);
+  prev.addEventListener('click', () => move(-1));
+  next.addEventListener('click', () => move(1));
+  document.addEventListener('keydown', onKey);
+  show();
+}
+
 function messageBody(message) {
   if (message.type === 'redpacket') return redPacketCard(message);
   if (message.type === 'sticker') return stickerMessage(message);
+  if (message.type === 'image') return imageStackMarkup(message);
   return `<div class="message-bubble message-bubble--${message.role === 'user' ? 'user' : 'assistant'}">${quoteMarkup(message.quote)}<span class="message-bubble__text">${escapeHTML(message.content || '')}</span></div>`;
+}
+
+function reactionChipMarkup(reaction, animate = false) {
+  const emoji = escapeHTML(reaction?.emoji || '');
+  const by = reaction?.by === 'assistant' ? 'assistant' : 'user';
+  return `<span class="message-reaction${animate ? ' is-new' : ''}" data-reaction-emoji="${emoji}" data-reaction-by="${by}"><span class="message-reaction__emoji">${emoji}</span></span>`;
+}
+
+function reactionsMarkup(message, animateEmoji = '') {
+  const reactions = Array.isArray(message.reactions) ? message.reactions : [];
+  return `<span class="message-reactions" data-reactions>${reactions
+    .map((reaction) =>
+      reactionChipMarkup(reaction, Boolean(animateEmoji) && reaction.emoji === animateEmoji),
+    )
+    .join('')}</span>`;
 }
 
 function messageRow(
@@ -142,13 +295,17 @@ function messageRow(
   position = 'single',
 ) {
   const isUser = message.role === 'user';
+  const hasReactions = Array.isArray(message.reactions) && message.reactions.length > 0;
   const avatarMarkup = isUser
     ? `<span class="message-row__avatar message-row__avatar--user">${showAvatar ? profileAvatar(profile, 'xs') : ''}</span>`
     : `<span class="message-row__avatar">${showAvatar ? characterAvatar(character, 'xs') : ''}</span>`;
 
-  return `<div class="message-row message-row--${isUser ? 'user' : 'assistant'} message-row--${position}${message.type !== 'text' ? ' message-row--rich' : ''}${animate ? ' is-new' : ''}" data-message-id="${message.id}">
+  return `<div class="message-row message-row--${isUser ? 'user' : 'assistant'} message-row--${position}${message.type !== 'text' ? ' message-row--rich' : ''}${animate ? ' is-new' : ''}${hasReactions ? ' has-reactions' : ''}" data-message-id="${message.id}">
     ${isUser ? '' : avatarMarkup}
-    ${messageBody(message)}
+    <div class="message-bubble-wrap">
+      ${messageBody(message)}
+      ${reactionsMarkup(message)}
+    </div>
     ${isUser ? avatarMarkup : ''}
   </div>`;
 }
@@ -237,7 +394,7 @@ export function renderChat({ characterId, refresh }) {
   const initialStyle = getChatStyle(character.id);
   const root = document.documentElement;
   const initialStatus = conversation.status?.text || '';
-  const initialStreak = chatStreakDays(conversation.messages);
+  const initialStreak = 0;
 
   const screen = document.createElement('section');
   screen.className = 'screen screen--chat';
@@ -245,18 +402,24 @@ export function renderChat({ characterId, refresh }) {
     ${chatHeader(character, initialStatus, initialStyle, initialStreak)}
     <div class="chat-tagline-flash" data-tagline-flash role="status">对方更新了签名</div>
     <main class="chat-scroll" data-chat-scroll>
-      <div class="chat-thread" data-chat-thread role="log" aria-label="和${escapeHTML(character.name)}的对话"></div>
+      <div class="chat-thread" data-chat-thread role="log" aria-label="和${escapeHTML(character.name)}的对话"><div class="chat-loading"><span class="typing-dots"><i></i><i></i><i></i></span></div></div>
     </main>
     <div class="chat-composer-slot" data-composer-slot></div>`;
 
   const scroller = screen.querySelector('[data-chat-scroll]');
   const thread = screen.querySelector('[data-chat-thread]');
+  const inertia = createInertialScroll(scroller, { content: thread });
   const statusNode = screen.querySelector('[data-chat-status]');
   let chatStyle = { ...initialStyle };
   let disposed = false;
   let revealPending = [];
   let revealTimer = null;
   let pendingGroupSync = false;
+  let loadedMessages = [];
+  let hasMore = false;
+  let loadingOlder = false;
+  let ready = false;
+  const earlyEvents = [];
   const deletedIds = new Set();
 
   const setHeaderStatus = (value) => {
@@ -268,26 +431,32 @@ export function renderChat({ characterId, refresh }) {
     if (disposed) return;
     const slot = screen.querySelector('[data-chat-spark]');
     if (!slot) return;
-    const messages = getConversation(character.id)?.messages || [];
-    slot.innerHTML = sparkBadgeMarkup(chatStyle, chatStreakDays(messages));
+    slot.innerHTML = sparkBadgeMarkup(chatStyle, chatStreakDays(loadedMessages));
   };
 
   setActiveChat(character.id);
   dismissMessageBanner();
 
-  let previousTimestamp = conversation.messages.at(-1)?.createdAt || null;
-  let previousRole = conversation.messages.at(-1)?.role || null;
+  let previousTimestamp = null;
+  let previousRole = null;
 
-  const paintStatic = () => {
-    thread.innerHTML = threadMarkup(
-      conversation.messages,
-      character,
-      profile,
-      chatStyle.messageGroup,
-    );
+  const loadMoreButton = () =>
+    hasMore
+      ? `<div class="chat-load-more-wrap"><button class="chat-load-more" type="button" data-load-more>加载更早的消息</button></div>`
+      : '';
+
+  const renderThread = () => {
+    thread.innerHTML = `${loadMoreButton()}${
+      loadedMessages.length
+        ? threadMarkup(loadedMessages, character, profile, chatStyle.messageGroup)
+        : emptyState(character)
+    }`;
     applyChatStyle(screen, chatStyle);
+    hydrateImages(thread);
   };
-  paintStatic();
+
+  thread.innerHTML = `<div class="chat-loading" role="status"><span class="typing-dots"><i></i><i></i><i></i></span></div>`;
+  applyChatStyle(screen, chatStyle);
 
   // Loading feedback: either the thinking bubble (default) or a green
   // "正在输入" line in the header, shown until the first message renders.
@@ -313,7 +482,7 @@ export function renderChat({ characterId, refresh }) {
     scrollQueued = true;
     requestAnimationFrame(() => {
       scrollQueued = false;
-      scroller.scrollTop = scroller.scrollHeight;
+      inertia.scrollTo(scroller.scrollHeight, { immediate: true });
       stickToBottom = true;
     });
   };
@@ -322,11 +491,45 @@ export function renderChat({ characterId, refresh }) {
     stickToBottom = isNearBottom();
   });
 
+  const loadOlder = async () => {
+    if (loadingOlder || !hasMore || !loadedMessages.length || disposed) return;
+    loadingOlder = true;
+    const button = thread.querySelector('[data-load-more]');
+    if (button) {
+      button.disabled = true;
+      button.textContent = '加载中…';
+    }
+    const beforeSeq = loadedMessages[0]?.seq || 0;
+    const previousHeight = scroller.scrollHeight;
+    try {
+      const page = await getMessagePage(character.id, { beforeSeq, limit: 50 });
+      if (disposed) return;
+      loadedMessages = [...page.messages, ...loadedMessages];
+      hasMore = page.hasMore;
+      renderThread();
+      inertia.scrollTo(
+        scroller.scrollTop + (scroller.scrollHeight - previousHeight),
+        { immediate: true },
+      );
+      updateSparkBadge();
+    } catch {
+      if (button) {
+        button.disabled = false;
+        button.textContent = '加载更早的消息';
+      }
+      toast('加载聊天记录失败，请重试', { tone: 'danger' });
+    } finally {
+      loadingOlder = false;
+    }
+  };
+
   const appendMessage = (
     message,
     { animate = true, forceScroll = false } = {},
   ) => {
     if (disposed || deletedIds.has(message.id)) return;
+    if (loadedMessages.some((item) => item.id === message.id)) return;
+    loadedMessages.push(message);
     thread.querySelector('.chat-empty')?.remove();
     let markup = '';
     if (!previousTimestamp || !isSameDay(previousTimestamp, message.createdAt)) {
@@ -355,6 +558,7 @@ export function renderChat({ characterId, refresh }) {
     const holder = document.createElement('div');
     holder.innerHTML = markup;
     while (holder.firstChild) thread.appendChild(holder.firstChild);
+    hydrateImages(thread);
     previousTimestamp = message.createdAt;
     previousRole = message.role;
     updateSparkBadge();
@@ -395,7 +599,7 @@ export function renderChat({ characterId, refresh }) {
 
   const syncRowAppearance = () => {
     if (revealPending.length) return;
-    const messages = getConversation(character.id)?.messages || [];
+    const messages = loadedMessages;
     const positions = groupPositions(messages, chatStyle.messageGroup);
     let previousRole = null;
     let previousTimestamp = null;
@@ -425,6 +629,56 @@ export function renderChat({ characterId, refresh }) {
         previousTimestamp = message.createdAt;
         previousRole = message.role;
       });
+  };
+
+  /* ------------------------------------------------------------------ *
+   * 贴表情：长按消息 → 菜单 → 选 emoji。AI 也会在回复里偶尔贴回来。
+   * ------------------------------------------------------------------ */
+
+  const setRowReactions = (row, reactions, animateEmoji = '') => {
+    if (!row) return;
+    const wrap = row.querySelector('.message-bubble-wrap');
+    if (!wrap) return;
+    let layer = wrap.querySelector('[data-reactions]');
+    if (!layer) {
+      layer = document.createElement('span');
+      layer.className = 'message-reactions';
+      layer.dataset.reactions = '';
+      wrap.appendChild(layer);
+    }
+    layer.innerHTML = (reactions || [])
+      .map((reaction) =>
+        reactionChipMarkup(reaction, Boolean(animateEmoji) && reaction.emoji === animateEmoji),
+      )
+      .join('');
+    row.classList.toggle('has-reactions', Boolean(reactions?.length));
+  };
+
+  const applyReactionsToMessage = (messageId, reactions, animateEmoji = '') => {
+    const message = loadedMessages.find((item) => item.id === messageId);
+    if (message) message.reactions = reactions;
+    const row = thread.querySelector(
+      `.message-row[data-message-id="${messageId}"]`,
+    );
+    setRowReactions(row, reactions, animateEmoji);
+    if (message) scrollToBottom();
+  };
+
+  const reactTo = async (message, emoji) => {
+    const value = String(emoji || '').trim().slice(0, 16);
+    if (!value || !message) return;
+    const reactions = await reactToMessage(
+      character.id,
+      message.id,
+      value,
+      'user',
+    );
+    if (!reactions) {
+      toast('贴表情失败，请重试', { tone: 'danger' });
+      return;
+    }
+    applyReactionsToMessage(message.id, reactions, value);
+    navigator.vibrate?.(8);
   };
 
   /* ------------------------------------------------------------------ *
@@ -488,23 +742,23 @@ export function renderChat({ characterId, refresh }) {
 
   const pickedMessages = () =>
     [...picked]
-      .map((id) =>
-        (getConversation(character.id)?.messages || []).find((item) => item.id === id),
-      )
+      .map((id) => loadedMessages.find((item) => item.id === id))
       .filter(Boolean)
       .sort((a, b) => a.createdAt - b.createdAt);
 
-  const deletePicked = () => {
+  const deletePicked = async () => {
     const ids = [...picked];
     if (!ids.length) return;
-    ids.forEach((id) => {
-      if (deleteMessage(character.id, id)) deletedIds.add(id);
-    });
+    for (const id of ids) {
+      const removed = await deleteMessage(character.id, id);
+      if (removed) deletedIds.add(id);
+    }
+    loadedMessages = loadedMessages.filter((message) => !picked.has(message.id));
     messageRows().forEach((row) => {
       if (picked.has(row.dataset.messageId)) row.remove();
     });
     const remaining = thread.querySelectorAll('.message-row[data-message-id]').length;
-    const latest = getConversation(character.id)?.messages.at(-1);
+    const latest = loadedMessages.at(-1);
     previousTimestamp = latest?.createdAt || null;
     previousRole = latest?.role || null;
     if (!remaining && !pendingRow) {
@@ -514,7 +768,7 @@ export function renderChat({ characterId, refresh }) {
     } else {
       syncRowAppearance();
     }
-    composer.setSentCount(recountMultiSentCount(character.id));
+    composer.setSentCount(await recountMultiSentCount(character.id));
     exitSelectMode();
     toast(ids.length > 1 ? `已删除 ${ids.length} 条消息` : '消息已删除');
   };
@@ -595,10 +849,26 @@ export function renderChat({ characterId, refresh }) {
     if (!disposed) composer.setReceiving(false);
   };
 
+  const itemMessage = (item) =>
+    item?.kind === 'message' ? item.message : item?.message || item;
+
+  const revealItem = (item, animate) => {
+    if (item?.kind === 'reaction') {
+      applyReactionsToMessage(
+        item.messageId,
+        item.reactions || [],
+        animate ? item.emoji : '',
+      );
+      return;
+    }
+    const message = itemMessage(item);
+    if (message) appendMessage(message, { animate });
+  };
+
   const flushReveal = () => {
     const rest = revealPending;
     finishReveal();
-    rest.forEach((message) => appendMessage(message, { animate: false }));
+    rest.forEach((item) => revealItem(item, false));
     if (pendingGroupSync) {
       pendingGroupSync = false;
       syncRowAppearance();
@@ -608,18 +878,35 @@ export function renderChat({ characterId, refresh }) {
   const revealStep = () => {
     revealTimer = null;
     if (disposed) return;
-    const message = revealPending.shift();
-    if (!message) {
+    const item = revealPending.shift();
+    if (!item) {
       composer.setReceiving(false);
       setTyping(false);
       return;
     }
-    appendMessage(message, { animate: true });
-    setTyping(false);
-    composer.setReceiving(false);
-    if (revealPending.length) {
-      revealTimer = window.setTimeout(revealStep, revealGap(message));
-      return;
+    // A tapback animates on its own beat, then the next message follows. This
+    // keeps the reveal in the exact order the AI wrote its tags.
+    if (item.kind === 'reaction') {
+      revealItem(item, true);
+      setTyping(false);
+      composer.setReceiving(false);
+      if (revealPending.length) {
+        revealTimer = window.setTimeout(revealStep, 420);
+        return;
+      }
+    } else {
+      const message = itemMessage(item);
+      if (!message) {
+        revealStep();
+        return;
+      }
+      appendMessage(message, { animate: true });
+      setTyping(false);
+      composer.setReceiving(false);
+      if (revealPending.length) {
+        revealTimer = window.setTimeout(revealStep, revealGap(message));
+        return;
+      }
     }
     if (pendingGroupSync) {
       pendingGroupSync = false;
@@ -627,14 +914,14 @@ export function renderChat({ characterId, refresh }) {
     }
   };
 
-  const queueReveal = (messages) => {
-    if (!messages?.length) {
+  const queueReveal = (items) => {
+    if (!items?.length) {
       setTyping(false);
       composer.setReceiving(false);
       return;
     }
     finishReveal();
-    revealPending = messages.slice();
+    revealPending = items.slice();
     revealStep();
   };
 
@@ -717,14 +1004,18 @@ export function renderChat({ characterId, refresh }) {
         const textarea = sheet.querySelector('[data-edit-content]');
         textarea.focus();
         sheet.querySelector('[data-cancel-edit]').addEventListener('click', closeActiveSheet);
-        sheet.querySelector('[data-save-edit]').addEventListener('click', () => {
+        sheet.querySelector('[data-save-edit]').addEventListener('click', async () => {
           const value = textarea.value.trim();
           if (!value) {
             toast('回复内容不能为空', { tone: 'danger' });
             textarea.focus();
             return;
           }
-          updateMessage(character.id, message.id, { content: value });
+          const updated = await updateMessage(character.id, message.id, { content: value });
+          if (!updated) {
+            toast('修改失败，请重试', { tone: 'danger' });
+            return;
+          }
           const text = thread.querySelector(
             `[data-message-id="${message.id}"] .message-bubble__text`,
           );
@@ -736,18 +1027,19 @@ export function renderChat({ characterId, refresh }) {
     });
   };
 
-  const retryReply = () => {
+  const retryReply = async () => {
     if (isReplying(character.id)) {
       toast('对方正在回复，稍等一下');
       return;
     }
     if (revealPending.length) flushReveal();
-    const result = removeLastAssistantReply(character.id);
+    const result = await removeLastAssistantReply(character.id);
     if (!result.removed.length) {
       toast('还没有可以重试的回复');
       return;
     }
     const removedIds = new Set(result.removed.map((message) => message.id));
+    loadedMessages = loadedMessages.filter((message) => !removedIds.has(message.id));
     thread.querySelectorAll('.message-row[data-message-id]').forEach((row) => {
       if (removedIds.has(row.dataset.messageId)) row.remove();
     });
@@ -756,7 +1048,7 @@ export function renderChat({ characterId, refresh }) {
       lastChild.remove();
       lastChild = thread.lastElementChild;
     }
-    const latest = getConversation(character.id)?.messages.at(-1);
+    const latest = loadedMessages.at(-1);
     previousTimestamp = latest?.createdAt || null;
     previousRole = latest?.role || null;
     syncRowAppearance();
@@ -775,7 +1067,7 @@ export function renderChat({ characterId, refresh }) {
     hasConfig: hasApiConfig(),
     sendMode: chatStyle.sendMode,
     composerStyle: chatStyle.composerStyle,
-    sentCount: countPendingUserMessages(character.id),
+    sentCount: 0,
     onCompose: () => scrollToBottom(true),
     onConfigure: () => {
       window.location.hash = '#/settings/api';
@@ -790,6 +1082,7 @@ export function renderChat({ characterId, refresh }) {
     onRetry: retryReply,
     onMore: () => {
       openComposerActions({
+        onImage: () => composer.pickImage(),
         onRedPacket: sendPacket,
         onSticker: () => {
           openStickerPicker({ onPick: sendSticker });
@@ -819,15 +1112,32 @@ export function renderChat({ characterId, refresh }) {
       }
       toast(mode === 'multi' ? '多条模式 · 双击发送键接收回复' : '单条模式 · 发送后自动回复');
     },
-    onSend: (text, quote) => {
+    onSend: (text, quote, images) => {
       const isMulti = chatStyle.sendMode === 'multi';
+      const attachments = Array.isArray(images) ? images : [];
+      if (!text.trim() && !attachments.length) return false;
       if (!isMulti && !hasApiConfig()) {
         toast('先配置 API，才能收到回复', { tone: 'danger' });
         return false;
       }
       if (!isMulti && isReplying(character.id)) return false;
       if (revealPending.length) flushReveal();
-      const message = addMessage(character.id, 'user', text, { quote });
+      const message = attachments.length
+        ? addMessage(character.id, 'user', text, {
+            type: 'image',
+            images: attachments,
+            quote,
+          })
+        : addMessage(character.id, 'user', text, { quote });
+      if (!message) return false;
+      if (message.type === 'image') {
+        // The blob write is asynchronous; seed the render cache with the local
+        // preview so the bubble does not flash "missing" while IndexedDB saves.
+        message.images?.forEach((ref, index) => {
+          const attachment = attachments[index];
+          if (attachment?.dataUrl) imageUrlCache.set(ref.id, attachment.dataUrl);
+        });
+      }
       appendMessage(message, { animate: true, forceScroll: true });
       if (isMulti) composer.setSentCount(incrementMultiSentCount(character.id));
       else startReply(character.id);
@@ -860,6 +1170,10 @@ export function renderChat({ characterId, refresh }) {
   requestAnimationFrame(syncChatChrome);
 
   const handleReplyEvent = (event) => {
+    if (!ready) {
+      earlyEvents.push(event);
+      return;
+    }
     if (event.type === 'start') {
       appendPendingRow();
       composer.setStreaming(true);
@@ -878,7 +1192,9 @@ export function renderChat({ characterId, refresh }) {
       removePendingRow();
       composer.setStreaming(false);
       if (event.status) setHeaderStatus(event.status);
-      queueReveal(event.messages || []);
+      queueReveal(
+        Array.isArray(event.items) ? event.items : event.messages || [],
+      );
       return;
     }
     if (event.type === 'message') {
@@ -907,23 +1223,58 @@ export function renderChat({ characterId, refresh }) {
   };
 
   const unsubscribe = subscribeReply(character.id, handleReplyEvent);
-  const running = getReplyState(character.id);
-  if (running.running) {
-    appendPendingRow();
-    composer.setStreaming(true);
-    composer.setReceiving(true);
-    if (running.status) setHeaderStatus(running.status);
-  }
+
+  const loadInitial = async () => {
+    try {
+      await flushMessageWrites();
+      const page = await getMessagePage(character.id, { limit: 50 });
+      if (disposed) return;
+      loadedMessages = page.messages;
+      hasMore = page.hasMore;
+      previousTimestamp = loadedMessages.at(-1)?.createdAt || null;
+      previousRole = loadedMessages.at(-1)?.role || null;
+      renderThread();
+      updateSparkBadge();
+      const pending = await countPendingUserMessages(character.id);
+      if (!disposed) composer.setSentCount(pending);
+    } catch {
+      if (!disposed) {
+        renderThread();
+        toast('加载聊天记录失败，请重试', { tone: 'danger' });
+      }
+    } finally {
+      if (disposed) return;
+      ready = true;
+      const running = getReplyState(character.id);
+      if (running.running) {
+        appendPendingRow();
+        composer.setStreaming(true);
+        composer.setReceiving(true);
+        if (running.status) setHeaderStatus(running.status);
+      }
+      for (const event of earlyEvents.splice(0)) handleReplyEvent(event);
+      requestAnimationFrame(() => scrollToBottom(true));
+    }
+  };
+  loadInitial();
 
   bindLongPress(thread, '.message-row[data-message-id]', (row) => {
     if (selecting) return;
-    const message = getConversation(character.id)?.messages.find(
+    const message = loadedMessages.find(
       (item) => item.id === row.dataset.messageId,
     );
     if (!message) return;
     openMessageMenu({
       anchor: row,
       onSelect: () => enterSelectMode(row),
+      onReact: () => {
+        openReactionPicker({
+          anchor: row,
+          onPick: (emoji) => {
+            reactTo(message, emoji);
+          },
+        });
+      },
       onCopy: async () => {
         const copied = await copyText(messageAsText(message));
         toast(copied ? '已复制' : '复制失败', {
@@ -946,15 +1297,16 @@ export function renderChat({ characterId, refresh }) {
         });
         composer.focus();
       },
-      onDelete: () => {
-        if (!deleteMessage(character.id, message.id)) return;
+      onDelete: async () => {
+        if (!(await deleteMessage(character.id, message.id))) return;
         deletedIds.add(message.id);
+        loadedMessages = loadedMessages.filter((item) => item.id !== message.id);
         row.remove();
-        composer.setSentCount(recountMultiSentCount(character.id));
+        composer.setSentCount(await recountMultiSentCount(character.id));
         const remaining = thread.querySelectorAll(
           '.message-row[data-message-id]',
         ).length;
-        const latest = getConversation(character.id)?.messages.at(-1);
+        const latest = loadedMessages.at(-1);
         previousTimestamp = latest?.createdAt || null;
         previousRole = latest?.role || null;
         if (!remaining && !pendingRow) {
@@ -969,7 +1321,12 @@ export function renderChat({ characterId, refresh }) {
     });
   });
 
-  thread.addEventListener('click', (event) => {
+  thread.addEventListener('click', async (event) => {
+    const more = event.target.closest('[data-load-more]');
+    if (more) {
+      loadOlder();
+      return;
+    }
     if (selecting) {
       const row = event.target.closest('.message-row[data-message-id]');
       if (row) {
@@ -979,13 +1336,22 @@ export function renderChat({ characterId, refresh }) {
       }
       return;
     }
+    const imageTarget = event.target.closest('[data-image-message]');
+    if (imageTarget) {
+      const message = loadedMessages.find(
+        (item) => item.id === imageTarget.dataset.imageMessage,
+      );
+      if (message) {
+        const layer = event.target.closest('[data-image-index]');
+        openImageViewer(message, Number(layer?.dataset.imageIndex || 0));
+      }
+      return;
+    }
     const card = event.target.closest('[data-claim-packet]');
     if (!card || card.disabled) return;
     const messageId = card.dataset.claimPacket;
-    const message = getConversation(character.id)?.messages.find(
-      (item) => item.id === messageId,
-    );
-    const result = claimRedPacket(character.id, messageId);
+    const message = loadedMessages.find((item) => item.id === messageId);
+    const result = await claimRedPacket(character.id, messageId);
     if (!result.ok) {
       toast(result.message || '红包暂时不能领取', { tone: 'danger' });
       return;
@@ -1056,10 +1422,15 @@ export function renderChat({ characterId, refresh }) {
       clearRevealTimer();
       revealPending = [];
       chromeObserver?.disconnect();
+      document.querySelector('.image-viewer')?.remove();
+      document.body.classList.remove('has-image-viewer');
+      revokeChatImageUrls();
       root.style.removeProperty('--chat-composer-space');
       root.style.removeProperty('--chat-header-space');
       if (taglineTimer) window.clearTimeout(taglineTimer);
       closeMessageMenu();
+      closeReactionPicker();
+      inertia.destroy();
       unsubscribe();
       setActiveChat(null);
       composer.cleanup();

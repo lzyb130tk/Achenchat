@@ -197,3 +197,436 @@
   font-size: var(--text-sm);
   line-height: 1.65;
 }
+
+/* 关于我：AI 悄悄记住的用户偏好卡片 */
+
+.about-me__switch {
+  padding: 2px 2px 2px;
+}
+
+.about-me__frequency {
+  margin: 2px 2px 12px;
+  padding: 4px 2px 0;
+}
+
+.about-me__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 0 10px;
+  padding: 0 2px;
+}
+
+.about-me__head h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0;
+  color: var(--color-ink-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.about-me__head h4 span {
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  color: var(--color-ink-tertiary);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.about-me__head .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.about-me__cards {
+  display: grid;
+  gap: 10px;
+}
+
+/* ========== 关于我卡片 · 便利贴纸质 · 简约 · 精修版 ========== */
+/* 精修思路：更真实的纸张物理感 + 更克制的装饰 + 更舒适的排版节奏 */
+
+.about-me-card,
+.memory-card {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 9px;
+  overflow: visible;
+  padding: 22px 22px 18px 26px;
+
+  /* 便签底色：暖白，略带一点点奶油感 */
+  background-color: #fefdf8;
+
+  /* 纸纹：极细横纹，几乎不可见，只在近距离感受到纸的呼吸 */
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.008) 0px,
+    rgba(0, 0, 0, 0.008) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+
+  /* 形状：上边和左边直角，右下角大圆角 + 卷边 */
+  border-radius: 1px 1px 14px 1px;
+
+  /* 纸张的层叠阴影：贴地 + 弥散 + 内高光 */
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.03),
+    0 2px 6px rgba(0, 0, 0, 0.04),
+    0 10px 24px -6px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  text-align: left;
+
+  /* 微倾斜，像随手贴在墙上，但不过分 */
+  transform: rotate(-0.45deg);
+
+  /* 动画 */
+  animation: note-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--card-index, 0) * 45ms);
+
+  /* 过渡 */
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s ease;
+}
+
+/* ===== 右下角卷边：更真实的两层结构 ===== */
+/* 第一层：翘起的纸角本体 */
+.about-me-card::after,
+.memory-card::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 32px;
+  height: 32px;
+  background: #f5f2e8;
+  border-radius: 0 0 13px 0;
+  /* 用 clip-path 裁出斜角 */
+  clip-path: polygon(100% 0, 0 100%, 100% 100%);
+  content: "";
+  pointer-events: none;
+  /* 卷边投下的柔和阴影 */
+  box-shadow: -1px -1px 4px rgba(0, 0, 0, 0.04);
+  /* 微妙的纸纹 */
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.012) 0px,
+    rgba(0, 0, 0, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* ===== 左侧便签线：更细、更收敛，像手绘的边界 ===== */
+.about-me-card::before,
+.memory-card::before {
+  position: absolute;
+  top: 20px;
+  bottom: 24px;
+  left: 14px;
+  width: 1px;
+  border-radius: 1px;
+  background: var(--color-accent);
+  opacity: 0.22;
+  content: "";
+  pointer-events: none;
+}
+
+/* ===== 悬停：纸张被拿起来，微微归正 + 上浮 ===== */
+@media (hover: hover) {
+  .about-me-card:hover,
+  .memory-card:hover {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 4px 10px rgba(0, 0, 0, 0.05),
+      0 18px 40px -10px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    transform: rotate(0deg) translateY(-2.5px);
+  }
+}
+
+.about-me-card:active,
+.memory-card:active {
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.03),
+    0 1px 3px rgba(0, 0, 0, 0.04);
+  transform: rotate(0deg) scale(0.988);
+}
+
+/* ===== 右上装饰：一枚小小的暖色胶点，像便签的粘贴痕迹 ===== */
+.about-me-card__mark {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0.18;
+  pointer-events: none;
+  /* 光晕：像胶水渗透纸面的效果 */
+  box-shadow:
+    0 0 0 4px var(--color-accent-soft),
+    0 0 0 8px color-mix(in srgb, var(--color-accent-soft) 50%, transparent);
+  /* 清除原有文字样式 */
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  /* 微小的不规则感 */
+  transform: rotate(12deg) scaleX(1.1);
+}
+
+/* ===== 正文：便签上的手写感，但用系统字体保持简约 ===== */
+.about-me-card__text {
+  position: relative;
+  z-index: 1;
+  color: #2d2b25;
+  font-size: var(--text-body);
+  line-height: 1.78;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  padding-left: 6px;
+  /* 首行不缩进，但用额外的字距和行高营造呼吸感 */
+}
+
+/* ===== 元信息：便签底部的手写落款 ===== */
+.about-me-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #a9a496;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.05em;
+  padding-left: 6px;
+  margin-top: 4px;
+}
+
+.about-me-card__source {
+  color: var(--color-accent-strong);
+  opacity: 0.5;
+  font-weight: 500;
+  font-size: 0.95em;
+  letter-spacing: 0.06em;
+}
+
+/* 分隔点：便签上的小破折号，像随手划的一笔 */
+.about-me-card__dot {
+  width: 9px;
+  height: 1px;
+  border-radius: 0;
+  background: currentColor;
+  opacity: 0.28;
+}
+
+/* ===== 编辑按钮：便签右上角的小图钉 ===== */
+.about-me-card__edit {
+  display: grid;
+  margin-left: auto;
+  place-items: center;
+  color: #a9a496;
+  opacity: 0.35;
+  transition:
+    opacity 0.22s ease,
+    color 0.22s ease,
+    transform 0.22s ease;
+}
+
+@media (hover: hover) {
+  .about-me-card:hover .about-me-card__edit {
+    opacity: 0.7;
+    color: var(--color-accent-strong);
+    transform: rotate(10deg) scale(1.05);
+  }
+  .about-me-card__edit:hover {
+    opacity: 1 !important;
+    color: var(--color-accent);
+    transform: rotate(10deg) scale(1.1);
+  }
+}
+
+@media (hover: none) {
+  .about-me-card__edit {
+    opacity: 0.3;
+  }
+  .about-me-card:active .about-me-card__edit {
+    opacity: 0.7;
+    color: var(--color-accent-strong);
+  }
+}
+
+/* ===== 入场动画：像便签被轻轻贴上墙 ===== */
+@keyframes note-in {
+  from {
+    opacity: 0;
+    transform: rotate(-3.5deg) translateY(10px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-0.45deg) translateY(0) scale(1);
+  }
+}
+
+@keyframes about-me-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.about-me__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 22px 26px;
+  border: 1px dashed var(--color-line-strong);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+  text-align: center;
+}
+
+.about-me__empty-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.about-me__empty strong {
+  margin-top: 12px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.about-me__empty p {
+  max-width: 240px;
+  margin-top: 5px;
+  color: var(--color-ink-tertiary);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+/* ========== 聊天记忆 · 同款便签卡片 ========== */
+
+.memory-cards {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 2px 2px 26px;
+}
+
+.memory-card {
+  gap: 7px;
+  padding: 16px 16px 14px 21px;
+}
+
+.memory-card__head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+}
+
+.memory-card__category {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent-soft) 70%, transparent);
+  color: var(--color-accent-strong);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+}
+
+.memory-card__auto {
+  color: #a9a496;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+}
+
+.memory-card__actions {
+  display: flex;
+  margin-left: auto;
+  margin-right: -6px;
+}
+
+.memory-card__action {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: var(--radius-full);
+  color: #a9a496;
+  opacity: 0.4;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+@media (hover: hover) {
+  .memory-card__action:hover {
+    background: rgba(0, 0, 0, 0.035);
+    color: var(--color-accent-strong);
+    opacity: 1;
+  }
+}
+
+.memory-card__action:active {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 0.85;
+}
+
+.memory-card__content {
+  position: relative;
+  z-index: 1;
+  padding-left: 6px;
+  color: #2d2b25;
+  font-size: var(--text-sm);
+  line-height: 1.72;
+  letter-spacing: 0.015em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.page-content--memory .memory-filters {
+  margin-top: 2px;
+  margin-bottom: 0;
+}
+
+.memory-filter--add {
+  width: 32px;
+  justify-content: center;
+  padding: 0;
+  color: var(--color-ink-tertiary);
+}
+
+.memory-filter--add .ui-icon {
+  opacity: 0.72;
+}
+
+.page-content--memory .memory-empty {
+  margin-top: 14px;
+  border-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-me-card,
+  .memory-card {
+    animation: none;
+  }
+}

@@ -79,6 +79,10 @@ export function messagePreview(message) {
   if (message.type === 'sticker') {
     return message.name ? `[表情] ${message.name}` : '[表情]';
   }
+  if (message.type === 'image') {
+    const count = Array.isArray(message.images) ? message.images.length : 0;
+    return count > 1 ? `[图片 ×${count}]` : '[图片]';
+  }
   return message.content || '';
 }
 
